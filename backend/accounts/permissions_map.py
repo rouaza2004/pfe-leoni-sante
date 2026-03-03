@@ -1,0 +1,72 @@
+ROLE_PERMISSIONS = {
+    "ADMIN": [
+        "VIEW_DASHBOARD",
+        "VIEW_USERS",
+        "VIEW_PARAMETRES",
+        "VIEW_AUDIT",
+        "VIEW_NOTIFICATIONS",
+        "VIEW_COLLABORATEURS",
+        "VIEW_RDV",
+        "VIEW_ANALYSES",
+        "VIEW_STOCK",
+        "VIEW_ACCIDENTS",
+        "VIEW_KPI_RH",
+        "VIEW_KPI_HSEE",
+    ],
+
+    "INFIRMIER": [
+        "VIEW_DASHBOARD",
+        "VIEW_NOTIFICATIONS",
+        "VIEW_COLLABORATEURS",
+        "VIEW_RDV",
+        "VIEW_ANALYSES",
+        "VIEW_STOCK",
+        "VIEW_ACCIDENTS",
+    ],
+
+"MEDECIN_TRAITANT": [
+    "VIEW_DASHBOARD",
+    "VIEW_NOTIFICATIONS",
+    "VIEW_COLLABORATEURS",
+    "VIEW_RDV",
+
+    "VIEW_DOSSIER_MEDICAL",
+    "EDIT_FICHE_MEDICALE",
+    "CREATE_ORDONNANCE",
+    "CREATE_CERTIFICAT_MEDICAL",
+],
+
+    "MEDECIN_TRAVAIL": [
+        "VIEW_DASHBOARD",
+        "VIEW_NOTIFICATIONS",
+        "VIEW_COLLABORATEURS",
+        "VIEW_RDV",
+        "VIEW_ANALYSES",
+    ],
+
+    "MEDECIN_CONTROLEUR": [
+        "VIEW_DASHBOARD",
+        "VIEW_NOTIFICATIONS",
+        "VIEW_COLLABORATEURS",
+        "VIEW_RDV",
+        "VIEW_ANALYSES",
+    ],
+
+    "RESPONSABLE_RH": [
+        "VIEW_DASHBOARD",
+        "VIEW_NOTIFICATIONS",
+        "VIEW_COLLABORATEURS",
+        "VIEW_RDV",
+        "VIEW_ANALYSES",
+        "VIEW_KPI_RH",
+        "VIEW_AUDIT",
+    ],
+
+    "AGENT_HSEE": [
+        "VIEW_DASHBOARD",
+        "VIEW_NOTIFICATIONS",
+        "VIEW_COLLABORATEURS",
+        "VIEW_ACCIDENTS",
+        "VIEW_KPI_HSEE",
+    ],
+}
