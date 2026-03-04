@@ -1,19 +1,21 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     MyTokenObtainPairView,
     MeView,
     CollaborateurListAPIView,
+    CollaborateurDetailAPIView,
     RHKpiView,
 )
 
 urlpatterns = [
+    # Auth
     path("auth/login/", MyTokenObtainPairView.as_view(), name="login"),
-    path("auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-
     path("me/", MeView.as_view(), name="me"),
 
-    path("collaborateurs/", CollaborateurListAPIView.as_view(), name="collaborateurs"),
+    # Collaborateurs
+    path("collaborateurs/", CollaborateurListAPIView.as_view(), name="collaborateurs-list"),
+    path("collaborateurs/<int:pk>/", CollaborateurDetailAPIView.as_view(), name="collaborateurs-detail"),
 
+    # RH KPI
     path("rh/kpi/", RHKpiView.as_view(), name="rh-kpi"),
 ]

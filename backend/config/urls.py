@@ -3,7 +3,10 @@ from django.urls import path, include
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-path("api/medical/", include("medical.urls")),
-    # ✅ كل شي متاع accounts يولي تحت /api/
+
+    # accounts API
     path("api/", include("accounts.urls")),
+
+    # medical API
+    path("api/medical/", include("medical.urls")),
 ]
