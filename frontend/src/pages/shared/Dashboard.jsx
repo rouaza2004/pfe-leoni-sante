@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { getUserRole, isAuthenticated } from "../../auth/auth";
+import { getUserRole, isAuthenticated } from "../../auth/auth.js";
 
 import AdminDashboard from "../admin/AdminDashboard";
 import MedecinTraitantDashboard from "../medecin-traitant/MedecinTraitantDashboard";

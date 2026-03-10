@@ -1,29 +1,36 @@
 import axios from "axios";
 
+const BASE_URL = "http://127.0.0.1:8000/api";
+
 export const api = axios.create({
-  baseURL: "http://127.0.0.1:8000",
+  baseURL: BASE_URL,
 });
 
-// ✅ Request interceptor: يضيف Bearer token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("access");
 
-    // DEBUG (تنجم تنحيه بعد)
-    console.log(
-      "API Request:",
-      config.method?.toUpperCase(),
-      config.url,
-      "token?",
-      !!token
-    );
-
     if (token) {
-      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
 
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error("API ERROR =", error?.response?.status, error?.response?.data);
+
+    if (error?.response?.status === 401) {
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      localStorage.removeItem("role");
+      localStorage.removeItem("username");
+    }
+
+    return Promise.reject(error);
+  }
 );

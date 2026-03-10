@@ -1,37 +1,24 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   LayoutDashboard,
   Users,
   Calendar,
-  FlaskConical,
-  Bell,
   Boxes,
-  Settings,
-  ClipboardList,
+  Bell,
   LogOut,
-  Search,
+  ShieldAlert,
+  BarChart3,
+  ClipboardList,
+  FileText,
+  Stethoscope,
+  Activity,
+  FlaskConical,
+  ShieldCheck,
 } from "lucide-react";
 
-import { getUserRole } from "../auth/auth";
-import { Permission } from "../lib/permissions";
-
-// ✅ logo: حط leoni-logo.png في src/assets/
+import { getUserRole, logout as doLogout } from "../auth/auth.js";
 import leoniLogo from "../assets/leoni-logo.png";
-
-const getUserPermissions = () => {
-  try {
-    const raw = localStorage.getItem("permissions");
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const hasPermission = (userPerms, required) => {
-  if (!required) return true;
-  return userPerms.includes(required);
-};
 
 const roleLabel = (role) => {
   switch (role) {
@@ -57,46 +44,152 @@ const roleLabel = (role) => {
 export default function AppLayout() {
   const navigate = useNavigate();
   const role = getUserRole();
-  const [q, setQ] = useState("");
 
-  const userPerms = useMemo(() => getUserPermissions(), []);
+  const homePath = useMemo(() => {
+    switch (role) {
+      case "ADMIN":
+        return "/admin";
+      case "MEDECIN_TRAITANT":
+        return "/medecin-traitant";
+      case "MEDECIN_TRAVAIL":
+        return "/medecin-travail";
+      case "MEDECIN_CONTROLEUR":
+        return "/medecin-controleur";
+      case "INFIRMIER":
+        return "/infirmier";
+      case "RESPONSABLE_RH":
+        return "/rh";
+      case "AGENT_HSEE":
+        return "/hsee";
+      default:
+        return "/dashboard";
+    }
+  }, [role]);
 
   const navItems = useMemo(() => {
-    const items = [
-      { to: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-      { to: "/collaborateurs", label: "Collaborateurs", icon: <Users size={18} />, permission: Permission.VIEW_COLLABORATEURS },
-      { to: "/rdv", label: "Rendez-vous", icon: <Calendar size={18} />, permission: Permission.VIEW_RDV },
-      { to: "/analyses", label: "Analyses", icon: <FlaskConical size={18} />, permission: Permission.VIEW_ANALYSES },
-      { to: "/stock", label: "Stock", icon: <Boxes size={18} />, permission: Permission.VIEW_STOCK },
-      { to: "/notifications", label: "Notifications", icon: <Bell size={18} />, permission: Permission.VIEW_NOTIFICATIONS },
-      { to: "/audit", label: "Audit", icon: <ClipboardList size={18} />, permission: Permission.VIEW_AUDIT },
-      { to: "/parametres", label: "Paramètres", icon: <Settings size={18} />, permission: Permission.VIEW_PARAMETRES },
+    const common = [
+      { to: homePath, label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     ];
 
-    return items.filter((it) => hasPermission(userPerms, it.permission));
-  }, [userPerms]);
+    if (role === "MEDECIN_TRAITANT") {
+      return [
+        ...common,
+        {
+          to: "/medecin-traitant/collaborateurs",
+          label: "Collaborateurs",
+          icon: <Users size={18} />,
+        },
+        {
+          to: "/medecin-traitant/rdv",
+          label: "Rendez-vous",
+          icon: <Calendar size={18} />,
+        },
+      ];
+    }
 
-  const logout = () => {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("role");
-    localStorage.removeItem("permissions");
+    if (role === "MEDECIN_TRAVAIL") {
+      return [
+        ...common,
+        {
+          to: "/medecin-travail/collaborateurs",
+          label: "Collaborateurs",
+          icon: <Users size={18} />,
+        },
+        {
+          to: "/medecin-travail/collaborateurs",
+          label: "Dossiers médicaux",
+          icon: <FileText size={18} />,
+        },
+        {
+          to: "/medecin-travail/collaborateurs",
+          label: "Examens initiaux",
+          icon: <Stethoscope size={18} />,
+        },
+        {
+          to: "/medecin-travail/collaborateurs",
+          label: "Examens complémentaires",
+          icon: <Activity size={18} />,
+        },
+        {
+          to: "/medecin-travail/collaborateurs",
+          label: "Analyses labo",
+          icon: <FlaskConical size={18} />,
+        },
+       {
+  to: "/medecin-travail/fiches-aptitude",
+  label: "Fiches aptitude",
+  icon: <ShieldCheck size={18} />,
+},
+      ];
+    }
+
+    if (role === "INFIRMIER") {
+      return [
+        ...common,
+        {
+          to: "/infirmier/patients",
+          label: "Patients",
+          icon: <Users size={18} />,
+        },
+        {
+          to: "/infirmier/incidents",
+          label: "Incidents",
+          icon: <Bell size={18} />,
+        },
+        {
+          to: "/infirmier/accidents",
+          label: "Accidents",
+          icon: <ShieldAlert size={18} />,
+        },
+        {
+          to: "/infirmier/stock",
+          label: "Stock",
+          icon: <Boxes size={18} />,
+        },
+        {
+          to: "/infirmier/rdv",
+          label: "Rendez-vous",
+          icon: <Calendar size={18} />,
+        },
+      ];
+    }
+
+    if (role === "AGENT_HSEE") {
+      return [
+        ...common,
+        {
+          to: "/hsee",
+          label: "Supervision",
+          icon: <ShieldAlert size={18} />,
+        },
+        {
+          to: "/hsee/statistiques",
+          label: "Statistiques",
+          icon: <BarChart3 size={18} />,
+        },
+        {
+          to: "/hsee/plan-action",
+          label: "Plan d'action",
+          icon: <ClipboardList size={18} />,
+        },
+      ];
+    }
+
+    return common;
+  }, [role, homePath]);
+
+  const handleLogout = () => {
+    doLogout();
     navigate("/login", { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col">
-        <div className="p-5 border-b border-slate-800">
+    <div className="min-h-screen flex bg-slate-50">
+      <aside className="flex w-64 flex-col bg-slate-900 text-slate-100">
+        <div className="border-b border-slate-800 p-5">
           <div className="flex items-center gap-3">
-            {/* ✅ LEONI LOGO */}
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center overflow-hidden">
-              <img
-                src={leoniLogo}
-                alt="LEONI"
-                className="w-8 h-8 object-contain"
-              />
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white">
+              <img src={leoniLogo} alt="LEONI" className="h-8 w-8 object-contain" />
             </div>
 
             <div>
@@ -106,14 +199,16 @@ export default function AppLayout() {
           </div>
         </div>
 
-        <nav className="p-3 flex-1 space-y-1">
-          {navItems.map((it) => (
+        <nav className="flex-1 space-y-1 p-3">
+          {navItems.map((it, index) => (
             <NavLink
-              key={it.to}
+              key={`${it.to}-${index}`}
               to={it.to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition ${
-                  isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-800/60"
+                `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+                  isActive
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-300 hover:bg-slate-800/60"
                 }`
               }
             >
@@ -123,16 +218,18 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="border-t border-slate-800 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Utilisateur</p>
               <p className="text-xs text-slate-400">{roleLabel(role)}</p>
             </div>
+
             <button
-              onClick={logout}
-              className="p-2 rounded-lg hover:bg-slate-800/60"
+              onClick={handleLogout}
+              className="rounded-lg p-2 hover:bg-slate-800/60"
               title="Logout"
+              type="button"
             >
               <LogOut size={18} />
             </button>
@@ -140,46 +237,10 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* MAIN */}
-      <main className="flex-1 flex flex-col">
-        {/* TOPBAR */}
-        <header className="h-16 bg-white border-b flex items-center justify-between px-6">
-          <div className="flex items-center gap-3 w-full max-w-xl">
-            <div className="relative w-full">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Rechercher..."
-                className="w-full pl-10 pr-3 py-2 rounded-xl border bg-slate-50 outline-none focus:bg-white"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 rounded-xl hover:bg-slate-100">
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1.5">
-                8
-              </span>
-            </button>
-
-            {/* ✅ فقط Role label */}
-            <div className="text-right">
-              <p className="text-sm font-semibold">{roleLabel(role)}</p>
-              <p className="text-xs text-slate-500">LEONI</p>
-            </div>
-
-            {/* ✅ Avatar بسيط بدون اسم */}
-            <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-semibold">
-              {roleLabel(role).split(" ").map(w => w[0]).slice(0,2).join("")}
-            </div>
-          </div>
-        </header>
-
-   <div className="p-6 max-w-6xl w-full">
-  <Outlet />
-</div>
+      <main className="flex-1">
+        <div className="p-6">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

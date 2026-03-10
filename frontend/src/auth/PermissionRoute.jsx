@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { getUserRole, isAuthenticated } from "./auth";
+import { getUserRole, isAuthenticated } from "./auth.js";
 import { hasPermission } from "../lib/hasPermission";
 
 export default function PermissionRoute({ permission, children }) {

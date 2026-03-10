@@ -54,7 +54,6 @@ const Chip = ({ children }) => (
 export default function MedecinTraitantDashboard() {
   const navigate = useNavigate();
 
-  // ✅ Mock data (بعد تولي API)
   const kpi = useMemo(
     () => ({
       rdvToday: 1,
@@ -68,25 +67,14 @@ export default function MedecinTraitantDashboard() {
 
   const prochainsRdv = useMemo(
     () => [
-      {
-        nom: "Karray Salma",
-        type: "Visite périodique",
-        heure: "15:00",
-        when: "Aujourd'hui",
-      },
-      {
-        nom: "Ben Salah Ali",
-        type: "Visite d'embauche",
-        heure: "09:00",
-        when: "Demain",
-      },
+      { nom: "Karray Salma", type: "Visite périodique", heure: "15:00", when: "Aujourd'hui" },
+      { nom: "Ben Salah Ali", type: "Visite d'embauche", heure: "09:00", when: "Demain" },
     ],
     []
   );
 
   return (
     <div className="p-6 md:p-8 space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
@@ -106,63 +94,43 @@ export default function MedecinTraitantDashboard() {
         </button>
       </div>
 
-      {/* KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <StatCard
-          title="RDV aujourd'hui"
-          value={kpi.rdvToday}
-          icon={<Calendar size={20} />}
-        />
-        <StatCard
-          title="RDV semaine"
-          value={kpi.rdvWeek}
-          icon={<Calendar size={20} />}
-        />
-        <StatCard
-          title="Collaborateurs suivis"
-          value={kpi.collaborateursSuivis}
-          icon={<Users size={20} />}
-        />
-        <StatCard
-          title="Documents générés"
-          value={kpi.docsGenerated}
-          icon={<FileText size={20} />}
-        />
+        <StatCard title="RDV aujourd'hui" value={kpi.rdvToday} icon={<Calendar size={20} />} />
+        <StatCard title="RDV semaine" value={kpi.rdvWeek} icon={<Calendar size={20} />} />
+        <StatCard title="Collaborateurs suivis" value={kpi.collaborateursSuivis} icon={<Users size={20} />} />
+        <StatCard title="Documents générés" value={kpi.docsGenerated} icon={<FileText size={20} />} />
       </div>
 
-      {/* Quick actions */}
+      {/* ✅ FIXED QUICK ACTIONS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <QuickAction
           title="Ouvrir dossier médical"
           desc="Accéder au dossier d’un collaborateur"
           icon={<Stethoscope size={20} />}
-          onClick={() => navigate("/medecin-traitant/collaborateurs")}
+          onClick={() => navigate("/medecin-traitant/collaborateurs?action=dossier")}
         />
         <QuickAction
           title="Remplir fiche médicale"
           desc="Créer / mettre à jour la fiche médicale"
           icon={<ClipboardList size={20} />}
-          onClick={() => navigate("/medecin-traitant/collaborateurs")}
+          onClick={() => navigate("/medecin-traitant/collaborateurs?action=fiche")}
         />
         <QuickAction
           title="Créer ordonnance / certificat"
           desc="Générer un document médical"
           icon={<FileText size={20} />}
-          onClick={() => navigate("/medecin-traitant/rdv")}
+          onClick={() => navigate("/medecin-traitant/collaborateurs?action=documents")}
         />
       </div>
 
-      {/* Prochains RDV */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Prochains rendez-vous
-          </h2>
+          <h2 className="text-lg font-semibold text-slate-900">Prochains rendez-vous</h2>
           <span className="text-sm text-slate-500">Aujourd&apos;hui & demain</span>
         </div>
 
         {prochainsRdv.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucun rendez-vous قريب.</p>
+          <p className="text-sm text-slate-500">Aucun rendez-vous.</p>
         ) : (
           <div className="space-y-4">
             {prochainsRdv.map((r, idx) => (

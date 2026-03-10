@@ -1,38 +1,58 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
-
 import LoginPage from "../pages/shared/LoginPage";
 import Dashboard from "../pages/shared/Dashboard";
 
+import FicheAptitudeForm from "../pages/medecin-travail/FicheAptitudeForm";
+import DemandeAnalyseForm from "../pages/medecin-travail/DemandeAnalyseForm";
+import ExamenComplementaireForm from "../pages/medecin-travail/ExamenComplementaireForm";
+import FichesAptitudePage from "../pages/medecin-travail/FichesAptitudePage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
-import MedecinTraitantDashboard from "../pages/medecin-traitant/MedecinTraitantDashboard";
-import MedecinTravailDashboard from "../pages/medecin-travail/MedecinTravailDashboard";
-import MedecinControleurDashboard from "../pages/medecin-controleur/MedecinControleurDashboard";
-import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
-import RHDashboard from "../pages/rh/RHDashboard";
-import HSEEDashboard from "../pages/hsee/HSEEDashboard";
 
+import MedecinTraitantDashboard from "../pages/medecin-traitant/MedecinTraitantDashboard";
 import Collaborateurs from "../pages/medecin-traitant/Collaborateurs";
+import CollaborateurDetail from "../pages/medecin-traitant/CollaborateurDetail";
+import FicheMedicale from "../pages/medecin-traitant/FicheMedicale";
+import DocumentsMedicauxPage from "../pages/medecin-traitant/DocumentsMedicauxPage";
 import RDV from "../pages/medecin-traitant/RDV";
 
-import Analyses from "../pages/shared/Analyses";
-import Stock from "../pages/infirmier/Stock";
-import Utilisateurs from "../pages/admin/Utilisateurs";
-import Audit from "../pages/shared/Audit";
-import Parametres from "../pages/admin/Parametres";
-import NotificationsPage from "../pages/shared/NotificationsPage";
+import MedecinTravailDashboard from "../pages/medecin-travail/MedecinTravailDashboard";
+import CollaborateursMedTravail from "../pages/medecin-travail/CollaborateursMedTravail";
+import CollaborateurMedicalDetail from "../pages/medecin-travail/CollaborateurMedicalDetail";
+import DossierMedicalCompletForm from "../pages/medecin-travail/DossierMedicalCompletForm";
+
+import MedecinControleurDashboard from "../pages/medecin-controleur/MedecinControleurDashboard";
+
+import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
+import PatientsPage from "../pages/infirmier/PatientsPage";
+import PatientDetailPage from "../pages/infirmier/PatientDetailPage";
+import IncidentsPage from "../pages/infirmier/IncidentsPage";
+import AccidentsPage from "../pages/infirmier/AccidentsPage";
+import StockPage from "../pages/infirmier/StockPage";
+import RDVPage from "../pages/infirmier/RDVPage";
+
+import RHDashboard from "../pages/rh/RHDashboard";
+
+import HSEEDashboard from "../pages/hsee/HSEEDashboard";
+import HSEEStatsPage from "../pages/hsee/HSEEStatsPage";
+import HSEEPlanActionPage from "../pages/hsee/HSEEPlanActionPage";
 
 import ProtectedRoute from "../auth/ProtectedRoute";
 import RoleRoute from "../auth/RoleRoute";
-import PermissionRoute from "../auth/PermissionRoute";
 import { getUserRole, isAuthenticated } from "../auth/auth";
-import { Permission } from "../lib/permissions";
+
+function UnauthorizedPage() {
+  return (
+    <div className="p-6 text-2xl font-bold text-red-600">
+      Accès non autorisé
+    </div>
+  );
+}
 
 export default function AppRouter() {
   const role = getUserRole();
   const authed = isAuthenticated();
 
-  // ✅ من / يمشي حسب الحالة
   const defaultPath = authed ? "/dashboard" : "/login";
 
   return (
@@ -41,16 +61,8 @@ export default function AppRouter() {
 
       <Route
         path="/login"
-        element={authed && role ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-      />
-
-      <Route
-        path="/unauthorized"
         element={
-          <div style={{ padding: 30 }}>
-            <h2>⛔ Unauthorized</h2>
-            <p>Vous n'avez pas accès à cette page.</p>
-          </div>
+          authed && role ? <Navigate to="/dashboard" replace /> : <LoginPage />
         }
       />
 
@@ -61,10 +73,8 @@ export default function AppRouter() {
           </ProtectedRoute>
         }
       >
-        {/* Dashboard عام */}
         <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* Dashboards حسب الدور */}
         <Route
           path="/admin"
           element={
@@ -84,10 +94,116 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/medecin-traitant/collaborateurs"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+              <Collaborateurs />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-traitant/collaborateurs/:id"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+              <CollaborateurDetail />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-traitant/collaborateurs/:id/fiche"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+              <FicheMedicale />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-traitant/collaborateurs/:id/documents"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+              <DocumentsMedicauxPage />
+            </RoleRoute>
+          }
+        />
+<Route
+  path="/medecin-travail/fiches-aptitude"
+  element={
+    <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+      <FichesAptitudePage />
+    </RoleRoute>
+  }
+/>
+        <Route
+          path="/medecin-traitant/rdv"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+              <RDV />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/medecin-travail"
           element={
             <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
               <MedecinTravailDashboard />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-travail/collaborateurs"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+              <CollaborateursMedTravail />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-travail/collaborateurs/:id"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+              <CollaborateurMedicalDetail />
+            </RoleRoute>
+          }
+        />
+
+    <Route
+  path="/medecin-travail/collaborateurs/:id/dossier"
+  element={
+    <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+      <DossierMedicalCompletForm />
+    </RoleRoute>
+  }
+/>
+
+        <Route
+          path="/medecin-travail/collaborateurs/:id/fiche-aptitude"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+              <FicheAptitudeForm />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-travail/collaborateurs/:id/demande-analyse"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+              <DemandeAnalyseForm />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-travail/collaborateurs/:id/examen-complementaire"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+              <ExamenComplementaireForm />
             </RoleRoute>
           }
         />
@@ -111,6 +227,60 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/infirmier/patients"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER"]}>
+              <PatientsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/patients/:id"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER"]}>
+              <PatientDetailPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/incidents"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER"]}>
+              <IncidentsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/accidents"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER"]}>
+              <AccidentsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/stock"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER"]}>
+              <StockPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/rdv"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER"]}>
+              <RDVPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/rh"
           element={
             <RoleRoute allowedRoles={["RESPONSABLE_RH"]}>
@@ -128,80 +298,25 @@ export default function AppRouter() {
           }
         />
 
-        {/* ✅ Routes خاصة بالـ Médecin Traitant */}
         <Route
-          path="/medecin-traitant/collaborateurs"
+          path="/hsee/statistiques"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
-              {/* إذا تحب permissions خليه PermissionRoute بدل RoleRoute */}
-              <Collaborateurs />
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <HSEEStatsPage />
             </RoleRoute>
           }
         />
 
         <Route
-          path="/medecin-traitant/rdv"
+          path="/hsee/plan-action"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
-              <RDV />
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <HSEEPlanActionPage />
             </RoleRoute>
           }
         />
 
-        {/* بقيّة الصفحات (اختياري تخليهم global مع PermissionRoute) */}
-        <Route
-          path="/analyses"
-          element={
-            <PermissionRoute permission={Permission.VIEW_ANALYSES}>
-              <Analyses />
-            </PermissionRoute>
-          }
-        />
-
-        <Route
-          path="/stock"
-          element={
-            <PermissionRoute permission={Permission.VIEW_STOCK}>
-              <Stock />
-            </PermissionRoute>
-          }
-        />
-
-        <Route
-          path="/utilisateurs"
-          element={
-            <PermissionRoute permission={Permission.VIEW_USERS}>
-              <Utilisateurs />
-            </PermissionRoute>
-          }
-        />
-
-        <Route
-          path="/audit"
-          element={
-            <PermissionRoute permission={Permission.VIEW_AUDIT}>
-              <Audit />
-            </PermissionRoute>
-          }
-        />
-
-        <Route
-          path="/parametres"
-          element={
-            <PermissionRoute permission={Permission.VIEW_PARAMETRES}>
-              <Parametres />
-            </PermissionRoute>
-          }
-        />
-
-        <Route
-          path="/notifications"
-          element={
-            <PermissionRoute permission={Permission.VIEW_NOTIFICATIONS}>
-              <NotificationsPage />
-            </PermissionRoute>
-          }
-        />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
