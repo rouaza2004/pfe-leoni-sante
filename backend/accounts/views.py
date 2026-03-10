@@ -9,11 +9,9 @@ from django.shortcuts import get_object_or_404
 from .models import Collaborateur
 from .permissions import CanViewCollaborateurList
 from .serializers import CollaborateurSerializer, MyTokenObtainPairSerializer
+from .permissions_map import ROLE_PERMISSIONS
 
 
-# ===============================
-# AUTH
-# ===============================
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
@@ -23,24 +21,20 @@ class MeView(APIView):
 
     def get(self, request):
         u = request.user
-        # ⚠️ role هنا إذا عندك field role في user model
+        role = getattr(u, "role", "") or ""
+        permissions = ROLE_PERMISSIONS.get((role or "").upper(), [])
+
         return Response(
             {
                 "id": str(u.id),
                 "username": u.username,
-                "role": getattr(u, "role", None),
+                "role": role,
+                "permissions": permissions,
             }
         )
 
 
-# ===============================
-# COLLABORATEURS
-# ===============================
 class CollaborateurListAPIView(generics.ListAPIView):
-    """
-    GET /api/collaborateurs/
-    GET /api/collaborateurs/?search=ali
-    """
     queryset = Collaborateur.objects.all().order_by("nom", "prenom")
     serializer_class = CollaborateurSerializer
     permission_classes = [IsAuthenticated, CanViewCollaborateurList]
@@ -50,25 +44,28 @@ class CollaborateurListAPIView(generics.ListAPIView):
 
 
 class CollaborateurDetailAPIView(APIView):
-    """
-    GET /api/collaborateurs/<id>/
-    """
     permission_classes = [IsAuthenticated, CanViewCollaborateurList]
 
     def get(self, request, pk):
         collab = get_object_or_404(Collaborateur, pk=pk)
         return Response(CollaborateurSerializer(collab).data)
 
+    def patch(self, request, pk):
+        collab = get_object_or_404(Collaborateur, pk=pk)
+        serializer = CollaborateurSerializer(collab, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-# ===============================
-# KPI RH (placeholder)
-# ===============================
+
 class RHKpiView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        role = getattr(request.user, "role", None)
-        if role not in ["ADMIN", "RESPONSABLE_RH"]:
+        u = request.user
+        role = getattr(u, "role", "") or ""
+
+        if (role or "").upper() not in ["ADMIN", "RESPONSABLE_RH"]:
             return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
         data = {

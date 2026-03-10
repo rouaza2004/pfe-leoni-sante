@@ -1,22 +1,17 @@
-from rest_framework import status
+from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
+
+from .models import Appointment
+from .serializers import AppointmentSerializer
 
 
-# ======================================
-# Appointments (placeholder for now)
-# ======================================
-class AppointmentListAPIView(APIView):
-    """
-    Temporary endpoint for RDV (appointments).
-    Later we will replace it with:
-    - List/Create appointment
-    - Update/Cancel
-    - Calendar by collaborator
-    """
+class AppointmentListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Appointment.objects.all().order_by("-date", "-heure")
+    serializer_class = AppointmentSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        # TODO: connect to Appointment model when you create it
-        return Response([], status=status.HTTP_200_OK)
+
+class AppointmentDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Appointment.objects.all()
+    serializer_class = AppointmentSerializer
+    permission_classes = [IsAuthenticated]

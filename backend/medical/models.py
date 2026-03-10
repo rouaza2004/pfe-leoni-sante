@@ -3,9 +3,9 @@ from django.conf import settings
 from accounts.models import Collaborateur
 
 
-# ===============================
+# =====================================================
 # DOSSIER MEDICAL
-# ===============================
+# =====================================================
 
 class DossierMedical(models.Model):
     collaborateur = models.OneToOneField(
@@ -13,18 +13,36 @@ class DossierMedical(models.Model):
         on_delete=models.CASCADE,
         related_name="dossier_medical"
     )
+
     entreprise = models.CharField(max_length=255, blank=True, null=True)
     localite = models.CharField(max_length=255, blank=True, null=True)
+
+    # identification / qualification
+    date_recrutement = models.DateField(null=True, blank=True)
+    niveau_etudes_diplomes = models.CharField(max_length=255, blank=True, null=True)
+    profession = models.CharField(max_length=255, blank=True, null=True)
+    poste_travail_actuel = models.CharField(max_length=255, blank=True, null=True)
+
+    # antécédents
+    antecedents_medicaux = models.TextField(blank=True, null=True)
+    antecedents_chirurgicaux = models.TextField(blank=True, null=True)
+    antecedents_gynecologiques = models.TextField(blank=True, null=True)
+    antecedents_heredofamiliaux = models.TextField(blank=True, null=True)
+
+    # habitudes
+    tabac = models.CharField(max_length=255, blank=True, null=True)
+    alcool = models.CharField(max_length=255, blank=True, null=True)
+    automedication = models.CharField(max_length=255, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Dossier {self.collaborateur.nom}"
-        
+        return f"Dossier {self.collaborateur.matricule}"
 
-# ===============================
-# EXAMEN MEDICAL INITIAL
-# ===============================
+
+# =====================================================
+# EXAMEN INITIAL
+# =====================================================
 
 class ExamenInitial(models.Model):
     dossier = models.OneToOneField(
@@ -38,18 +56,57 @@ class ExamenInitial(models.Model):
 
     poids = models.FloatField(null=True, blank=True)
     taille = models.FloatField(null=True, blank=True)
-    tension_arterielle = models.CharField(max_length=50, blank=True, null=True)
-    pouls = models.CharField(max_length=50, blank=True, null=True)
 
+    # vision
+    vision_od_pres = models.CharField(max_length=50, blank=True, null=True)
+    vision_od_loin = models.CharField(max_length=50, blank=True, null=True)
+    vision_og_pres = models.CharField(max_length=50, blank=True, null=True)
+    vision_og_loin = models.CharField(max_length=50, blank=True, null=True)
+
+    # audition
+    audition_od = models.CharField(max_length=50, blank=True, null=True)
+    audition_og = models.CharField(max_length=50, blank=True, null=True)
+
+    # examen clinique
+    denture = models.TextField(blank=True, null=True)
+    teguments = models.TextField(blank=True, null=True)
+    appareil_locomoteur = models.TextField(blank=True, null=True)
+    appareil_respiratoire = models.TextField(blank=True, null=True)
+    appareil_cardio_vasculaire = models.TextField(blank=True, null=True)
+
+    pouls = models.CharField(max_length=50, blank=True, null=True)
+    tension_arterielle = models.CharField(max_length=50, blank=True, null=True)
+
+    abdomen = models.TextField(blank=True, null=True)
+    appareil_genito_urinaire = models.TextField(blank=True, null=True)
+    glandes_endocrines = models.TextField(blank=True, null=True)
+    systeme_nerveux = models.TextField(blank=True, null=True)
+
+    examens_complementaires = models.TextField(blank=True, null=True)
+    resultat_examen = models.TextField(blank=True, null=True)
+
+    aptitude = models.CharField(
+        max_length=30,
+        choices=[
+            ("APTE", "Apte"),
+            ("APTE_AVEC_CONDITION", "Apte avec condition"),
+            ("INAPTE_POSTE", "Inapte au poste"),
+            ("INAPTE_DEFINITIF", "Inapte définitif"),
+        ],
+        blank=True,
+        null=True,
+    )
+
+    precision_aptitude = models.TextField(blank=True, null=True)
     conclusion = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"Examen initial {self.dossier.collaborateur.nom}"
+        return f"Examen initial {self.dossier.collaborateur.matricule}"
 
 
-# ===============================
+# =====================================================
 # EXAMENS ULTERIEURS
-# ===============================
+# =====================================================
 
 class ExamenUlterieur(models.Model):
     dossier = models.ForeignKey(
@@ -80,9 +137,9 @@ class ExamenUlterieur(models.Model):
         return f"Examen {self.date}"
 
 
-# ===============================
-# POSTES DE TRAVAIL
-# ===============================
+# =====================================================
+# POSTE DE TRAVAIL
+# =====================================================
 
 class PosteTravail(models.Model):
     dossier = models.ForeignKey(
@@ -93,6 +150,7 @@ class PosteTravail(models.Model):
 
     date_debut = models.DateField()
     date_fin = models.DateField(null=True, blank=True)
+
     description = models.CharField(max_length=255)
     risque_professionnel = models.TextField(blank=True, null=True)
 
@@ -100,11 +158,54 @@ class PosteTravail(models.Model):
         return self.description
 
 
-# ===============================
-# ACCIDENTS DE TRAVAIL
-# ===============================
+# =====================================================
+# INCIDENT INFIRMIER
+# =====================================================
+
+class IncidentInfirmier(models.Model):
+    dossier = models.ForeignKey(
+        DossierMedical,
+        on_delete=models.CASCADE,
+        related_name="incidents_infirmiers"
+    )
+
+    date_incident = models.DateField()
+    heure_incident = models.TimeField()
+
+    segment = models.CharField(max_length=120, blank=True, null=True)
+    unite = models.CharField(max_length=50, blank=True, null=True)
+
+    poste_occupe = models.CharField(max_length=255, blank=True, null=True)
+    mode_lesion = models.CharField(max_length=255)
+    agent_causal = models.CharField(max_length=255)
+
+    telephone = models.CharField(max_length=30, blank=True, null=True)
+    infirmier_responsable = models.CharField(max_length=255, blank=True, null=True)
+
+    remarque = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Incident {self.date_incident} - {self.dossier.collaborateur.matricule}"
+
+
+# =====================================================
+# ACCIDENT DE TRAVAIL
+# =====================================================
 
 class AccidentTravail(models.Model):
+    GRAVITE_CHOICES = [
+        ("FAIBLE", "Faible"),
+        ("MOYENNE", "Moyenne"),
+        ("GRAVE", "Grave"),
+    ]
+
+    STATUT_ENQUETE_CHOICES = [
+        ("EN_ATTENTE", "En attente"),
+        ("EN_COURS", "En cours"),
+        ("TERMINEE", "Terminée"),
+    ]
+
     dossier = models.ForeignKey(
         DossierMedical,
         on_delete=models.CASCADE,
@@ -112,19 +213,85 @@ class AccidentTravail(models.Model):
     )
 
     date_accident = models.DateField()
+    heure_accident = models.TimeField(blank=True, null=True)
+    lieu_accident = models.CharField(max_length=255, blank=True, null=True)
+    circonstances = models.TextField(blank=True, null=True)
+
     cause = models.TextField()
     nature_lesion = models.CharField(max_length=255)
     siege_lesion = models.CharField(max_length=255)
+
+    segment = models.CharField(max_length=120, blank=True, null=True)
+    gravite = models.CharField(
+        max_length=20,
+        choices=GRAVITE_CHOICES,
+        blank=True,
+        null=True,
+    )
+    statut_enquete = models.CharField(
+        max_length=20,
+        choices=STATUT_ENQUETE_CHOICES,
+        default="EN_ATTENTE",
+    )
+
+    transport_hopital = models.CharField(max_length=255, blank=True, null=True)
+
+    temoin1_nom = models.CharField(max_length=255, blank=True, null=True)
+    temoin1_telephone = models.CharField(max_length=30, blank=True, null=True)
+    temoin1_matricule = models.CharField(max_length=50, blank=True, null=True)
+
+    temoin2_nom = models.CharField(max_length=255, blank=True, null=True)
+    temoin2_telephone = models.CharField(max_length=30, blank=True, null=True)
+    temoin2_matricule = models.CharField(max_length=50, blank=True, null=True)
+
     duree_arret = models.IntegerField(null=True, blank=True)
     ipp = models.CharField(max_length=100, blank=True, null=True)
 
+    envoye_hsee = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
     def __str__(self):
-        return f"Accident {self.date_accident}"
+        return f"Accident {self.date_accident} - {self.dossier.collaborateur.matricule}"
 
 
-# ===============================
-# MALADIES PROFESSIONNELLES
-# ===============================
+# =====================================================
+# PLAN ACTION HSEE
+# =====================================================
+
+class PlanActionHSEE(models.Model):
+    STATUT_CHOICES = [
+        ("PLANIFIE", "Planifié"),
+        ("EN_COURS", "En cours"),
+        ("TERMINE", "Terminé"),
+    ]
+
+    accident = models.ForeignKey(
+        AccidentTravail,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="plans_action_hsee"
+    )
+
+    zone = models.CharField(max_length=255)
+    risque = models.CharField(max_length=255)
+    action = models.TextField()
+    responsable = models.CharField(max_length=255, blank=True, null=True)
+    delai = models.DateField(blank=True, null=True)
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default="PLANIFIE"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.zone} - {self.risque}"
+
+
+# =====================================================
+# MALADIE PROFESSIONNELLE
+# =====================================================
 
 class MaladieProfessionnelle(models.Model):
     dossier = models.ForeignKey(
@@ -144,9 +311,9 @@ class MaladieProfessionnelle(models.Model):
         return self.nom_maladie
 
 
-# ===============================
-# VACCINATIONS
-# ===============================
+# =====================================================
+# VACCINATION
+# =====================================================
 
 class Vaccination(models.Model):
     dossier = models.ForeignKey(
@@ -163,8 +330,12 @@ class Vaccination(models.Model):
 
     def __str__(self):
         return self.vaccin
-    # 1) FICHE (حسب الصورة: معلومات شخصية)
-# ==========================
+
+
+# =====================================================
+# FICHE MEDICALE
+# =====================================================
+
 class FicheMedicale(models.Model):
     collaborateur = models.OneToOneField(
         Collaborateur,
@@ -172,7 +343,6 @@ class FicheMedicale(models.Model):
         related_name="fiche_medicale"
     )
 
-    # حسب الصورة: Nom, naissance, adresse, tel
     date_naissance = models.DateField(null=True, blank=True)
     lieu_naissance = models.CharField(max_length=120, null=True, blank=True)
     adresse = models.CharField(max_length=255, null=True, blank=True)
@@ -185,15 +355,17 @@ class FicheMedicale(models.Model):
         return f"Fiche {self.collaborateur.matricule}"
 
 
-# ==========================
-# 2) ORDONNANCE (حسب الصورة)
-# ==========================
+# =====================================================
+# DOCUMENTS MEDICAUX
+# =====================================================
+
 class Ordonnance(models.Model):
     collaborateur = models.ForeignKey(
         Collaborateur,
         on_delete=models.CASCADE,
         related_name="ordonnances"
     )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -203,22 +375,20 @@ class Ordonnance(models.Model):
     )
 
     date = models.DateField(auto_now_add=True)
-    contenu = models.TextField()  # تكتب medicaments + posologie
+    contenu = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Ordonnance {self.collaborateur.matricule} - {self.date}"
 
 
-# ==========================
-# 3) CERTIFICAT (حسب الصورة)
-# ==========================
 class CertificatMedical(models.Model):
     collaborateur = models.ForeignKey(
         Collaborateur,
         on_delete=models.CASCADE,
         related_name="certificats"
     )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -230,9 +400,191 @@ class CertificatMedical(models.Model):
     date = models.DateField(auto_now_add=True)
     nb_jours_repos = models.PositiveIntegerField(default=0)
     date_debut_repos = models.DateField(null=True, blank=True)
-
-    contenu = models.TextField(null=True, blank=True)  # texte libre إذا تحب
+    contenu = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Certificat {self.collaborateur.matricule} - {self.date}"
+
+
+# =====================================================
+# FICHE APTITUDE
+# =====================================================
+
+class FicheAptitude(models.Model):
+    TYPE_EXAMEN_CHOICES = [
+        ("EMBAUCHE", "Embauche"),
+        ("PERIODIQUE", "Périodique"),
+        ("REPRISE", "Reprise"),
+        ("SPONTANE", "Spontané"),
+    ]
+
+    APTITUDE_CHOICES = [
+        ("APTE", "Apte"),
+        ("APTE_AMENAGEMENT", "Apte avec aménagement"),
+        ("INAPTE_TEMPORAIRE", "Inapte temporaire"),
+        ("APTE_APRES_CHANGEMENT", "Apte après changement du poste"),
+        ("INAPTE_DEFINITIF", "Inapte définitif"),
+    ]
+
+    collaborateur = models.ForeignKey(
+        Collaborateur,
+        on_delete=models.CASCADE,
+        related_name="fiches_aptitude"
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="fiches_aptitude_creees"
+    )
+
+    entreprise = models.CharField(max_length=255, blank=True, null=True)
+    adresse_entreprise = models.CharField(max_length=255, blank=True, null=True)
+    nature_activite = models.CharField(max_length=255, blank=True, null=True)
+    numero_cnss = models.CharField(max_length=100, blank=True, null=True)
+
+    nom_prenom = models.CharField(max_length=255, blank=True, null=True)
+    date_lieu_naissance = models.CharField(max_length=255, blank=True, null=True)
+    adresse_travailleur = models.CharField(max_length=255, blank=True, null=True)
+    cnss_travailleur = models.CharField(max_length=100, blank=True, null=True)
+    qualifications_professionnelles = models.CharField(max_length=255, blank=True, null=True)
+
+    date_recrutement = models.DateField(null=True, blank=True)
+    poste_travail = models.CharField(max_length=255, blank=True, null=True)
+
+    type_examen = models.CharField(max_length=30, choices=TYPE_EXAMEN_CHOICES)
+    aptitude = models.CharField(max_length=40, choices=APTITUDE_CHOICES)
+    recommandations = models.TextField(blank=True, null=True)
+
+    date = models.DateField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Fiche aptitude {self.collaborateur.matricule} - {self.date}"
+
+
+# =====================================================
+# DEMANDE EXAMEN LABO
+# =====================================================
+
+class DemandeExamenLabo(models.Model):
+    collaborateur = models.ForeignKey(
+        Collaborateur,
+        on_delete=models.CASCADE,
+        related_name="demandes_examens_labo"
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="demandes_examens_labo_creees"
+    )
+
+    nom_prenom = models.CharField(max_length=255, blank=True, null=True)
+    age = models.CharField(max_length=50, blank=True, null=True)
+    cin = models.CharField(max_length=50, blank=True, null=True)
+    gsm = models.CharField(max_length=50, blank=True, null=True)
+    entreprise = models.CharField(max_length=255, blank=True, null=True)
+    poste_travail = models.CharField(max_length=255, blank=True, null=True)
+    renseignements_cliniques = models.TextField(blank=True, null=True)
+
+    glycemie = models.BooleanField(default=False)
+    creatinine = models.BooleanField(default=False)
+    nfs = models.BooleanField(default=False)
+    vs = models.BooleanField(default=False)
+    transaminases = models.BooleanField(default=False)
+    acide_urique = models.BooleanField(default=False)
+    triglycerides = models.BooleanField(default=False)
+    cholesterol = models.BooleanField(default=False)
+    examen_selles = models.BooleanField(default=False)
+
+    date = models.DateField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Demande labo {self.collaborateur.matricule} - {self.date}"
+
+
+# =====================================================
+# EXAMEN COMPLEMENTAIRE
+# =====================================================
+
+class ExamenComplementaire(models.Model):
+    collaborateur = models.ForeignKey(
+        Collaborateur,
+        on_delete=models.CASCADE,
+        related_name="examens_complementaires"
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="examens_complementaires_crees"
+    )
+
+    nom_prenom = models.CharField(max_length=255, blank=True, null=True)
+    age = models.CharField(max_length=50, blank=True, null=True)
+    cin = models.CharField(max_length=50, blank=True, null=True)
+    poste_travail = models.CharField(max_length=255, blank=True, null=True)
+    entreprise = models.CharField(max_length=255, blank=True, null=True)
+    renseignements_cliniques = models.TextField(blank=True, null=True)
+
+    visiotest = models.BooleanField(default=False)
+    audiogramme = models.BooleanField(default=False)
+    ecg = models.BooleanField(default=False)
+    efr = models.BooleanField(default=False)
+
+    date = models.DateField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Examen complémentaire {self.collaborateur.matricule} - {self.date}"
+
+
+# =====================================================
+# STOCK INFIRMERIE
+# =====================================================
+
+class StockItem(models.Model):
+    TYPE_CHOICES = [
+        ("MEDICAMENT", "Médicament"),
+        ("CONSOMMABLE", "Consommable"),
+    ]
+
+    nom = models.CharField(max_length=150)
+    type_article = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    quantite = models.PositiveIntegerField(default=0)
+    seuil_critique = models.PositiveIntegerField(default=0)
+    unite = models.CharField(max_length=50, default="unité")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.nom} ({self.quantite})"
+
+
+class StockMovement(models.Model):
+    TYPE_MOVEMENT = [
+        ("ENTREE", "Entrée"),
+        ("SORTIE", "Sortie"),
+    ]
+
+    stock_item = models.ForeignKey(
+        StockItem,
+        on_delete=models.CASCADE,
+        related_name="movements"
+    )
+
+    type_mouvement = models.CharField(max_length=10, choices=TYPE_MOVEMENT)
+    quantite = models.PositiveIntegerField()
+    remarque = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.stock_item.nom} - {self.type_mouvement}"
