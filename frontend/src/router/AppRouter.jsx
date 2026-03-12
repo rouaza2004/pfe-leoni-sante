@@ -22,6 +22,10 @@ import CollaborateurMedicalDetail from "../pages/medecin-travail/CollaborateurMe
 import DossierMedicalCompletForm from "../pages/medecin-travail/DossierMedicalCompletForm";
 
 import MedecinControleurDashboard from "../pages/medecin-controleur/MedecinControleurDashboard";
+import RechercheCollaborateurMC from "../pages/medecinControleur/RechercheCollaborateurMC";
+import ControleMedicalForm from "../pages/medecinControleur/ControleMedicalForm";
+import DemandeExpertiseForm from "../pages/medecinControleur/DemandeExpertiseForm";
+import HistoriqueMC from "../pages/medecinControleur/HistoriqueMC";
 
 import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
 import PatientsPage from "../pages/infirmier/PatientsPage";
@@ -207,15 +211,50 @@ export default function AppRouter() {
             </RoleRoute>
           }
         />
+<Route
+  path="/medecin-controleur"
+  element={
+    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+      <MedecinControleurDashboard />
+    </RoleRoute>
+  }
+/>
 
-        <Route
-          path="/medecin-controleur"
-          element={
-            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-              <MedecinControleurDashboard />
-            </RoleRoute>
-          }
-        />
+<Route
+  path="/medecin-controleur/recherche"
+  element={
+    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+      <RechercheCollaborateurMC />
+    </RoleRoute>
+  }
+/>
+
+<Route
+  path="/medecin-controleur/controle-medical/:id"
+  element={
+    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+      <ControleMedicalForm />
+    </RoleRoute>
+  }
+/>
+
+<Route
+  path="/medecin-controleur/demande-expertise/:id"
+  element={
+    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+      <DemandeExpertiseForm />
+    </RoleRoute>
+  }
+/>
+
+<Route
+  path="/medecin-controleur/historique"
+  element={
+    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+      <HistoriqueMC />
+    </RoleRoute>
+  }
+/>
 
         <Route
           path="/infirmier"
