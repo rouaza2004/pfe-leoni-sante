@@ -10,3 +10,10 @@ dist/
 
 # Env
 .env
+backend/pfe_sante.sql
+pfe_sante.sql
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+node_modules/

@@ -101,7 +101,6 @@ export default function MedecinTraitantDashboard() {
         <StatCard title="Documents générés" value={kpi.docsGenerated} icon={<FileText size={20} />} />
       </div>
 
-      {/* ✅ FIXED QUICK ACTIONS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <QuickAction
           title="Ouvrir dossier médical"

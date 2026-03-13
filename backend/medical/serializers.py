@@ -152,17 +152,49 @@ class ExamenUlterieurSerializer(serializers.ModelSerializer):
 
 
 class OrdonnanceSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Ordonnance
         fields = "__all__"
         read_only_fields = ("created_by", "date", "created_at")
 
+    def get_created_by_name(self, obj):
+        user = obj.created_by
+        if not user:
+            return "Docteur"
+
+        first_name = (user.first_name or "").strip()
+        last_name = (user.last_name or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+
+        if full_name:
+            return f"Dr {full_name}"
+
+        return f"Dr {user.username}"
+
 
 class CertificatMedicalSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CertificatMedical
         fields = "__all__"
         read_only_fields = ("created_by", "date", "created_at")
+
+    def get_created_by_name(self, obj):
+        user = obj.created_by
+        if not user:
+            return "Docteur"
+
+        first_name = (user.first_name or "").strip()
+        last_name = (user.last_name or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+
+        if full_name:
+            return f"Dr {full_name}"
+
+        return f"Dr {user.username}"
 
 
 class FicheMedicaleSerializer(serializers.ModelSerializer):
@@ -214,6 +246,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
             "remarque",
             "created_at",
         ]
+
+
 class FicheAptitudeSerializer(serializers.ModelSerializer):
     collaborateur_nom = serializers.CharField(source="collaborateur.nom", read_only=True)
     collaborateur_prenom = serializers.CharField(source="collaborateur.prenom", read_only=True)

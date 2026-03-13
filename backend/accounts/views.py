@@ -10,7 +10,90 @@ from .models import Collaborateur
 from .permissions import CanViewCollaborateurList
 from .serializers import CollaborateurSerializer, MyTokenObtainPairSerializer
 from .permissions_map import ROLE_PERMISSIONS
+from medical.models import (
+    DossierMedical,
+    AccidentTravail,
+    MaladieProfessionnelle,
+    IncidentInfirmier,
+    Vaccination,
+    Ordonnance,
+    CertificatMedical,
+    FicheAptitude,
+    DemandeExamenLabo,
+    ExamenComplementaire,
+)
 
+from medical.serializers import (
+    DossierMedicalSerializer,
+    AccidentTravailSerializer,
+    MaladieProfessionnelleSerializer,
+    IncidentInfirmierSerializer,
+    VaccinationSerializer,
+    OrdonnanceSerializer,
+    CertificatMedicalSerializer,
+    FicheAptitudeSerializer,
+    DemandeExamenLaboSerializer,
+    ExamenComplementaireSerializer,
+)
+class CollaborateurProfilAPIView(APIView):
+    permission_classes = [IsAuthenticated, CanViewCollaborateurList]
+
+    def get(self, request, matricule):
+        collab = get_object_or_404(Collaborateur, matricule=matricule)
+
+        dossier = DossierMedical.objects.filter(collaborateur=collab).first()
+
+        accidents = AccidentTravail.objects.filter(
+            dossier__collaborateur=collab
+        ).order_by("-date_accident", "-id")
+
+        maladies = MaladieProfessionnelle.objects.filter(
+            dossier__collaborateur=collab
+        ).order_by("-date_decouverte", "-id")
+
+        incidents = IncidentInfirmier.objects.filter(
+            dossier__collaborateur=collab
+        ).order_by("-date_incident", "-heure_incident", "-id")
+
+        vaccinations = Vaccination.objects.filter(
+            dossier__collaborateur=collab
+        ).order_by("-id")
+
+        ordonnances = Ordonnance.objects.filter(
+            collaborateur=collab
+        ).order_by("-date", "-id")
+
+        certificats = CertificatMedical.objects.filter(
+            collaborateur=collab
+        ).order_by("-date", "-id")
+
+        fiches_aptitude = FicheAptitude.objects.filter(
+            collaborateur=collab
+        ).order_by("-date", "-id")
+
+        demandes_labo = DemandeExamenLabo.objects.filter(
+            collaborateur=collab
+        ).order_by("-date", "-id")
+
+        examens_complementaires = ExamenComplementaire.objects.filter(
+            collaborateur=collab
+        ).order_by("-date", "-id")
+
+        data = {
+            "collaborateur": CollaborateurSerializer(collab).data,
+            "dossier_medical": DossierMedicalSerializer(dossier).data if dossier else None,
+            "accidents": AccidentTravailSerializer(accidents, many=True).data,
+            "maladies_professionnelles": MaladieProfessionnelleSerializer(maladies, many=True).data,
+            "incidents_infirmiers": IncidentInfirmierSerializer(incidents, many=True).data,
+            "vaccinations": VaccinationSerializer(vaccinations, many=True).data,
+            "ordonnances": OrdonnanceSerializer(ordonnances, many=True).data,
+            "certificats": CertificatMedicalSerializer(certificats, many=True).data,
+            "fiches_aptitude": FicheAptitudeSerializer(fiches_aptitude, many=True).data,
+            "demandes_labo": DemandeExamenLaboSerializer(demandes_labo, many=True).data,
+            "examens_complementaires": ExamenComplementaireSerializer(examens_complementaires, many=True).data,
+        }
+
+        return Response(data)
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer

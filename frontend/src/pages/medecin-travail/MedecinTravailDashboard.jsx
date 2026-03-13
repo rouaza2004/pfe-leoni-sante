@@ -143,7 +143,7 @@ export default function MedecinTravailDashboard() {
                   Dossier médical mis à jour
                 </p>
                 <p className="text-sm text-slate-500">
-                  Collaborateur EMP001 — aujourd’hui
+                  Collaborateur 1056538197 — aujourd’hui
                 </p>
               </div>
             </div>
@@ -157,7 +157,7 @@ export default function MedecinTravailDashboard() {
                   Examen initial enregistré
                 </p>
                 <p className="text-sm text-slate-500">
-                  Collaborateur EMP014 — aujourd’hui
+                  Collaborateur 1694416702 — aujourd’hui
                 </p>
               </div>
             </div>
@@ -171,7 +171,7 @@ export default function MedecinTravailDashboard() {
                   Examen complémentaire demandé
                 </p>
                 <p className="text-sm text-slate-500">
-                  Collaborateur EMP020 — hier
+                  Collaborateur 1683114410 — hier
                 </p>
               </div>
             </div>

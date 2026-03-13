@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
 import LoginPage from "../pages/shared/LoginPage";
 import Dashboard from "../pages/shared/Dashboard";
-
+import CollaborateurProfilePage from "../pages/shared/CollaborateurProfilePage";
 import FicheAptitudeForm from "../pages/medecin-travail/FicheAptitudeForm";
 import DemandeAnalyseForm from "../pages/medecin-travail/DemandeAnalyseForm";
 import ExamenComplementaireForm from "../pages/medecin-travail/ExamenComplementaireForm";
@@ -80,6 +80,25 @@ export default function AppRouter() {
         <Route path="/dashboard" element={<Dashboard />} />
 
         <Route
+          path="/collaborateur-profile"
+          element={
+            <RoleRoute
+              allowedRoles={[
+                "ADMIN",
+                "INFIRMIER",
+                "MEDECIN_TRAITANT",
+                "MEDECIN_TRAVAIL",
+                "MEDECIN_CONTROLEUR",
+                "RESPONSABLE_RH",
+                "AGENT_HSEE",
+              ]}
+            >
+              <CollaborateurProfilePage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/admin"
           element={
             <RoleRoute allowedRoles={["ADMIN"]}>
@@ -91,7 +110,7 @@ export default function AppRouter() {
         <Route
           path="/medecin-traitant"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
               <MedecinTraitantDashboard />
             </RoleRoute>
           }
@@ -100,7 +119,7 @@ export default function AppRouter() {
         <Route
           path="/medecin-traitant/collaborateurs"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
               <Collaborateurs />
             </RoleRoute>
           }
@@ -109,7 +128,7 @@ export default function AppRouter() {
         <Route
           path="/medecin-traitant/collaborateurs/:id"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
               <CollaborateurDetail />
             </RoleRoute>
           }
@@ -118,7 +137,7 @@ export default function AppRouter() {
         <Route
           path="/medecin-traitant/collaborateurs/:id/fiche"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
               <FicheMedicale />
             </RoleRoute>
           }
@@ -127,23 +146,16 @@ export default function AppRouter() {
         <Route
           path="/medecin-traitant/collaborateurs/:id/documents"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
               <DocumentsMedicauxPage />
             </RoleRoute>
           }
         />
-<Route
-  path="/medecin-travail/fiches-aptitude"
-  element={
-    <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
-      <FichesAptitudePage />
-    </RoleRoute>
-  }
-/>
+
         <Route
           path="/medecin-traitant/rdv"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAITANT"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
               <RDV />
             </RoleRoute>
           }
@@ -152,8 +164,17 @@ export default function AppRouter() {
         <Route
           path="/medecin-travail"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
               <MedecinTravailDashboard />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-travail/fiches-aptitude"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
+              <FichesAptitudePage />
             </RoleRoute>
           }
         />
@@ -161,7 +182,7 @@ export default function AppRouter() {
         <Route
           path="/medecin-travail/collaborateurs"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
               <CollaborateursMedTravail />
             </RoleRoute>
           }
@@ -170,25 +191,25 @@ export default function AppRouter() {
         <Route
           path="/medecin-travail/collaborateurs/:id"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
               <CollaborateurMedicalDetail />
             </RoleRoute>
           }
         />
 
-    <Route
-  path="/medecin-travail/collaborateurs/:id/dossier"
-  element={
-    <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
-      <DossierMedicalCompletForm />
-    </RoleRoute>
-  }
-/>
+        <Route
+          path="/medecin-travail/collaborateurs/:id/dossier"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
+              <DossierMedicalCompletForm />
+            </RoleRoute>
+          }
+        />
 
         <Route
           path="/medecin-travail/collaborateurs/:id/fiche-aptitude"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
               <FicheAptitudeForm />
             </RoleRoute>
           }
@@ -197,7 +218,7 @@ export default function AppRouter() {
         <Route
           path="/medecin-travail/collaborateurs/:id/demande-analyse"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
               <DemandeAnalyseForm />
             </RoleRoute>
           }
@@ -206,60 +227,61 @@ export default function AppRouter() {
         <Route
           path="/medecin-travail/collaborateurs/:id/examen-complementaire"
           element={
-            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL"]}>
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
               <ExamenComplementaireForm />
             </RoleRoute>
           }
         />
-<Route
-  path="/medecin-controleur"
-  element={
-    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-      <MedecinControleurDashboard />
-    </RoleRoute>
-  }
-/>
 
-<Route
-  path="/medecin-controleur/recherche"
-  element={
-    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-      <RechercheCollaborateurMC />
-    </RoleRoute>
-  }
-/>
+        <Route
+          path="/medecin-controleur"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR", "AGENT_HSEE"]}>
+              <MedecinControleurDashboard />
+            </RoleRoute>
+          }
+        />
 
-<Route
-  path="/medecin-controleur/controle-medical/:id"
-  element={
-    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-      <ControleMedicalForm />
-    </RoleRoute>
-  }
-/>
+        <Route
+          path="/medecin-controleur/recherche"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <RechercheCollaborateurMC />
+            </RoleRoute>
+          }
+        />
 
-<Route
-  path="/medecin-controleur/demande-expertise/:id"
-  element={
-    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-      <DemandeExpertiseForm />
-    </RoleRoute>
-  }
-/>
+        <Route
+          path="/medecin-controleur/controle-medical/:id"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <ControleMedicalForm />
+            </RoleRoute>
+          }
+        />
 
-<Route
-  path="/medecin-controleur/historique"
-  element={
-    <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-      <HistoriqueMC />
-    </RoleRoute>
-  }
-/>
+        <Route
+          path="/medecin-controleur/demande-expertise/:id"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <DemandeExpertiseForm />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-controleur/historique"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <HistoriqueMC />
+            </RoleRoute>
+          }
+        />
 
         <Route
           path="/infirmier"
           element={
-            <RoleRoute allowedRoles={["INFIRMIER"]}>
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <InfirmierDashboard />
             </RoleRoute>
           }
@@ -268,7 +290,7 @@ export default function AppRouter() {
         <Route
           path="/infirmier/patients"
           element={
-            <RoleRoute allowedRoles={["INFIRMIER"]}>
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <PatientsPage />
             </RoleRoute>
           }
@@ -277,7 +299,7 @@ export default function AppRouter() {
         <Route
           path="/infirmier/patients/:id"
           element={
-            <RoleRoute allowedRoles={["INFIRMIER"]}>
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <PatientDetailPage />
             </RoleRoute>
           }
@@ -286,7 +308,7 @@ export default function AppRouter() {
         <Route
           path="/infirmier/incidents"
           element={
-            <RoleRoute allowedRoles={["INFIRMIER"]}>
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <IncidentsPage />
             </RoleRoute>
           }
@@ -295,7 +317,7 @@ export default function AppRouter() {
         <Route
           path="/infirmier/accidents"
           element={
-            <RoleRoute allowedRoles={["INFIRMIER"]}>
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <AccidentsPage />
             </RoleRoute>
           }
@@ -304,7 +326,7 @@ export default function AppRouter() {
         <Route
           path="/infirmier/stock"
           element={
-            <RoleRoute allowedRoles={["INFIRMIER"]}>
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <StockPage />
             </RoleRoute>
           }
@@ -313,7 +335,7 @@ export default function AppRouter() {
         <Route
           path="/infirmier/rdv"
           element={
-            <RoleRoute allowedRoles={["INFIRMIER"]}>
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <RDVPage />
             </RoleRoute>
           }
@@ -322,7 +344,7 @@ export default function AppRouter() {
         <Route
           path="/rh"
           element={
-            <RoleRoute allowedRoles={["RESPONSABLE_RH"]}>
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
               <RHDashboard />
             </RoleRoute>
           }

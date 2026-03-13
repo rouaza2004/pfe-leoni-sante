@@ -15,6 +15,7 @@ import {
   Activity,
   FlaskConical,
   ShieldCheck,
+  UserRoundSearch,
 } from "lucide-react";
 
 import { getUserRole, logout as doLogout } from "../auth/auth.js";
@@ -80,6 +81,11 @@ export default function AppLayout() {
           icon: <Users size={18} />,
         },
         {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
+        },
+        {
           to: "/medecin-traitant/rdv",
           label: "Rendez-vous",
           icon: <Calendar size={18} />,
@@ -94,6 +100,11 @@ export default function AppLayout() {
           to: "/medecin-travail/collaborateurs",
           label: "Collaborateurs",
           icon: <Users size={18} />,
+        },
+        {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
         },
         {
           to: "/medecin-travail/collaborateurs",
@@ -115,11 +126,22 @@ export default function AppLayout() {
           label: "Analyses labo",
           icon: <FlaskConical size={18} />,
         },
-       {
-  to: "/medecin-travail/fiches-aptitude",
-  label: "Fiches aptitude",
-  icon: <ShieldCheck size={18} />,
-},
+        {
+          to: "/medecin-travail/fiches-aptitude",
+          label: "Fiches aptitude",
+          icon: <ShieldCheck size={18} />,
+        },
+      ];
+    }
+
+    if (role === "MEDECIN_CONTROLEUR") {
+      return [
+        ...common,
+        {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
+        },
       ];
     }
 
@@ -130,6 +152,11 @@ export default function AppLayout() {
           to: "/infirmier/patients",
           label: "Patients",
           icon: <Users size={18} />,
+        },
+        {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
         },
         {
           to: "/infirmier/incidents",
@@ -154,6 +181,17 @@ export default function AppLayout() {
       ];
     }
 
+    if (role === "RESPONSABLE_RH") {
+      return [
+        ...common,
+        {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
+        },
+      ];
+    }
+
     if (role === "AGENT_HSEE") {
       return [
         ...common,
@@ -171,6 +209,52 @@ export default function AppLayout() {
           to: "/hsee/plan-action",
           label: "Plan d'action",
           icon: <ClipboardList size={18} />,
+        },
+        {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
+        },
+        {
+          to: "/infirmier/incidents",
+          label: "Incidents",
+          icon: <Bell size={18} />,
+        },
+        {
+          to: "/infirmier/accidents",
+          label: "Accidents",
+          icon: <ShieldAlert size={18} />,
+        },
+        {
+          to: "/infirmier/stock",
+          label: "Stock",
+          icon: <Boxes size={18} />,
+        },
+        {
+          to: "/infirmier/rdv",
+          label: "Rendez-vous",
+          icon: <Calendar size={18} />,
+        },
+        {
+          to: "/medecin-travail/fiches-aptitude",
+          label: "Fiches aptitude",
+          icon: <ShieldCheck size={18} />,
+        },
+        {
+          to: "/medecin-travail/collaborateurs",
+          label: "Dossiers médicaux",
+          icon: <FileText size={18} />,
+        },
+      ];
+    }
+
+    if (role === "ADMIN") {
+      return [
+        ...common,
+        {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
         },
       ];
     }
@@ -199,7 +283,7 @@ export default function AppLayout() {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
           {navItems.map((it, index) => (
             <NavLink
               key={`${it.to}-${index}`}

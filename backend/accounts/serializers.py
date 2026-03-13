@@ -35,7 +35,6 @@ class SiteSerializer(serializers.ModelSerializer):
         model = Site
         fields = ["id", "nom", "localite"]
 
-
 class CollaborateurSerializer(serializers.ModelSerializer):
     site = SiteSerializer(read_only=True)
 
