@@ -22,10 +22,10 @@ import CollaborateurMedicalDetail from "../pages/medecin-travail/CollaborateurMe
 import DossierMedicalCompletForm from "../pages/medecin-travail/DossierMedicalCompletForm";
 
 import MedecinControleurDashboard from "../pages/medecin-controleur/MedecinControleurDashboard";
-import RechercheCollaborateurMC from "../pages/medecinControleur/RechercheCollaborateurMC";
-import ControleMedicalForm from "../pages/medecinControleur/ControleMedicalForm";
-import DemandeExpertiseForm from "../pages/medecinControleur/DemandeExpertiseForm";
-import HistoriqueMC from "../pages/medecinControleur/HistoriqueMC";
+import RechercheCollaborateurMC from "../pages/medecin-controleur/RechercheCollaborateurMC";
+import ControleMedicalForm from "../pages/medecin-controleur/ControleMedicalForm";
+import DemandeExpertiseForm from "../pages/medecin-controleur/DemandeExpertiseForm";
+import HistoriqueMC from "../pages/medecin-controleur/HistoriqueMC";
 
 import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
 import PatientsPage from "../pages/infirmier/PatientsPage";
