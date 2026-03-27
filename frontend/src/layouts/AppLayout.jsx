@@ -169,6 +169,11 @@ export default function AppLayout() {
           icon: <ShieldAlert size={18} />,
         },
         {
+          to: "/infirmier/maladies-professionnelles",
+          label: "Maladies pro.",
+          icon: <FileText size={18} />,
+        },
+        {
           to: "/infirmier/stock",
           label: "Stock",
           icon: <Boxes size={18} />,
@@ -224,6 +229,11 @@ export default function AppLayout() {
           to: "/infirmier/accidents",
           label: "Accidents",
           icon: <ShieldAlert size={18} />,
+        },
+        {
+          to: "/infirmier/maladies-professionnelles",
+          label: "Maladies pro.",
+          icon: <FileText size={18} />,
         },
         {
           to: "/infirmier/stock",

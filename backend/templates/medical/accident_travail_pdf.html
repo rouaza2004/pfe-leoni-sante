@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @page { size: A4; margin: 0; }
+      html, body { margin: 0; padding: 0; }
+      body { font-family: Helvetica, Arial, sans-serif; font-size: 9px; color: #111; }
+      .page {
+        position: relative;
+        width: 21cm;
+        height: 29.7cm;
+      }
+      .bg {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 21cm;
+        height: 29.7cm;
+      }
+      .field {
+        position: absolute;
+        white-space: nowrap;
+      }
+      .wrap {
+        white-space: normal;
+      }
+      .small { font-size: 8px; }
+
+      /* Positions (tweak here for pixel-perfect alignment) */
+      .emp-cnss { left: 3.9cm; top: 5.35cm; }
+      .emp-nom { left: 3.2cm; top: 6.05cm; width: 15cm; }
+      .emp-adr { left: 3.2cm; top: 6.75cm; width: 15cm; }
+      .emp-cp { left: 6.7cm; top: 7.45cm; }
+      .emp-tel { left: 10.3cm; top: 7.45cm; }
+      .emp-act { left: 3.2cm; top: 8.1cm; width: 15cm; }
+
+      .vic-cnss { left: 3.9cm; top: 9.55cm; }
+      .vic-nom { left: 3.2cm; top: 10.25cm; }
+      .vic-prenom { left: 9.2cm; top: 10.25cm; }
+      .vic-nom-naiss { left: 3.2cm; top: 10.95cm; }
+      .vic-pere { left: 9.2cm; top: 10.95cm; }
+      .vic-nat { left: 3.2cm; top: 11.6cm; }
+      .vic-sexe { left: 10.8cm; top: 11.6cm; }
+      .vic-ddn { left: 3.2cm; top: 12.25cm; }
+      .vic-ldn { left: 9.2cm; top: 12.25cm; }
+      .vic-cin { left: 3.2cm; top: 12.95cm; }
+      .vic-adr { left: 9.2cm; top: 12.95cm; width: 8.5cm; }
+      .vic-cp { left: 3.2cm; top: 13.6cm; }
+      .vic-emb { left: 9.2cm; top: 13.6cm; }
+      .vic-spec { left: 3.2cm; top: 14.25cm; }
+      .vic-sit { left: 9.2cm; top: 14.25cm; }
+      .vic-prof { left: 3.2cm; top: 14.95cm; }
+      .vic-poste { left: 9.2cm; top: 14.95cm; }
+      .vic-lieu { left: 3.2cm; top: 15.6cm; }
+      .vic-autres { left: 9.2cm; top: 15.6cm; }
+
+      .acc-date { left: 3.2cm; top: 17.6cm; }
+      .acc-heure { left: 9.2cm; top: 17.6cm; }
+      .acc-horaire { left: 3.2cm; top: 18.25cm; }
+      .acc-lieu { left: 9.2cm; top: 18.25cm; }
+      .acc-activite { left: 3.2cm; top: 18.9cm; }
+      .acc-nb { left: 9.2cm; top: 18.9cm; }
+
+      .acc-desc { left: 3.2cm; top: 19.55cm; width: 17cm; }
+      .acc-causes { left: 3.2cm; top: 20.55cm; width: 17cm; }
+      .acc-comment { left: 3.2cm; top: 21.55cm; width: 17cm; }
+
+      .acc-siege { left: 3.2cm; top: 22.55cm; }
+      .acc-nature { left: 9.2cm; top: 22.55cm; }
+      .acc-transfert { left: 3.2cm; top: 23.2cm; }
+      .acc-resultat { left: 9.2cm; top: 23.2cm; }
+      .acc-date-arret { left: 3.2cm; top: 23.85cm; }
+      .acc-heure-arret { left: 9.2cm; top: 23.85cm; }
+
+      .sal-maint { left: 3.2cm; top: 24.5cm; }
+      .sal-duree { left: 7.2cm; top: 24.5cm; }
+      .sal-montant { left: 11.2cm; top: 24.5cm; }
+      .sal-unite { left: 15.2cm; top: 24.5cm; }
+
+      .temoin1 { left: 3.2cm; top: 25.2cm; width: 17cm; }
+      .temoin2 { left: 3.2cm; top: 25.7cm; width: 17cm; }
+      .temoins { left: 3.2cm; top: 26.2cm; width: 17cm; }
+
+      .police { left: 3.2cm; top: 26.9cm; width: 17cm; }
+      .tiers { left: 3.2cm; top: 27.35cm; width: 17cm; }
+
+      .sign-nom { left: 3.2cm; top: 28.1cm; }
+      .sign-qual { left: 9.2cm; top: 28.1cm; }
+      .sign-lieu { left: 3.2cm; top: 28.55cm; }
+      .sign-date { left: 9.2cm; top: 28.55cm; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <img class="bg" src="/static/forms/accident_travail_form.png" alt="form" />
+
+      <div class="field emp-cnss">{{ accident.employeur_cnss }}</div>
+      <div class="field emp-nom">{{ employeur_nom }}</div>
+      <div class="field emp-adr">{{ employeur_adresse }}</div>
+      <div class="field emp-cp">{{ accident.employeur_code_postal }}</div>
+      <div class="field emp-tel">{{ accident.employeur_telephone }}</div>
+      <div class="field emp-act">{{ accident.employeur_activite }}</div>
+
+      <div class="field vic-cnss">{{ accident.victime_cnss }}</div>
+      <div class="field vic-nom">{{ victime_nom }}</div>
+      <div class="field vic-prenom">{{ victime_prenom }}</div>
+      <div class="field vic-nom-naiss">{{ accident.victime_nom_naissance }}</div>
+      <div class="field vic-pere">{{ accident.victime_prenom_pere }}</div>
+      <div class="field vic-nat">{{ accident.victime_nationalite }}</div>
+      <div class="field vic-sexe">{{ accident.victime_sexe }}</div>
+      <div class="field vic-ddn">{{ victime_date_naissance }}</div>
+      <div class="field vic-ldn">{{ accident.victime_lieu_naissance }}</div>
+      <div class="field vic-cin">{{ victime_cin }}</div>
+      <div class="field vic-adr">{{ victime_adresse }}</div>
+      <div class="field vic-cp">{{ accident.victime_code_postal }}</div>
+      <div class="field vic-emb">{{ accident.victime_date_embauche }}</div>
+      <div class="field vic-spec">{{ accident.victime_specialite }}</div>
+      <div class="field vic-sit">{{ accident.victime_situation }}</div>
+      <div class="field vic-prof">{{ accident.victime_profession }}</div>
+      <div class="field vic-poste">{{ accident.victime_poste_accident }}</div>
+      <div class="field vic-lieu">{{ accident.victime_lieu_travail }}</div>
+      <div class="field vic-autres">{{ accident.autres_victimes }}</div>
+
+      <div class="field acc-date">{{ date_accident }}</div>
+      <div class="field acc-heure">{{ heure_accident }}</div>
+      <div class="field acc-horaire">{{ horaire_debut }} - {{ horaire_fin }}</div>
+      <div class="field acc-lieu">{{ accident.lieu_accident }}</div>
+      <div class="field acc-activite">{{ accident.activite_lieu }} {{ accident.activite_lieu_autre }}</div>
+      <div class="field acc-nb">{{ accident.nombre_travailleurs }}</div>
+
+      <div class="field wrap acc-desc">{{ accident.description_circonstances|default:accident.circonstances }}</div>
+      <div class="field wrap acc-causes">{{ accident.causes_materielles }}</div>
+      <div class="field wrap acc-comment">{{ accident.comment_accident }}</div>
+
+      <div class="field acc-siege">{{ accident.siege_lesion }}</div>
+      <div class="field acc-nature">{{ accident.nature_lesion }}</div>
+      <div class="field acc-transfert">{{ accident.transport_hopital }}</div>
+      <div class="field acc-resultat">{{ accident.resultat }}</div>
+      <div class="field acc-date-arret">{{ date_arret }}</div>
+      <div class="field acc-heure-arret">{{ heure_arret }}</div>
+
+      <div class="field sal-maint">{{ accident.salaire_maintenu }}</div>
+      <div class="field sal-duree">{{ accident.salaire_duree }}</div>
+      <div class="field sal-montant">{{ accident.salaire_montant }}</div>
+      <div class="field sal-unite">{{ accident.salaire_unite }}</div>
+
+      <div class="field temoin1">{{ accident.temoin1_nom }} {{ accident.temoin1_telephone }} {{ accident.temoin1_matricule }}</div>
+      <div class="field temoin2">{{ accident.temoin2_nom }} {{ accident.temoin2_telephone }} {{ accident.temoin2_matricule }}</div>
+      <div class="field wrap temoins">{{ accident.temoins }}</div>
+
+      <div class="field wrap police">
+        {{ accident.rapport_police }} {{ accident.rapport_police_numero }} {{ rapport_police_date }} {{ accident.rapport_police_poste }}
+      </div>
+      <div class="field wrap tiers">
+        {{ accident.tiers_responsable }} {{ accident.tiers_nom }} {{ accident.tiers_assureur }}
+      </div>
+
+      <div class="field sign-nom">{{ accident.signataire_nom }}</div>
+      <div class="field sign-qual">{{ accident.signataire_qualite }}</div>
+      <div class="field sign-lieu">{{ accident.signature_lieu }}</div>
+      <div class="field sign-date">{{ signature_date }}</div>
+    </div>
+  </body>
+</html>

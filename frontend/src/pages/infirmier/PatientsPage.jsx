@@ -174,20 +174,7 @@ export default function PatientsPage() {
     if (!q) return collaborateurs;
 
     return collaborateurs.filter((c) =>
-      [
-        c.nom,
-        c.prenom,
-        c.matricule,
-        c.email,
-        c.departement,
-        c.poste,
-        c.segment_nom,
-        c.segment?.nom,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
+      [c.matricule].filter(Boolean).join(" ").toLowerCase().includes(q)
     );
   }, [collaborateurs, search]);
 
@@ -248,7 +235,7 @@ export default function PatientsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Rechercher nom, prénom ou matricule..."
+              placeholder="Rechercher par matricule..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-slate-400"

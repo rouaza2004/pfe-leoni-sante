@@ -69,19 +69,7 @@ export default function RDVPage() {
     if (!q) return rdvs;
 
     return rdvs.filter((item) =>
-      [
-        item.collaborateur_nom,
-        item.collaborateur_prenom,
-        item.medecin_nom,
-        item.type_medecin,
-        item.date,
-        item.heure,
-        item.motif,
-        item.statut,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
+      [item.matricule].filter(Boolean).join(" ").toLowerCase().includes(q)
     );
   }, [rdvs, search]);
 
@@ -348,7 +336,7 @@ export default function RDVPage() {
             />
             <input
               type="text"
-              placeholder="Rechercher collaborateur, médecin..."
+              placeholder="Rechercher par matricule..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-slate-900"
@@ -364,6 +352,7 @@ export default function RDVPage() {
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
                   <th className="px-3 py-3 font-medium">Collaborateur</th>
+                  <th className="px-3 py-3 font-medium">Matricule</th>
                   <th className="px-3 py-3 font-medium">Médecin</th>
                   <th className="px-3 py-3 font-medium">Type médecin</th>
                   <th className="px-3 py-3 font-medium">Date</th>
@@ -379,6 +368,9 @@ export default function RDVPage() {
                     <tr key={item.id} className="border-b border-slate-100 last:border-0">
                       <td className="px-3 py-3 font-medium text-slate-900">
                         {item.collaborateur_nom} {item.collaborateur_prenom}
+                      </td>
+                      <td className="px-3 py-3 text-slate-700">
+                        {item.matricule || "-"}
                       </td>
                       <td className="px-3 py-3 text-slate-700">
                         {item.medecin_nom || "-"}
@@ -402,7 +394,7 @@ export default function RDVPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="8" className="px-3 py-10 text-center text-slate-500">
                       Aucun rendez-vous trouvé.
                     </td>
                   </tr>

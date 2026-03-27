@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     DossierByCollaborateurView,
+    DossierByMatriculeView,
     DossierAutofillView,
     DossierAutofillOneView,
     ExamenInitialCreateUpdateView,
@@ -36,14 +37,19 @@ from .views import (
     FicheAptitudePdfView,
     CertificatMedicalPdfView,
     OrdonnancePdfView,
+    AccidentTravailPdfView,
+    MaladieProfessionnellePdfView,
 )
 
 urlpatterns = [
     path("fiche-aptitude/<int:pk>/pdf/", FicheAptitudePdfView.as_view()),
     path("certificats/<int:pk>/pdf/", CertificatMedicalPdfView.as_view()),
     path("ordonnances/<int:pk>/pdf/", OrdonnancePdfView.as_view()),
+    path("accidents-travail/<int:pk>/pdf/", AccidentTravailPdfView.as_view()),
+    path("maladies-professionnelles/<int:pk>/pdf/", MaladieProfessionnellePdfView.as_view()),
 
     path("dossier/<int:collaborateur_id>/", DossierByCollaborateurView.as_view()),
+    path("dossier/matricule/<str:matricule>/", DossierByMatriculeView.as_view()),
     path("dossiers/autofill/", DossierAutofillView.as_view()),
     path("dossier/<int:collaborateur_id>/autofill/", DossierAutofillOneView.as_view()),
     path("examens-labo/<int:collaborateur_id>/", DemandeExamenLaboListCreateByCollaborateurView.as_view()),

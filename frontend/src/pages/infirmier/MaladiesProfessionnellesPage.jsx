@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Plus,
-  Search,
-  Eye,
-  Printer,
-  Loader2,
-  PencilLine,
-} from "lucide-react";
+import { Plus, Search, Eye, Printer, PencilLine, Loader2 } from "lucide-react";
 import { api } from "@/api/api";
 import { getCollaborateurProfilByMatricule } from "../shared/collaborateurProfile.api";
 
@@ -34,123 +27,73 @@ const emptyForm = {
   victime_specialite: "",
   victime_situation: "",
   victime_profession: "",
-  victime_poste_accident: "",
   victime_lieu_travail: "",
-  autres_victimes: false,
-  date_accident: "",
-  heure_accident: "",
-  horaire_travail_debut: "",
-  horaire_travail_fin: "",
-  lieu_accident: "",
-  activite_lieu: "",
-  activite_lieu_autre: "",
-  nombre_travailleurs: "",
-  description_circonstances: "",
-  causes_materielles: "",
-  comment_accident: "",
-  cause: "",
-  nature_lesion: "",
-  siege_lesion: "",
-  transport_hopital: "",
-  resultat: "",
+  nom_maladie: "",
+  agent_causal: "",
+  numero_tableau: "",
+  date_decouverte: "",
+  medecin_constat: "",
+  date_constat: "",
+  nature_travail: "",
+  date_arret_exposition: "",
+  arret_travail: false,
   date_arret: "",
-  heure_arret: "",
   salaire_maintenu: false,
   salaire_duree: "",
   salaire_montant: "",
   salaire_unite: "",
-  temoin1_nom: "",
-  temoin1_telephone: "",
-  temoin1_matricule: "",
-  temoin2_nom: "",
-  temoin2_telephone: "",
-  temoin2_matricule: "",
-  temoins: "",
-  rapport_police: false,
-  rapport_police_numero: "",
-  rapport_police_date: "",
-  rapport_police_poste: "",
-  tiers_responsable: false,
-  tiers_nom: "",
-  tiers_assureur: "",
   signataire_nom: "",
   signataire_qualite: "",
   signature_lieu: "",
   signature_date: "",
-  duree_arret: "",
-  ipp: "",
-  segment: "",
-  gravite: "",
-  statut_enquete: "",
 };
+
+const emptyTravail = { entreprise: "", nature_travail: "", materiaux: "", date_debut: "", date_fin: "" };
 
 const selectOptions = {
   sexe: [
-    { value: "", label: "ï¿½" },
+    { value: "", label: "" },
     { value: "HOMME", label: "Homme" },
     { value: "FEMME", label: "Femme" },
   ],
-  activite: [
-    { value: "", label: "ï¿½" },
-    { value: "CHANTIER", label: "Chantier" },
-    { value: "ATELIER", label: "Atelier" },
-    { value: "BUREAU", label: "Bureau" },
-    { value: "AUTRE", label: "Autre" },
-  ],
-  resultat: [
-    { value: "", label: "ï¿½" },
-    { value: "SANS_ARRET", label: "Sans arrï¿½t" },
-    { value: "ARRET", label: "Arrï¿½t de travail" },
-    { value: "DECES", label: "Dï¿½cï¿½s" },
-  ],
-  gravite: [
-    { value: "", label: "ï¿½" },
-    { value: "FAIBLE", label: "Faible" },
-    { value: "MOYENNE", label: "Moyenne" },
-    { value: "GRAVE", label: "Grave" },
-  ],
-  statut: [
-    { value: "", label: "ï¿½" },
-    { value: "EN_ATTENTE", label: "En attente" },
-    { value: "EN_COURS", label: "En cours" },
-    { value: "TERMINEE", label: "Terminï¿½e" },
-  ],
 };
 
-export default function AccidentsPage() {
-  const [accidents, setAccidents] = useState([]);
+export default function MaladiesProfessionnellesPage() {
+  const [maladies, setMaladies] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [travaux, setTravaux] = useState([emptyTravail]);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [selectedAccident, setSelectedAccident] = useState(null);
+  const [selectedMaladie, setSelectedMaladie] = useState(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filteredAccidents = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return accidents;
+    if (!q) return maladies;
 
-    return accidents.filter((item) =>
+    return maladies.filter((item) =>
       [item.matricule].filter(Boolean).join(" ").toLowerCase().includes(q)
     );
-  }, [accidents, search]);
+  }, [maladies, search]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setErr("");
-      const res = await api.get("/medical/accidents-travail/");
-      setAccidents(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get("/medical/maladies-professionnelles/");
+      const data = Array.isArray(res.data) ? res.data : [];
+      setMaladies(data);
     } catch (e) {
       console.error(e);
-      setErr("Erreur lors du chargement des accidents.");
+      setErr("Erreur lors du chargement des maladies professionnelles.");
     } finally {
       setLoading(false);
     }
@@ -162,7 +105,6 @@ export default function AccidentsPage() {
       setErr("");
       const profile = await getCollaborateurProfilByMatricule(form.matricule.trim());
       setSelectedProfile(profile);
-
       const collab = profile?.collaborateur || {};
       const dossier = profile?.dossier_medical || {};
 
@@ -177,9 +119,6 @@ export default function AccidentsPage() {
         employeur_nom: prev.employeur_nom || dossier.entreprise || collab.site?.nom || "",
         employeur_adresse:
           prev.employeur_adresse || dossier.localite || collab.site?.localite || "",
-        victime_poste_accident:
-          prev.victime_poste_accident || collab.poste || collab.poste_nom || "",
-        segment: prev.segment || collab.segment_nom || collab.segment?.nom || "",
       }));
     } catch (e) {
       console.error(e);
@@ -193,8 +132,19 @@ export default function AccidentsPage() {
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
+  const handleTravailChange = (index, field, value) => {
+    setTravaux((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    );
+  };
+
+  const addTravail = () => setTravaux((prev) => [...prev, emptyTravail]);
+  const removeTravail = (index) =>
+    setTravaux((prev) => prev.filter((_, i) => i !== index));
+
   const resetForm = () => {
     setForm(emptyForm);
+    setTravaux([emptyTravail]);
     setSelectedProfile(null);
     setEditingId(null);
     setShowForm(false);
@@ -202,6 +152,10 @@ export default function AccidentsPage() {
 
   const buildPayload = (dossierId) => ({
     dossier: dossierId,
+    nom_maladie: form.nom_maladie,
+    agent_causal: form.agent_causal,
+    numero_tableau: form.numero_tableau,
+    date_decouverte: form.date_decouverte,
     employeur_cnss: form.employeur_cnss,
     employeur_nom: form.employeur_nom,
     employeur_adresse: form.employeur_adresse,
@@ -224,57 +178,22 @@ export default function AccidentsPage() {
     victime_specialite: form.victime_specialite,
     victime_situation: form.victime_situation,
     victime_profession: form.victime_profession,
-    victime_poste_accident: form.victime_poste_accident,
     victime_lieu_travail: form.victime_lieu_travail,
-    autres_victimes: form.autres_victimes,
-    date_accident: form.date_accident,
-    heure_accident: form.heure_accident || null,
-    lieu_accident: form.lieu_accident,
-    circonstances: form.description_circonstances,
-    horaire_travail_debut: form.horaire_travail_debut || null,
-    horaire_travail_fin: form.horaire_travail_fin || null,
-    activite_lieu: form.activite_lieu || null,
-    activite_lieu_autre: form.activite_lieu_autre,
-    nombre_travailleurs: form.nombre_travailleurs
-      ? Number(form.nombre_travailleurs)
-      : null,
-    description_circonstances: form.description_circonstances,
-    causes_materielles: form.causes_materielles,
-    comment_accident: form.comment_accident,
-    cause: form.cause,
-    nature_lesion: form.nature_lesion,
-    siege_lesion: form.siege_lesion,
-    transport_hopital: form.transport_hopital,
-    resultat: form.resultat || null,
+    medecin_constat: form.medecin_constat,
+    date_constat: form.date_constat || null,
+    nature_travail: form.nature_travail,
+    date_arret_exposition: form.date_arret_exposition || null,
+    arret_travail: form.arret_travail,
     date_arret: form.date_arret || null,
-    heure_arret: form.heure_arret || null,
     salaire_maintenu: form.salaire_maintenu,
     salaire_duree: form.salaire_duree,
     salaire_montant: form.salaire_montant,
     salaire_unite: form.salaire_unite,
-    temoin1_nom: form.temoin1_nom,
-    temoin1_telephone: form.temoin1_telephone,
-    temoin1_matricule: form.temoin1_matricule,
-    temoin2_nom: form.temoin2_nom,
-    temoin2_telephone: form.temoin2_telephone,
-    temoin2_matricule: form.temoin2_matricule,
-    temoins: form.temoins,
-    rapport_police: form.rapport_police,
-    rapport_police_numero: form.rapport_police_numero,
-    rapport_police_date: form.rapport_police_date || null,
-    rapport_police_poste: form.rapport_police_poste,
-    tiers_responsable: form.tiers_responsable,
-    tiers_nom: form.tiers_nom,
-    tiers_assureur: form.tiers_assureur,
+    travaux_anterieurs: travaux,
     signataire_nom: form.signataire_nom,
     signataire_qualite: form.signataire_qualite,
     signature_lieu: form.signature_lieu,
     signature_date: form.signature_date || null,
-    duree_arret: form.duree_arret ? Number(form.duree_arret) : null,
-    ipp: form.ipp,
-    segment: form.segment,
-    gravite: form.gravite || null,
-    statut_enquete: form.statut_enquete || null,
   });
 
   const handleSubmit = async (e) => {
@@ -292,23 +211,23 @@ export default function AccidentsPage() {
       );
       const dossierId = dossierRes.data?.id;
       if (!dossierId) {
-        setErr("Dossier mï¿½dical introuvable.");
+        setErr("Dossier médical introuvable.");
         return;
       }
 
       const payload = buildPayload(dossierId);
 
       if (editingId) {
-        await api.patch(`/medical/accidents-travail/${editingId}/`, payload);
+        await api.patch(`/medical/maladies-professionnelles/${editingId}/`, payload);
       } else {
-        await api.post("/medical/accidents-travail/", payload);
+        await api.post("/medical/maladies-professionnelles/", payload);
       }
 
       resetForm();
       await loadData();
     } catch (error) {
       console.error(error);
-      setErr("Erreur lors de l'enregistrement de l'accident.");
+      setErr("Erreur lors de l'enregistrement de la maladie professionnelle.");
     } finally {
       setSaving(false);
     }
@@ -316,18 +235,19 @@ export default function AccidentsPage() {
 
   const handleEdit = (item) => {
     setEditingId(item.id);
-    setSelectedAccident(item);
+    setSelectedMaladie(item);
     setForm({
       ...emptyForm,
       ...item,
       matricule: item.matricule || "",
     });
+    setTravaux(item.travaux_anterieurs?.length ? item.travaux_anterieurs : [emptyTravail]);
     setShowForm(true);
   };
 
   const handlePrint = async (id) => {
     try {
-      const res = await api.get(`/medical/accidents-travail/${id}/pdf/`, {
+      const res = await api.get(`/medical/maladies-professionnelles/${id}/pdf/`, {
         responseType: "blob",
       });
       const file = new Blob([res.data], { type: "application/pdf" });
@@ -346,7 +266,7 @@ export default function AccidentsPage() {
           <div>
             <p className="text-sm font-medium text-slate-500">Module Infirmier</p>
             <h1 className="mt-1 text-3xl font-bold text-slate-900">
-              Dï¿½claration d'accident du travail
+              Déclaration de maladie professionnelle
             </h1>
             <p className="mt-2 text-sm text-slate-500">
               Saisie, consultation, modification et impression du formulaire officiel.
@@ -358,7 +278,7 @@ export default function AccidentsPage() {
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
           >
             <Plus size={16} />
-            {showForm ? "Fermer le formulaire" : "Nouvelle dï¿½claration"}
+            {showForm ? "Fermer le formulaire" : "Nouvelle déclaration"}
           </button>
         </div>
       </div>
@@ -373,7 +293,7 @@ export default function AccidentsPage() {
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">
-              {editingId ? "Modifier la dï¿½claration" : "Nouvelle dï¿½claration"}
+              {editingId ? "Modifier la déclaration" : "Nouvelle déclaration"}
             </h2>
             {editingId && (
               <button
@@ -411,14 +331,8 @@ export default function AccidentsPage() {
               {selectedProfile?.collaborateur && (
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
                   <p className="font-medium text-slate-900">
-                    {selectedProfile.collaborateur.prenom}{" "}
+                    {selectedProfile.collaborateur.prenom} {" "}
                     {selectedProfile.collaborateur.nom}
-                  </p>
-                  <p className="text-slate-600">
-                    Poste: {selectedProfile.collaborateur.poste || "ï¿½"} ï¿½ Segment:{" "}
-                    {selectedProfile.collaborateur.segment_nom ||
-                      selectedProfile.collaborateur.segment?.nom ||
-                      "ï¿½"}
                   </p>
                 </div>
               )}
@@ -430,8 +344,8 @@ export default function AccidentsPage() {
                 <InputField label="Nom employeur" name="employeur_nom" value={form.employeur_nom} onChange={handleChange} />
                 <InputField label="Adresse" name="employeur_adresse" value={form.employeur_adresse} onChange={handleChange} />
                 <InputField label="Code postal" name="employeur_code_postal" value={form.employeur_code_postal} onChange={handleChange} />
-                <InputField label="Tï¿½lï¿½phone" name="employeur_telephone" value={form.employeur_telephone} onChange={handleChange} />
-                <InputField label="Nature d'activitï¿½" name="employeur_activite" value={form.employeur_activite} onChange={handleChange} />
+                <InputField label="Téléphone" name="employeur_telephone" value={form.employeur_telephone} onChange={handleChange} />
+                <InputField label="Nature d'activité" name="employeur_activite" value={form.employeur_activite} onChange={handleChange} />
               </div>
             </Section>
 
@@ -439,10 +353,10 @@ export default function AccidentsPage() {
               <div className="grid gap-4 md:grid-cols-3">
                 <InputField label="CNSS victime" name="victime_cnss" value={form.victime_cnss} onChange={handleChange} />
                 <InputField label="Nom" name="victime_nom" value={form.victime_nom} onChange={handleChange} />
-                <InputField label="Prï¿½nom" name="victime_prenom" value={form.victime_prenom} onChange={handleChange} />
+                <InputField label="Prénom" name="victime_prenom" value={form.victime_prenom} onChange={handleChange} />
                 <InputField label="Nom de naissance" name="victime_nom_naissance" value={form.victime_nom_naissance} onChange={handleChange} />
-                <InputField label="Nom du pï¿½re" name="victime_prenom_pere" value={form.victime_prenom_pere} onChange={handleChange} />
-                <InputField label="Nationalitï¿½" name="victime_nationalite" value={form.victime_nationalite} onChange={handleChange} />
+                <InputField label="Nom du père" name="victime_prenom_pere" value={form.victime_prenom_pere} onChange={handleChange} />
+                <InputField label="Nationalité" name="victime_nationalite" value={form.victime_nationalite} onChange={handleChange} />
                 <SelectField label="Sexe" name="victime_sexe" value={form.victime_sexe} onChange={handleChange} options={selectOptions.sexe} />
                 <InputField label="Date naissance" name="victime_date_naissance" type="date" value={form.victime_date_naissance} onChange={handleChange} />
                 <InputField label="Lieu naissance" name="victime_lieu_naissance" value={form.victime_lieu_naissance} onChange={handleChange} />
@@ -450,85 +364,73 @@ export default function AccidentsPage() {
                 <InputField label="Adresse" name="victime_adresse" value={form.victime_adresse} onChange={handleChange} />
                 <InputField label="Code postal" name="victime_code_postal" value={form.victime_code_postal} onChange={handleChange} />
                 <InputField label="Date embauche" name="victime_date_embauche" type="date" value={form.victime_date_embauche} onChange={handleChange} />
-                <InputField label="Spï¿½cialitï¿½" name="victime_specialite" value={form.victime_specialite} onChange={handleChange} />
+                <InputField label="Spécialité" name="victime_specialite" value={form.victime_specialite} onChange={handleChange} />
                 <InputField label="Situation" name="victime_situation" value={form.victime_situation} onChange={handleChange} />
                 <InputField label="Profession" name="victime_profession" value={form.victime_profession} onChange={handleChange} />
-                <InputField label="Poste occupï¿½" name="victime_poste_accident" value={form.victime_poste_accident} onChange={handleChange} />
                 <InputField label="Lieu travail habituel" name="victime_lieu_travail" value={form.victime_lieu_travail} onChange={handleChange} />
-                <CheckboxField label="Autres victimes" name="autres_victimes" checked={form.autres_victimes} onChange={handleChange} />
               </div>
             </Section>
 
-            <Section title="Accident">
+            <Section title="Maladie professionnelle">
               <div className="grid gap-4 md:grid-cols-3">
-                <InputField label="Date accident" name="date_accident" type="date" value={form.date_accident} onChange={handleChange} required />
-                <InputField label="Heure accident" name="heure_accident" type="time" value={form.heure_accident} onChange={handleChange} />
-                <InputField label="Lieu accident" name="lieu_accident" value={form.lieu_accident} onChange={handleChange} />
-                <InputField label="Horaire dï¿½but" name="horaire_travail_debut" type="time" value={form.horaire_travail_debut} onChange={handleChange} />
-                <InputField label="Horaire fin" name="horaire_travail_fin" type="time" value={form.horaire_travail_fin} onChange={handleChange} />
-                <SelectField label="Activitï¿½ du lieu" name="activite_lieu" value={form.activite_lieu} onChange={handleChange} options={selectOptions.activite} />
-                {form.activite_lieu === "AUTRE" && (
-                  <InputField label="Autre activitï¿½" name="activite_lieu_autre" value={form.activite_lieu_autre} onChange={handleChange} />
-                )}
-                <InputField label="Nombre travailleurs" name="nombre_travailleurs" type="number" value={form.nombre_travailleurs} onChange={handleChange} />
-                <InputField label="Cause" name="cause" value={form.cause} onChange={handleChange} required />
-                <InputField label="Nature lï¿½sion" name="nature_lesion" value={form.nature_lesion} onChange={handleChange} required />
-                <InputField label="Siï¿½ge lï¿½sion" name="siege_lesion" value={form.siege_lesion} onChange={handleChange} required />
-                <InputField label="Transport / transfert" name="transport_hopital" value={form.transport_hopital} onChange={handleChange} />
-                <SelectField label="Rï¿½sultat" name="resultat" value={form.resultat} onChange={handleChange} options={selectOptions.resultat} />
-                <InputField label="Date arrï¿½t" name="date_arret" type="date" value={form.date_arret} onChange={handleChange} />
-                <InputField label="Heure arrï¿½t" name="heure_arret" type="time" value={form.heure_arret} onChange={handleChange} />
-                <SelectField label="Gravitï¿½" name="gravite" value={form.gravite} onChange={handleChange} options={selectOptions.gravite} />
-                <SelectField label="Statut enquï¿½te" name="statut_enquete" value={form.statut_enquete} onChange={handleChange} options={selectOptions.statut} />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 mt-4">
-                <TextareaField label="Description circonstances" name="description_circonstances" value={form.description_circonstances} onChange={handleChange} />
-                <TextareaField label="Facteurs matï¿½riels" name="causes_materielles" value={form.causes_materielles} onChange={handleChange} />
-                <TextareaField label="Comment l'accident est survenu" name="comment_accident" value={form.comment_accident} onChange={handleChange} />
-              </div>
-            </Section>
-
-            <Section title="Salaire / arrï¿½t">
-              <div className="grid gap-4 md:grid-cols-3">
-                <CheckboxField label="Salaire maintenu" name="salaire_maintenu" checked={form.salaire_maintenu} onChange={handleChange} />
-                <InputField label="Durï¿½e" name="salaire_duree" value={form.salaire_duree} onChange={handleChange} />
-                <InputField label="Montant" name="salaire_montant" value={form.salaire_montant} onChange={handleChange} />
-                <InputField label="Unitï¿½ (jour/mois...)" name="salaire_unite" value={form.salaire_unite} onChange={handleChange} />
-                <InputField label="Durï¿½e arrï¿½t (jours)" name="duree_arret" type="number" value={form.duree_arret} onChange={handleChange} />
-                <InputField label="IPP" name="ipp" value={form.ipp} onChange={handleChange} />
-              </div>
-            </Section>
-
-            <Section title="Tï¿½moins">
-              <div className="grid gap-4 md:grid-cols-3">
-                <InputField label="Tï¿½moin 1 nom" name="temoin1_nom" value={form.temoin1_nom} onChange={handleChange} />
-                <InputField label="Tï¿½moin 1 tï¿½lï¿½phone" name="temoin1_telephone" value={form.temoin1_telephone} onChange={handleChange} />
-                <InputField label="Tï¿½moin 1 matricule" name="temoin1_matricule" value={form.temoin1_matricule} onChange={handleChange} />
-                <InputField label="Tï¿½moin 2 nom" name="temoin2_nom" value={form.temoin2_nom} onChange={handleChange} />
-                <InputField label="Tï¿½moin 2 tï¿½lï¿½phone" name="temoin2_telephone" value={form.temoin2_telephone} onChange={handleChange} />
-                <InputField label="Tï¿½moin 2 matricule" name="temoin2_matricule" value={form.temoin2_matricule} onChange={handleChange} />
+                <InputField label="Maladie" name="nom_maladie" value={form.nom_maladie} onChange={handleChange} required />
+                <InputField label="Agent causal" name="agent_causal" value={form.agent_causal} onChange={handleChange} />
+                <InputField label="Tableau" name="numero_tableau" value={form.numero_tableau} onChange={handleChange} />
+                <InputField label="Date découverte" name="date_decouverte" type="date" value={form.date_decouverte} onChange={handleChange} required />
+                <InputField label="Médecin constat" name="medecin_constat" value={form.medecin_constat} onChange={handleChange} />
+                <InputField label="Date constat" name="date_constat" type="date" value={form.date_constat} onChange={handleChange} />
+                <InputField label="Date arrêt exposition" name="date_arret_exposition" type="date" value={form.date_arret_exposition} onChange={handleChange} />
+                <CheckboxField label="Arrêt de travail" name="arret_travail" checked={form.arret_travail} onChange={handleChange} />
+                <InputField label="Date arrêt" name="date_arret" type="date" value={form.date_arret} onChange={handleChange} />
               </div>
               <div className="mt-4">
-                <TextareaField label="Autres tï¿½moins (nom, adresse)" name="temoins" value={form.temoins} onChange={handleChange} />
+                <TextareaField label="Nature du travail" name="nature_travail" value={form.nature_travail} onChange={handleChange} />
               </div>
             </Section>
 
-            <Section title="Police / tiers">
-              <div className="grid gap-4 md:grid-cols-2">
-                <CheckboxField label="Rapport police" name="rapport_police" checked={form.rapport_police} onChange={handleChange} />
-                <InputField label="Numï¿½ro rapport" name="rapport_police_numero" value={form.rapport_police_numero} onChange={handleChange} />
-                <InputField label="Date rapport" name="rapport_police_date" type="date" value={form.rapport_police_date} onChange={handleChange} />
-                <InputField label="Poste / centre" name="rapport_police_poste" value={form.rapport_police_poste} onChange={handleChange} />
-                <CheckboxField label="Tiers responsable" name="tiers_responsable" checked={form.tiers_responsable} onChange={handleChange} />
-                <InputField label="Nom tiers" name="tiers_nom" value={form.tiers_nom} onChange={handleChange} />
-                <InputField label="Assureur tiers" name="tiers_assureur" value={form.tiers_assureur} onChange={handleChange} />
+            <Section title="Salaire / arrêt">
+              <div className="grid gap-4 md:grid-cols-3">
+                <CheckboxField label="Salaire maintenu" name="salaire_maintenu" checked={form.salaire_maintenu} onChange={handleChange} />
+                <InputField label="Durée" name="salaire_duree" value={form.salaire_duree} onChange={handleChange} />
+                <InputField label="Montant" name="salaire_montant" value={form.salaire_montant} onChange={handleChange} />
+                <InputField label="Unité (jour/mois...)" name="salaire_unite" value={form.salaire_unite} onChange={handleChange} />
+              </div>
+            </Section>
+
+            <Section title="Travaux antérieurs exposants">
+              <div className="space-y-4">
+                {travaux.map((row, index) => (
+                  <div key={`travail-${index}`} className="grid gap-3 md:grid-cols-5">
+                    <InputField label="Entreprise" value={row.entreprise} onChange={(e) => handleTravailChange(index, "entreprise", e.target.value)} />
+                    <InputField label="Nature du travail" value={row.nature_travail} onChange={(e) => handleTravailChange(index, "nature_travail", e.target.value)} />
+                    <InputField label="Matériaux nocifs" value={row.materiaux} onChange={(e) => handleTravailChange(index, "materiaux", e.target.value)} />
+                    <InputField label="Du" type="date" value={row.date_debut} onChange={(e) => handleTravailChange(index, "date_debut", e.target.value)} />
+                    <InputField label="Au" type="date" value={row.date_fin} onChange={(e) => handleTravailChange(index, "date_fin", e.target.value)} />
+                    {travaux.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTravail(index)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Supprimer la ligne
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addTravail}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Ajouter une ligne
+                </button>
               </div>
             </Section>
 
             <Section title="Signature">
               <div className="grid gap-4 md:grid-cols-3">
                 <InputField label="Nom signataire" name="signataire_nom" value={form.signataire_nom} onChange={handleChange} />
-                <InputField label="Qualitï¿½" name="signataire_qualite" value={form.signataire_qualite} onChange={handleChange} />
+                <InputField label="Qualité" name="signataire_qualite" value={form.signataire_qualite} onChange={handleChange} />
                 <InputField label="Lieu" name="signature_lieu" value={form.signature_lieu} onChange={handleChange} />
                 <InputField label="Date" name="signature_date" type="date" value={form.signature_date} onChange={handleChange} />
               </div>
@@ -548,7 +450,7 @@ export default function AccidentsPage() {
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {saving && <Loader2 size={16} className="animate-spin" />}
-                {editingId ? "Mettre ï¿½ jour" : "Enregistrer"}
+                {editingId ? "Mettre à jour" : "Enregistrer"}
               </button>
             </div>
           </form>
@@ -558,7 +460,7 @@ export default function AccidentsPage() {
       <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Liste des dï¿½clarations</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Liste des déclarations</h2>
             <p className="text-sm text-slate-500">
               Recherche, consultation, modification et impression.
             </p>
@@ -587,27 +489,22 @@ export default function AccidentsPage() {
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
                   <th className="px-3 py-3 font-medium">Date</th>
-                  <th className="px-3 py-3 font-medium">Collaborateur</th>
+                  <th className="px-3 py-3 font-medium">Maladie</th>
                   <th className="px-3 py-3 font-medium">Matricule</th>
-                  <th className="px-3 py-3 font-medium">Lï¿½sion</th>
                   <th className="px-3 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
-
               <tbody>
-                {filteredAccidents.length > 0 ? (
-                  filteredAccidents.map((item) => (
+                {filtered.length > 0 ? (
+                  filtered.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-3 py-3 text-slate-700">{item.date_accident}</td>
-                      <td className="px-3 py-3 font-medium text-slate-900">
-                        {item.collaborateur_prenom} {item.collaborateur_nom}
-                      </td>
+                      <td className="px-3 py-3 text-slate-700">{item.date_decouverte}</td>
+                      <td className="px-3 py-3 text-slate-700">{item.nom_maladie}</td>
                       <td className="px-3 py-3 text-slate-700">{item.matricule}</td>
-                      <td className="px-3 py-3 text-slate-700">{item.nature_lesion}</td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-2">
                           <button
-                            onClick={() => setSelectedAccident(item)}
+                            onClick={() => setSelectedMaladie(item)}
                             className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
                           >
                             <Eye size={14} />
@@ -633,8 +530,8 @@ export default function AccidentsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="px-3 py-10 text-center text-slate-500">
-                      Aucune declaration trouvï¿½e.
+                    <td colSpan="4" className="px-3 py-10 text-center text-slate-500">
+                      Aucune déclaration trouvée.
                     </td>
                   </tr>
                 )}
@@ -644,19 +541,15 @@ export default function AccidentsPage() {
         )}
       </div>
 
-      {selectedAccident && (
+      {selectedMaladie && (
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Dï¿½tail de la dï¿½claration
-              </h2>
-              <p className="text-sm text-slate-500">
-                Matricule {selectedAccident.matricule}
-              </p>
+              <h2 className="text-lg font-semibold text-slate-900">Détail de la déclaration</h2>
+              <p className="text-sm text-slate-500">Matricule {selectedMaladie.matricule}</p>
             </div>
             <button
-              onClick={() => setSelectedAccident(null)}
+              onClick={() => setSelectedMaladie(null)}
               className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Fermer
@@ -664,24 +557,22 @@ export default function AccidentsPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Info label="Date accident" value={selectedAccident.date_accident} />
-            <Info label="Heure accident" value={selectedAccident.heure_accident || "-"} />
-            <Info label="Lieu" value={selectedAccident.lieu_accident || "-"} />
-            <Info label="Nature lï¿½sion" value={selectedAccident.nature_lesion} />
-            <Info label="Siï¿½ge lï¿½sion" value={selectedAccident.siege_lesion} />
-            <Info label="Cause" value={selectedAccident.cause} />
+            <Info label="Maladie" value={selectedMaladie.nom_maladie} />
+            <Info label="Agent causal" value={selectedMaladie.agent_causal || "-"} />
+            <Info label="Tableau" value={selectedMaladie.numero_tableau || "-"} />
+            <Info label="Date découverte" value={selectedMaladie.date_decouverte} />
           </div>
 
           <div className="mt-4 flex justify-end gap-3">
             <button
-              onClick={() => handleEdit(selectedAccident)}
+              onClick={() => handleEdit(selectedMaladie)}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               <PencilLine size={16} />
               Modifier
             </button>
             <button
-              onClick={() => handlePrint(selectedAccident.id)}
+              onClick={() => handlePrint(selectedMaladie.id)}
               className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
               <Printer size={16} />

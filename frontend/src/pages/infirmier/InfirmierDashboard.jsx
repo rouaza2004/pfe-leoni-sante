@@ -11,6 +11,7 @@ import {
   Package,
   ShieldAlert,
   CheckCircle2,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/api";
@@ -143,51 +144,13 @@ export default function InfirmierDashboard() {
         }
       );
 
-      const dossiersResults = await Promise.all(
-        collabs.map(async (collab) => {
-          try {
-            const dRes = await api.get(`/medical/dossier/${collab.id}/`);
-            return {
-              dossierId: dRes.data?.id,
-              collab,
-            };
-          } catch (e) {
-            console.error("Erreur dossier collaborateur", collab.id, e);
-            return null;
-          }
-        })
-      );
-
-      const dossierMap = {};
-      dossiersResults.forEach((entry) => {
-        if (entry?.dossierId) {
-          dossierMap[entry.dossierId] = entry.collab;
-        }
-      });
-
-      const enrichedIncidents = incidentsData.map((item) => {
-        const collab = dossierMap[item.dossier] || {};
-
-        return {
-          ...item,
-          collaborateur:
-            `${collab.prenom || ""} ${collab.nom || ""}`.trim() || "—",
-          matricule: collab.matricule || "—",
-          segment:
-            item.segment ||
-            collab.segment_nom ||
-            collab.segment?.nom ||
-            collab.segment ||
-            "—",
-          poste_occupe:
-            item.poste_occupe ||
-            collab.poste_nom ||
-            collab.poste?.nom ||
-            collab.poste ||
-            "—",
-          telephone: item.telephone || collab.telephone || collab.tel || "—",
-        };
-      });
+      const enrichedIncidents = incidentsData.map((item) => ({
+        ...item,
+        collaborateur:
+          `${item.collaborateur_prenom || ""} ${item.collaborateur_nom || ""}`.trim() ||
+          "—",
+        matricule: item.matricule || "—",
+      }));
 
       setIncidents(enrichedIncidents);
     } catch (e) {
@@ -351,6 +314,13 @@ export default function InfirmierDashboard() {
             icon={<ShieldAlert size={20} className="text-amber-600" />}
             onClick={() => navigate("/infirmier/accidents")}
             iconClass="bg-amber-50 text-amber-600"
+          />
+          <QuickAction
+            title="Maladies pro."
+            desc="Déclarer une maladie professionnelle."
+            icon={<FileText size={20} className="text-slate-700" />}
+            onClick={() => navigate("/infirmier/maladies-professionnelles")}
+            iconClass="bg-slate-100 text-slate-700"
           />
           <QuickAction
             title="Gestion stock"

@@ -32,6 +32,7 @@ import PatientsPage from "../pages/infirmier/PatientsPage";
 import PatientDetailPage from "../pages/infirmier/PatientDetailPage";
 import IncidentsPage from "../pages/infirmier/IncidentsPage";
 import AccidentsPage from "../pages/infirmier/AccidentsPage";
+import MaladiesProfessionnellesPage from "../pages/infirmier/MaladiesProfessionnellesPage";
 import StockPage from "../pages/infirmier/StockPage";
 import RDVPage from "../pages/infirmier/RDVPage";
 
@@ -319,6 +320,15 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <AccidentsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/maladies-professionnelles"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <MaladiesProfessionnellesPage />
             </RoleRoute>
           }
         />

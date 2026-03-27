@@ -585,6 +585,24 @@ class DossierByCollaborateurView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class DossierByMatriculeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, matricule):
+        collab = get_object_or_404(
+            Collaborateur.objects.select_related("site"),
+            matricule=matricule,
+        )
+        dossier = DossierMedical.objects.filter(collaborateur=collab).first()
+        if not dossier:
+            dossier = DossierMedical.objects.create(
+                collaborateur=collab,
+                entreprise=getattr(collab.site, "nom", "") if collab.site else "",
+                localite=getattr(collab.site, "localite", "") if collab.site else "",
+            )
+        return Response(DossierMedicalSerializer(dossier).data, status=status.HTTP_200_OK)
+
+
 class DossierAutofillView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -773,7 +791,7 @@ class AccidentListCreateView(generics.ListCreateAPIView):
     )
 
 
-class AccidentDetailView(generics.RetrieveDestroyAPIView):
+class AccidentDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AccidentTravailSerializer
     permission_classes = [IsAuthenticated]
     queryset = AccidentTravail.objects.select_related("dossier__collaborateur").all()
@@ -1026,13 +1044,13 @@ class HSEEPlanActionView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
-class MaladieCreateView(generics.CreateAPIView):
+class MaladieCreateView(generics.ListCreateAPIView):
     serializer_class = MaladieProfessionnelleSerializer
     permission_classes = [IsAuthenticated]
     queryset = MaladieProfessionnelle.objects.all()
 
 
-class MaladieDeleteView(generics.DestroyAPIView):
+class MaladieDeleteView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = MaladieProfessionnelleSerializer
     permission_classes = [IsAuthenticated]
     queryset = MaladieProfessionnelle.objects.all()
@@ -1247,4 +1265,136 @@ class CertificatMedicalPdfView(APIView):
 
         response = HttpResponse(result.getvalue(), content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="certificat_{collab.matricule}.pdf"'
+        return response
+
+
+def _fmt_date(value):
+    return value.strftime("%d/%m/%Y") if value else ""
+
+
+def _fmt_time(value):
+    return value.strftime("%H:%M") if value else ""
+
+
+class AccidentTravailPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        accident = get_object_or_404(
+            AccidentTravail.objects.select_related("dossier__collaborateur"),
+            pk=pk,
+        )
+
+        collab = accident.dossier.collaborateur
+        dossier = accident.dossier
+
+        context = {
+            "accident": accident,
+            "collab": collab,
+            "matricule": getattr(collab, "matricule", ""),
+            "employeur_nom": accident.employeur_nom
+            or getattr(dossier, "entreprise", "")
+            or getattr(getattr(collab, "site", None), "nom", ""),
+            "employeur_adresse": accident.employeur_adresse
+            or getattr(dossier, "localite", "")
+            or getattr(getattr(collab, "site", None), "localite", ""),
+            "victime_nom": accident.victime_nom or getattr(collab, "nom", ""),
+            "victime_prenom": accident.victime_prenom or getattr(collab, "prenom", ""),
+            "victime_cin": accident.victime_cin or getattr(collab, "cin", ""),
+            "victime_date_naissance": _fmt_date(
+                accident.victime_date_naissance or getattr(collab, "date_naissance", None)
+            ),
+            "victime_adresse": accident.victime_adresse or getattr(collab, "adresse", ""),
+            "date_accident": _fmt_date(accident.date_accident),
+            "heure_accident": _fmt_time(accident.heure_accident),
+            "horaire_debut": _fmt_time(accident.horaire_travail_debut),
+            "horaire_fin": _fmt_time(accident.horaire_travail_fin),
+            "date_arret": _fmt_date(accident.date_arret),
+            "heure_arret": _fmt_time(accident.heure_arret),
+            "rapport_police_date": _fmt_date(accident.rapport_police_date),
+            "signature_date": _fmt_date(accident.signature_date),
+        }
+
+        html_string = render_to_string("medical/accident_travail_pdf.html", context)
+
+        result = BytesIO()
+        ensure_temp_dir()
+        patch_xhtml2pdf_tempfile()
+        pdf = pisa.CreatePDF(
+            src=html_string,
+            dest=result,
+            encoding="utf-8",
+            link_callback=link_callback,
+        )
+
+        if pdf.err:
+            return Response(
+                {"detail": "Erreur génération PDF accident du travail."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        response = HttpResponse(result.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'inline; filename="declaration_accident_{collab.matricule}.pdf"'
+        )
+        return response
+
+
+class MaladieProfessionnellePdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        maladie = get_object_or_404(
+            MaladieProfessionnelle.objects.select_related("dossier__collaborateur"),
+            pk=pk,
+        )
+        collab = maladie.dossier.collaborateur
+        dossier = maladie.dossier
+
+        context = {
+            "maladie": maladie,
+            "collab": collab,
+            "matricule": getattr(collab, "matricule", ""),
+            "employeur_nom": maladie.employeur_nom
+            or getattr(dossier, "entreprise", "")
+            or getattr(getattr(collab, "site", None), "nom", ""),
+            "employeur_adresse": maladie.employeur_adresse
+            or getattr(dossier, "localite", "")
+            or getattr(getattr(collab, "site", None), "localite", ""),
+            "victime_nom": maladie.victime_nom or getattr(collab, "nom", ""),
+            "victime_prenom": maladie.victime_prenom or getattr(collab, "prenom", ""),
+            "victime_cin": maladie.victime_cin or getattr(collab, "cin", ""),
+            "victime_date_naissance": _fmt_date(
+                maladie.victime_date_naissance or getattr(collab, "date_naissance", None)
+            ),
+            "victime_adresse": maladie.victime_adresse or getattr(collab, "adresse", ""),
+            "date_decouverte": _fmt_date(maladie.date_decouverte),
+            "date_constat": _fmt_date(maladie.date_constat),
+            "date_arret_exposition": _fmt_date(maladie.date_arret_exposition),
+            "date_arret": _fmt_date(maladie.date_arret),
+            "signature_date": _fmt_date(maladie.signature_date),
+        }
+
+        html_string = render_to_string("medical/maladie_professionnelle_pdf.html", context)
+
+        result = BytesIO()
+        ensure_temp_dir()
+        patch_xhtml2pdf_tempfile()
+        pdf = pisa.CreatePDF(
+            src=html_string,
+            dest=result,
+            encoding="utf-8",
+            link_callback=link_callback,
+        )
+
+        if pdf.err:
+            return Response(
+                {"detail": "Erreur génération PDF maladie professionnelle."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        response = HttpResponse(result.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'inline; filename="declaration_maladie_{collab.matricule}.pdf"'
+        )
         return response

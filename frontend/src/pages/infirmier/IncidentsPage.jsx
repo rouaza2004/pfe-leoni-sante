@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, TriangleAlert, Eye, Loader2 } from "lucide-react";
 import { api } from "@/api/api";
+import { getCollaborateurProfilByMatricule } from "../shared/collaborateurProfile.api";
 
 const emptyForm = {
-  collaborateurId: "",
+  matricule: "",
   date_incident: "",
   heure_incident: "",
   segment: "",
@@ -18,7 +19,7 @@ const emptyForm = {
 
 export default function IncidentsPage() {
   const [incidents, setIncidents] = useState([]);
-  const [collaborateurs, setCollaborateurs] = useState([]);
+  const [selectedProfile, setSelectedProfile] = useState(null);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
@@ -32,34 +33,14 @@ export default function IncidentsPage() {
     loadData();
   }, []);
 
-  const selectedCollaborateur = useMemo(() => {
-    return (
-      collaborateurs.find((c) => String(c.id) === String(form.collaborateurId)) || null
-    );
-  }, [collaborateurs, form.collaborateurId]);
+  const selectedCollaborateur = selectedProfile?.collaborateur || null;
 
   const filteredIncidents = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return incidents;
 
     return incidents.filter((item) =>
-      [
-        item.date_incident,
-        item.heure_incident,
-        item.collaborateur,
-        item.matricule,
-        item.segment,
-        item.unite,
-        item.poste_occupe,
-        item.mode_lesion,
-        item.agent_causal,
-        item.telephone,
-        item.infirmier_responsable,
-        item.remarque,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
+      [item.matricule].filter(Boolean).join(" ").toLowerCase().includes(q)
     );
   }, [incidents, search]);
 
@@ -68,62 +49,15 @@ export default function IncidentsPage() {
       setLoading(true);
       setErr("");
 
-      const [collabRes, incidentsRes] = await Promise.all([
-        api.get("/collaborateurs/"),
-        api.get("/medical/incidents/"),
-      ]);
-
-      const collabs = Array.isArray(collabRes.data) ? collabRes.data : [];
+      const incidentsRes = await api.get("/medical/incidents/");
       const incidentsData = Array.isArray(incidentsRes.data) ? incidentsRes.data : [];
 
-      setCollaborateurs(collabs);
-
-      const dossiersResults = await Promise.all(
-        collabs.map(async (collab) => {
-          try {
-            const dRes = await api.get(`/medical/dossier/${collab.id}/`);
-            return {
-              dossierId: dRes.data?.id,
-              collab,
-            };
-          } catch (e) {
-            console.error("Erreur dossier collaborateur", collab.id, e);
-            return null;
-          }
-        })
-      );
-
-      const dossierMap = {};
-      dossiersResults.forEach((entry) => {
-        if (entry?.dossierId) {
-          dossierMap[entry.dossierId] = entry.collab;
-        }
-      });
-
-      const enriched = incidentsData.map((item) => {
-        const collab = dossierMap[item.dossier] || {};
-
-        return {
-          ...item,
-          collaborateur:
-            `${collab.prenom || ""} ${collab.nom || ""}`.trim() || "—",
-          matricule: collab.matricule || "—",
-          segment:
-            item.segment ||
-            collab.segment_nom ||
-            collab.segment?.nom ||
-            collab.segment ||
-            "—",
-          poste_occupe:
-            item.poste_occupe ||
-            collab.poste_nom ||
-            collab.poste?.nom ||
-            collab.poste ||
-            "—",
-          telephone:
-            item.telephone || collab.telephone || collab.tel || "—",
-        };
-      });
+      const enriched = incidentsData.map((item) => ({
+        ...item,
+        collaborateur:
+          `${item.collaborateur_prenom || ""} ${item.collaborateur_nom || ""}`.trim() ||
+          "—",
+      }));
 
       setIncidents(enriched);
     } catch (e) {
@@ -136,32 +70,38 @@ export default function IncidentsPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
-    setForm((prev) => {
-      const next = { ...prev, [name]: value };
+  const handleMatriculeSearch = async () => {
+    if (!form.matricule.trim()) return;
+    try {
+      setErr("");
+      const profile = await getCollaborateurProfilByMatricule(form.matricule.trim());
+      setSelectedProfile(profile);
+      const collab = profile?.collaborateur || {};
 
-      if (name === "collaborateurId") {
-        const collab =
-          collaborateurs.find((c) => String(c.id) === String(value)) || null;
-
-        return {
-          ...next,
-          segment:
-            collab?.segment_nom ||
-            collab?.segment?.nom ||
-            collab?.segment ||
-            "",
-          poste_occupe:
-            collab?.poste_nom ||
-            collab?.poste?.nom ||
-            collab?.poste ||
-            "",
-          telephone: collab?.telephone || collab?.tel || "",
-        };
-      }
-
-      return next;
-    });
+      setForm((prev) => ({
+        ...prev,
+        segment:
+          prev.segment ||
+          collab.segment_nom ||
+          collab.segment?.nom ||
+          collab.segment ||
+          "",
+        poste_occupe:
+          prev.poste_occupe ||
+          collab.poste_nom ||
+          collab.poste?.nom ||
+          collab.poste ||
+          "",
+        telephone: prev.telephone || collab.telephone || collab.tel || "",
+      }));
+    } catch (e) {
+      console.error(e);
+      setSelectedProfile(null);
+      setErr("Matricule introuvable.");
+    }
   };
 
   const resetForm = () => {
@@ -172,15 +112,17 @@ export default function IncidentsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.collaborateurId) {
-      alert("Veuillez sélectionner un collaborateur.");
+    if (!form.matricule.trim()) {
+      alert("Veuillez saisir une matricule.");
       return;
     }
 
     try {
       setSaving(true);
 
-      const dossierRes = await api.get(`/medical/dossier/${form.collaborateurId}/`);
+      const dossierRes = await api.get(
+        `/medical/dossier/matricule/${form.matricule.trim()}/`
+      );
       const dossierId = dossierRes.data?.id;
 
       if (!dossierId) {
@@ -255,28 +197,36 @@ export default function IncidentsPage() {
           <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="xl:col-span-3">
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Collaborateur
+                Matricule collaborateur
               </label>
-              <select
-                name="collaborateurId"
-                value={form.collaborateurId}
-                onChange={handleChange}
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-              >
-                <option value="">Sélectionner un collaborateur</option>
-                {collaborateurs.map((collab) => (
-                  <option key={collab.id} value={collab.id}>
-                    {(collab.prenom || "") + " " + (collab.nom || "")} -{" "}
-                    {collab.matricule || "Sans matricule"}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                <input
+                  type="text"
+                  name="matricule"
+                  value={form.matricule}
+                  onChange={handleChange}
+                  required
+                  placeholder="Entrer la matricule"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={handleMatriculeSearch}
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Rechercher
+                </button>
+              </div>
+              {selectedCollaborateur && (
+                <p className="mt-2 text-sm text-slate-600">
+                  {selectedCollaborateur.prenom} {selectedCollaborateur.nom}
+                </p>
+              )}
             </div>
 
             <ReadOnlyField
               label="Matricule"
-              value={selectedCollaborateur?.matricule || ""}
+              value={form.matricule || selectedCollaborateur?.matricule || ""}
             />
 
             <div>
@@ -454,7 +404,7 @@ export default function IncidentsPage() {
             />
             <input
               type="text"
-              placeholder="Rechercher collaborateur, matricule, soin..."
+              placeholder="Rechercher par matricule..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-slate-900"

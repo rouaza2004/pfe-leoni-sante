@@ -212,10 +212,63 @@ class AccidentTravail(models.Model):
         related_name="accidents"
     )
 
+    # Employeur (formulaire officiel)
+    employeur_cnss = models.CharField(max_length=100, blank=True, null=True)
+    employeur_nom = models.CharField(max_length=255, blank=True, null=True)
+    employeur_adresse = models.CharField(max_length=255, blank=True, null=True)
+    employeur_code_postal = models.CharField(max_length=20, blank=True, null=True)
+    employeur_telephone = models.CharField(max_length=50, blank=True, null=True)
+    employeur_activite = models.CharField(max_length=255, blank=True, null=True)
+
+    # Victime
+    victime_cnss = models.CharField(max_length=100, blank=True, null=True)
+    victime_nom = models.CharField(max_length=120, blank=True, null=True)
+    victime_prenom = models.CharField(max_length=120, blank=True, null=True)
+    victime_nom_naissance = models.CharField(max_length=120, blank=True, null=True)
+    victime_prenom_pere = models.CharField(max_length=120, blank=True, null=True)
+    victime_nationalite = models.CharField(max_length=120, blank=True, null=True)
+    victime_sexe = models.CharField(
+        max_length=10,
+        choices=[("HOMME", "Homme"), ("FEMME", "Femme")],
+        blank=True,
+        null=True,
+    )
+    victime_date_naissance = models.DateField(blank=True, null=True)
+    victime_lieu_naissance = models.CharField(max_length=255, blank=True, null=True)
+    victime_cin = models.CharField(max_length=50, blank=True, null=True)
+    victime_adresse = models.CharField(max_length=255, blank=True, null=True)
+    victime_code_postal = models.CharField(max_length=20, blank=True, null=True)
+    victime_date_embauche = models.DateField(blank=True, null=True)
+    victime_specialite = models.CharField(max_length=255, blank=True, null=True)
+    victime_situation = models.CharField(max_length=255, blank=True, null=True)
+    victime_profession = models.CharField(max_length=255, blank=True, null=True)
+    victime_poste_accident = models.CharField(max_length=255, blank=True, null=True)
+    victime_lieu_travail = models.CharField(max_length=255, blank=True, null=True)
+    autres_victimes = models.BooleanField(default=False)
+
+    # Accident
     date_accident = models.DateField()
     heure_accident = models.TimeField(blank=True, null=True)
     lieu_accident = models.CharField(max_length=255, blank=True, null=True)
     circonstances = models.TextField(blank=True, null=True)
+    horaire_travail_debut = models.TimeField(blank=True, null=True)
+    horaire_travail_fin = models.TimeField(blank=True, null=True)
+    activite_lieu = models.CharField(
+        max_length=30,
+        choices=[
+            ("CHANTIER", "Chantier"),
+            ("ATELIER", "Atelier"),
+            ("BUREAU", "Bureau"),
+            ("AUTRE", "Autre"),
+        ],
+        blank=True,
+        null=True,
+    )
+    activite_lieu_autre = models.CharField(max_length=255, blank=True, null=True)
+    nombre_travailleurs = models.PositiveIntegerField(blank=True, null=True)
+    description_circonstances = models.TextField(blank=True, null=True)
+    causes_materielles = models.TextField(blank=True, null=True)
+    comment_accident = models.TextField(blank=True, null=True)
 
     cause = models.TextField()
     nature_lesion = models.CharField(max_length=255)
@@ -243,6 +296,38 @@ class AccidentTravail(models.Model):
     temoin2_nom = models.CharField(max_length=255, blank=True, null=True)
     temoin2_telephone = models.CharField(max_length=30, blank=True, null=True)
     temoin2_matricule = models.CharField(max_length=50, blank=True, null=True)
+    temoins = models.TextField(blank=True, null=True)
+
+    rapport_police = models.BooleanField(default=False)
+    rapport_police_numero = models.CharField(max_length=100, blank=True, null=True)
+    rapport_police_date = models.DateField(blank=True, null=True)
+    rapport_police_poste = models.CharField(max_length=255, blank=True, null=True)
+
+    tiers_responsable = models.BooleanField(default=False)
+    tiers_nom = models.CharField(max_length=255, blank=True, null=True)
+    tiers_assureur = models.CharField(max_length=255, blank=True, null=True)
+
+    resultat = models.CharField(
+        max_length=20,
+        choices=[
+            ("SANS_ARRET", "Sans arrêt"),
+            ("ARRET", "Arrêt de travail"),
+            ("DECES", "Décès"),
+        ],
+        blank=True,
+        null=True,
+    )
+    date_arret = models.DateField(blank=True, null=True)
+    heure_arret = models.TimeField(blank=True, null=True)
+    salaire_maintenu = models.BooleanField(default=False)
+    salaire_duree = models.CharField(max_length=100, blank=True, null=True)
+    salaire_montant = models.CharField(max_length=100, blank=True, null=True)
+    salaire_unite = models.CharField(max_length=50, blank=True, null=True)
+
+    signataire_nom = models.CharField(max_length=255, blank=True, null=True)
+    signataire_qualite = models.CharField(max_length=255, blank=True, null=True)
+    signature_lieu = models.CharField(max_length=255, blank=True, null=True)
+    signature_date = models.DateField(blank=True, null=True)
 
     duree_arret = models.IntegerField(null=True, blank=True)
     ipp = models.CharField(max_length=100, blank=True, null=True)
@@ -306,6 +391,56 @@ class MaladieProfessionnelle(models.Model):
     date_decouverte = models.DateField()
     duree_arret = models.IntegerField(null=True, blank=True)
     ipp = models.CharField(max_length=100, blank=True, null=True)
+    # Employeur
+    employeur_cnss = models.CharField(max_length=100, blank=True, null=True)
+    employeur_nom = models.CharField(max_length=255, blank=True, null=True)
+    employeur_adresse = models.CharField(max_length=255, blank=True, null=True)
+    employeur_code_postal = models.CharField(max_length=20, blank=True, null=True)
+    employeur_telephone = models.CharField(max_length=50, blank=True, null=True)
+    employeur_activite = models.CharField(max_length=255, blank=True, null=True)
+
+    # Victime
+    victime_cnss = models.CharField(max_length=100, blank=True, null=True)
+    victime_nom = models.CharField(max_length=120, blank=True, null=True)
+    victime_prenom = models.CharField(max_length=120, blank=True, null=True)
+    victime_nom_naissance = models.CharField(max_length=120, blank=True, null=True)
+    victime_prenom_pere = models.CharField(max_length=120, blank=True, null=True)
+    victime_nationalite = models.CharField(max_length=120, blank=True, null=True)
+    victime_sexe = models.CharField(
+        max_length=10,
+        choices=[("HOMME", "Homme"), ("FEMME", "Femme")],
+        blank=True,
+        null=True,
+    )
+    victime_date_naissance = models.DateField(blank=True, null=True)
+    victime_lieu_naissance = models.CharField(max_length=255, blank=True, null=True)
+    victime_cin = models.CharField(max_length=50, blank=True, null=True)
+    victime_adresse = models.CharField(max_length=255, blank=True, null=True)
+    victime_code_postal = models.CharField(max_length=20, blank=True, null=True)
+    victime_date_embauche = models.DateField(blank=True, null=True)
+    victime_specialite = models.CharField(max_length=255, blank=True, null=True)
+    victime_situation = models.CharField(max_length=255, blank=True, null=True)
+    victime_profession = models.CharField(max_length=255, blank=True, null=True)
+    victime_lieu_travail = models.CharField(max_length=255, blank=True, null=True)
+
+    # Maladie professionnelle
+    medecin_constat = models.CharField(max_length=255, blank=True, null=True)
+    date_constat = models.DateField(blank=True, null=True)
+    nature_travail = models.TextField(blank=True, null=True)
+    date_arret_exposition = models.DateField(blank=True, null=True)
+    arret_travail = models.BooleanField(default=False)
+    date_arret = models.DateField(blank=True, null=True)
+    salaire_maintenu = models.BooleanField(default=False)
+    salaire_duree = models.CharField(max_length=100, blank=True, null=True)
+    salaire_montant = models.CharField(max_length=100, blank=True, null=True)
+    salaire_unite = models.CharField(max_length=50, blank=True, null=True)
+
+    travaux_anterieurs = models.JSONField(blank=True, null=True)
+
+    signataire_nom = models.CharField(max_length=255, blank=True, null=True)
+    signataire_qualite = models.CharField(max_length=255, blank=True, null=True)
+    signature_lieu = models.CharField(max_length=255, blank=True, null=True)
+    signature_date = models.DateField(blank=True, null=True)
 
     def __str__(self):
         return self.nom_maladie

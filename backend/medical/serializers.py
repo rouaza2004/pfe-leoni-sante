@@ -27,9 +27,39 @@ class VaccinationSerializer(serializers.ModelSerializer):
 
 
 class IncidentInfirmierSerializer(serializers.ModelSerializer):
+    collaborateur_nom = serializers.SerializerMethodField()
+    collaborateur_prenom = serializers.SerializerMethodField()
+    matricule = serializers.SerializerMethodField()
+
     class Meta:
         model = IncidentInfirmier
-        fields = "__all__"
+        fields = [
+            "id",
+            "dossier",
+            "date_incident",
+            "heure_incident",
+            "segment",
+            "unite",
+            "poste_occupe",
+            "mode_lesion",
+            "agent_causal",
+            "telephone",
+            "infirmier_responsable",
+            "remarque",
+            "created_at",
+            "collaborateur_nom",
+            "collaborateur_prenom",
+            "matricule",
+        ]
+
+    def get_collaborateur_nom(self, obj):
+        return getattr(obj.dossier.collaborateur, "nom", "")
+
+    def get_collaborateur_prenom(self, obj):
+        return getattr(obj.dossier.collaborateur, "prenom", "")
+
+    def get_matricule(self, obj):
+        return getattr(obj.dossier.collaborateur, "matricule", "")
 
 
 class AccidentTravailSerializer(serializers.ModelSerializer):
@@ -46,10 +76,43 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "dossier",
+            "employeur_cnss",
+            "employeur_nom",
+            "employeur_adresse",
+            "employeur_code_postal",
+            "employeur_telephone",
+            "employeur_activite",
+            "victime_cnss",
+            "victime_nom",
+            "victime_prenom",
+            "victime_nom_naissance",
+            "victime_prenom_pere",
+            "victime_nationalite",
+            "victime_sexe",
+            "victime_date_naissance",
+            "victime_lieu_naissance",
+            "victime_cin",
+            "victime_adresse",
+            "victime_code_postal",
+            "victime_date_embauche",
+            "victime_specialite",
+            "victime_situation",
+            "victime_profession",
+            "victime_poste_accident",
+            "victime_lieu_travail",
+            "autres_victimes",
             "date_accident",
             "heure_accident",
             "lieu_accident",
             "circonstances",
+            "horaire_travail_debut",
+            "horaire_travail_fin",
+            "activite_lieu",
+            "activite_lieu_autre",
+            "nombre_travailleurs",
+            "description_circonstances",
+            "causes_materielles",
+            "comment_accident",
             "cause",
             "nature_lesion",
             "siege_lesion",
@@ -63,6 +126,25 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "temoin2_nom",
             "temoin2_telephone",
             "temoin2_matricule",
+            "temoins",
+            "rapport_police",
+            "rapport_police_numero",
+            "rapport_police_date",
+            "rapport_police_poste",
+            "tiers_responsable",
+            "tiers_nom",
+            "tiers_assureur",
+            "resultat",
+            "date_arret",
+            "heure_arret",
+            "salaire_maintenu",
+            "salaire_duree",
+            "salaire_montant",
+            "salaire_unite",
+            "signataire_nom",
+            "signataire_qualite",
+            "signature_lieu",
+            "signature_date",
             "duree_arret",
             "ipp",
             "envoye_hsee",
@@ -131,6 +213,22 @@ class MaladieProfessionnelleSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaladieProfessionnelle
         fields = "__all__"
+
+    def get_fields(self):
+        fields = super().get_fields()
+        fields["collaborateur_nom"] = serializers.SerializerMethodField()
+        fields["collaborateur_prenom"] = serializers.SerializerMethodField()
+        fields["matricule"] = serializers.SerializerMethodField()
+        return fields
+
+    def get_collaborateur_nom(self, obj):
+        return getattr(obj.dossier.collaborateur, "nom", "")
+
+    def get_collaborateur_prenom(self, obj):
+        return getattr(obj.dossier.collaborateur, "prenom", "")
+
+    def get_matricule(self, obj):
+        return getattr(obj.dossier.collaborateur, "matricule", "")
 
 
 class PosteTravailSerializer(serializers.ModelSerializer):
