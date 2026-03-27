@@ -4,13 +4,21 @@
     <meta charset="utf-8" />
     <style>
       @page { size: A4; margin: 0; }
+<<<<<<< HEAD
       html, body { margin: 0; padding: 0; height: 29.7cm; }
       body { font-family: Helvetica, Arial, sans-serif; font-size: 9px; color: #111; overflow: hidden; }
+=======
+      html, body { margin: 0; padding: 0; }
+      body { font-family: Helvetica, Arial, sans-serif; font-size: 9px; color: #111; }
+>>>>>>> 1fd8565 (update infirmier features)
       .page {
         position: relative;
         width: 21cm;
         height: 29.7cm;
+<<<<<<< HEAD
         overflow: hidden;
+=======
+>>>>>>> 1fd8565 (update infirmier features)
       }
       .bg {
         position: absolute;
@@ -23,7 +31,11 @@
         position: absolute;
         white-space: nowrap;
       }
+<<<<<<< HEAD
       .wrap { white-space: normal; line-height: 1.15; max-height: 1.4cm; overflow: hidden; }
+=======
+      .wrap { white-space: normal; }
+>>>>>>> 1fd8565 (update infirmier features)
       .small { font-size: 8px; }
 
       /* Positions (tweak here for pixel-perfect alignment) */
@@ -60,6 +72,7 @@
       .med-constat { left: 3.2cm; top: 18.1cm; }
       .date-constat { left: 9.2cm; top: 18.1cm; }
       .nature-travail { left: 3.2cm; top: 18.75cm; width: 17cm; }
+<<<<<<< HEAD
       .date-debut-exp { left: 3.2cm; top: 19.6cm; }
       .date-fin-exp { left: 9.2cm; top: 19.6cm; }
       .date-arret-exp { left: 3.2cm; top: 20.25cm; }
@@ -73,19 +86,35 @@
 
       .travaux { left: 3.2cm; top: 22.2cm; width: 17cm; max-height: 2.6cm; overflow: hidden; }
       .observations { left: 3.2cm; top: 25.4cm; width: 17cm; max-height: 1.2cm; overflow: hidden; }
+=======
+      .date-arret-exp { left: 3.2cm; top: 19.6cm; }
+      .arret-travail { left: 9.2cm; top: 19.6cm; }
+      .date-arret { left: 3.2cm; top: 20.25cm; }
+
+      .sal-maint { left: 9.2cm; top: 20.25cm; }
+      .sal-duree { left: 3.2cm; top: 20.9cm; }
+      .sal-montant { left: 9.2cm; top: 20.9cm; }
+      .sal-unite { left: 13.2cm; top: 20.9cm; }
+
+      .travaux { left: 3.2cm; top: 22.0cm; width: 17cm; }
+>>>>>>> 1fd8565 (update infirmier features)
 
       .sign-nom { left: 3.2cm; top: 27.6cm; }
       .sign-qual { left: 9.2cm; top: 27.6cm; }
       .sign-lieu { left: 3.2cm; top: 28.05cm; }
       .sign-date { left: 9.2cm; top: 28.05cm; }
+<<<<<<< HEAD
       .statut { left: 3.2cm; top: 28.55cm; }
       .date-gen { left: 9.2cm; top: 28.55cm; }
+=======
+>>>>>>> 1fd8565 (update infirmier features)
     </style>
   </head>
   <body>
     <div class="page">
       <img class="bg" src="/static/forms/maladie_professionnelle_form.png" alt="form" />
 
+<<<<<<< HEAD
       <div class="field emp-cnss" style="position:absolute; left:3.9cm; top:5.35cm;">{{ maladie.employeur_cnss }}</div>
       <div class="field emp-nom" style="position:absolute; left:3.2cm; top:6.05cm;">{{ employeur_nom }}</div>
       <div class="field emp-adr" style="position:absolute; left:3.2cm; top:6.75cm;">{{ employeur_adresse }}</div>
@@ -133,6 +162,51 @@
       <div class="field sal-unite" style="position:absolute; left:13.2cm; top:21.55cm;">{{ maladie.salaire_unite }}</div>
 
       <div class="field wrap travaux" style="position:absolute; left:3.2cm; top:22.2cm;">
+=======
+      <div class="field emp-cnss">{{ maladie.employeur_cnss }}</div>
+      <div class="field emp-nom">{{ employeur_nom }}</div>
+      <div class="field emp-adr">{{ employeur_adresse }}</div>
+      <div class="field emp-cp">{{ maladie.employeur_code_postal }}</div>
+      <div class="field emp-tel">{{ maladie.employeur_telephone }}</div>
+      <div class="field emp-act">{{ maladie.employeur_activite }}</div>
+
+      <div class="field vic-cnss">{{ maladie.victime_cnss }}</div>
+      <div class="field vic-nom">{{ victime_nom }}</div>
+      <div class="field vic-prenom">{{ victime_prenom }}</div>
+      <div class="field vic-nom-naiss">{{ maladie.victime_nom_naissance }}</div>
+      <div class="field vic-pere">{{ maladie.victime_prenom_pere }}</div>
+      <div class="field vic-nat">{{ maladie.victime_nationalite }}</div>
+      <div class="field vic-sexe">{{ maladie.victime_sexe }}</div>
+      <div class="field vic-ddn">{{ victime_date_naissance }}</div>
+      <div class="field vic-ldn">{{ maladie.victime_lieu_naissance }}</div>
+      <div class="field vic-cin">{{ victime_cin }}</div>
+      <div class="field vic-adr">{{ victime_adresse }}</div>
+      <div class="field vic-cp">{{ maladie.victime_code_postal }}</div>
+      <div class="field vic-emb">{{ maladie.victime_date_embauche }}</div>
+      <div class="field vic-spec">{{ maladie.victime_specialite }}</div>
+      <div class="field vic-sit">{{ maladie.victime_situation }}</div>
+      <div class="field vic-prof">{{ maladie.victime_profession }}</div>
+      <div class="field vic-lieu">{{ maladie.victime_lieu_travail }}</div>
+
+      <div class="field mal-nom">{{ maladie.nom_maladie }}</div>
+      <div class="field mal-agent">{{ maladie.agent_causal }}</div>
+      <div class="field mal-tab">{{ maladie.numero_tableau }}</div>
+      <div class="field mal-date">{{ date_decouverte }}</div>
+
+      <div class="field med-constat">{{ maladie.medecin_constat }}</div>
+      <div class="field date-constat">{{ date_constat }}</div>
+      <div class="field wrap nature-travail">{{ maladie.nature_travail }}</div>
+      <div class="field date-arret-exp">{{ date_arret_exposition }}</div>
+      <div class="field arret-travail">{{ maladie.arret_travail }}</div>
+      <div class="field date-arret">{{ date_arret }}</div>
+
+      <div class="field sal-maint">{{ maladie.salaire_maintenu }}</div>
+      <div class="field sal-duree">{{ maladie.salaire_duree }}</div>
+      <div class="field sal-montant">{{ maladie.salaire_montant }}</div>
+      <div class="field sal-unite">{{ maladie.salaire_unite }}</div>
+
+      <div class="field wrap travaux">
+>>>>>>> 1fd8565 (update infirmier features)
         {% if maladie.travaux_anterieurs %}
           {% for row in maladie.travaux_anterieurs %}
             {{ row.entreprise }} | {{ row.nature_travail }} | {{ row.materiaux }} | {{ row.date_debut }} - {{ row.date_fin }}
@@ -140,6 +214,7 @@
           {% endfor %}
         {% endif %}
       </div>
+<<<<<<< HEAD
       <div class="field wrap observations" style="position:absolute; left:3.2cm; top:25.4cm;">{{ maladie.observations }}</div>
 
       <div class="field sign-nom" style="position:absolute; left:3.2cm; top:27.6cm;">{{ maladie.signataire_nom }}</div>
@@ -148,6 +223,13 @@
       <div class="field sign-date" style="position:absolute; left:9.2cm; top:28.05cm;">{{ signature_date }}</div>
       <div class="field statut" style="position:absolute; left:3.2cm; top:28.55cm;">{{ statut_declaration_display }}</div>
       <div class="field date-gen" style="position:absolute; left:9.2cm; top:28.55cm;">{{ date_generation }}</div>
+=======
+
+      <div class="field sign-nom">{{ maladie.signataire_nom }}</div>
+      <div class="field sign-qual">{{ maladie.signataire_qualite }}</div>
+      <div class="field sign-lieu">{{ maladie.signature_lieu }}</div>
+      <div class="field sign-date">{{ signature_date }}</div>
+>>>>>>> 1fd8565 (update infirmier features)
     </div>
   </body>
 </html>

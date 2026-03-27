@@ -36,7 +36,6 @@ const emptyForm = {
   victime_profession: "",
   victime_poste_accident: "",
   victime_lieu_travail: "",
-  victime_salaire: "",
   autres_victimes: false,
   date_accident: "",
   heure_accident: "",
@@ -45,8 +44,6 @@ const emptyForm = {
   lieu_accident: "",
   activite_lieu: "",
   activite_lieu_autre: "",
-  activite_service: "",
-  moment_travail: "",
   nombre_travailleurs: "",
   description_circonstances: "",
   causes_materielles: "",
@@ -56,7 +53,6 @@ const emptyForm = {
   siege_lesion: "",
   transport_hopital: "",
   resultat: "",
-  arret_travail: false,
   date_arret: "",
   heure_arret: "",
   salaire_maintenu: false,
@@ -86,54 +82,44 @@ const emptyForm = {
   segment: "",
   gravite: "",
   statut_enquete: "",
-  statut_declaration: "BROUILLON",
 };
 
 const selectOptions = {
   sexe: [
-    { value: "", label: "—" },
+    { value: "", label: "�" },
     { value: "HOMME", label: "Homme" },
     { value: "FEMME", label: "Femme" },
   ],
   activite: [
-    { value: "", label: "—" },
+    { value: "", label: "�" },
     { value: "CHANTIER", label: "Chantier" },
     { value: "ATELIER", label: "Atelier" },
     { value: "BUREAU", label: "Bureau" },
     { value: "AUTRE", label: "Autre" },
   ],
   resultat: [
-    { value: "", label: "—" },
-    { value: "SANS_ARRET", label: "Sans arrêt" },
-    { value: "ARRET", label: "Arrêt de travail" },
-    { value: "DECES", label: "Décès" },
+    { value: "", label: "�" },
+    { value: "SANS_ARRET", label: "Sans arr�t" },
+    { value: "ARRET", label: "Arr�t de travail" },
+    { value: "DECES", label: "D�c�s" },
   ],
   gravite: [
-    { value: "", label: "—" },
+    { value: "", label: "�" },
     { value: "FAIBLE", label: "Faible" },
     { value: "MOYENNE", label: "Moyenne" },
     { value: "GRAVE", label: "Grave" },
   ],
   statut: [
-    { value: "", label: "—" },
+    { value: "", label: "�" },
     { value: "EN_ATTENTE", label: "En attente" },
     { value: "EN_COURS", label: "En cours" },
-    { value: "TERMINEE", label: "Terminée" },
-  ],
-  declaration: [
-    { value: "", label: "--" },
-    { value: "BROUILLON", label: "Brouillon" },
-    { value: "DECLAREE", label: "Declaree" },
-    { value: "GENEREE", label: "Generee" },
+    { value: "TERMINEE", label: "Termin�e" },
   ],
 };
 
 export default function AccidentsPage() {
   const [accidents, setAccidents] = useState([]);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterStart, setFilterStart] = useState("");
-  const [filterEnd, setFilterEnd] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [selectedProfile, setSelectedProfile] = useState(null);
@@ -149,32 +135,25 @@ export default function AccidentsPage() {
 
   const filteredAccidents = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let data = [...accidents];
+    if (!q) return accidents;
 
-    if (filterStatus) {
-      data = data.filter((item) => item.statut_declaration === filterStatus);
-    }
-
-    if (filterStart) {
-      const start = new Date(filterStart);
-      data = data.filter((item) => new Date(item.date_accident) >= start);
-    }
-
-    if (filterEnd) {
-      const end = new Date(filterEnd);
-      data = data.filter((item) => new Date(item.date_accident) <= end);
-    }
-
-    if (!q) return data;
-
-    return data.filter((item) =>
-      [item.matricule, item.collaborateur_nom, item.collaborateur_prenom]
+    return accidents.filter((item) =>
+      [
+        item.matricule,
+        item.collaborateur_nom,
+        item.collaborateur_prenom,
+        item.date_accident,
+        item.lieu_accident,
+        item.nature_lesion,
+        item.siege_lesion,
+        item.cause,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(q)
     );
-  }, [accidents, search, filterStatus, filterStart, filterEnd]);
+  }, [accidents, search]);
 
   const loadData = async () => {
     try {
@@ -234,104 +213,7 @@ export default function AccidentsPage() {
     setShowForm(false);
   };
 
-  const fillExample = async () => {
-    try {
-      setErr("");
-      const res = await api.get("/collaborateurs/");
-      const first = Array.isArray(res.data) ? res.data[0] : null;
-      const matricule = first?.matricule || "";
-      if (!matricule) {
-        setErr("Aucun collaborateur trouvÃ© pour l'exemple.");
-        return;
-      }
-      setForm((prev) => ({ ...prev, matricule }));
-      const profile = await getCollaborateurProfilByMatricule(matricule);
-      setSelectedProfile(profile);
-      const collab = profile?.collaborateur || {};
-      const dossier = profile?.dossier_medical || {};
-
-      setForm({
-      ...emptyForm,
-      matricule,
-      employeur_cnss: "12345678",
-      employeur_nom: dossier.entreprise || collab.site?.nom || "LEONI Tunisia",
-      employeur_adresse: dossier.localite || collab.site?.localite || "Zone Industrielle, Monastir",
-      employeur_code_postal: "5000",
-      employeur_telephone: "73508100",
-      employeur_activite: "Câblage automobile",
-      victime_cnss: "98765432",
-      victime_nom: collab.nom || "Ben Salem",
-      victime_prenom: collab.prenom || "Rania",
-      victime_nationalite: "Tunisienne",
-      victime_sexe: "FEMME",
-      victime_date_naissance: collab.date_naissance || "1994-06-12",
-      victime_lieu_naissance: "Sousse",
-      victime_cin: collab.cin || "07234567",
-      victime_adresse: collab.adresse || "Sahloul, Sousse",
-      victime_code_postal: "4054",
-      victime_date_embauche: "2021-02-01",
-      victime_specialite: collab.poste || "Opératrice",
-      victime_situation: "CDI",
-      victime_profession: "Opératrice câblage",
-      victime_poste_accident: collab.poste || "Atelier câblage",
-      victime_lieu_travail: "Atelier A",
-      victime_salaire: "900 TND",
-      autres_victimes: false,
-      date_accident: "2026-03-29",
-      heure_accident: "10:15",
-      horaire_travail_debut: "08:00",
-      horaire_travail_fin: "16:00",
-      lieu_accident: "Atelier A",
-      activite_lieu: "ATELIER",
-      activite_lieu_autre: "",
-      activite_service: "Câblage",
-      moment_travail: "Pendant le poste du matin",
-      nombre_travailleurs: "12",
-      description_circonstances: "Glissade près de la zone de stockage.",
-      causes_materielles: "Sol humide, câble au sol.",
-      comment_accident: "La victime a glissé et chuté sur le bras.",
-      cause: "Chute de plain-pied",
-      nature_lesion: "Entorse",
-      siege_lesion: "Poignet droit",
-      transport_hopital: "Infirmerie interne",
-      resultat: "ARRET",
-      arret_travail: true,
-      date_arret: "2026-03-29",
-      heure_arret: "11:00",
-      salaire_maintenu: true,
-      salaire_duree: "3",
-      salaire_montant: "900",
-      salaire_unite: "TND/mois",
-      temoin1_nom: "Khaled Trabelsi",
-      temoin1_telephone: "22123456",
-      temoin1_matricule: "EMP-1023",
-      temoin2_nom: "Sana Jebali",
-      temoin2_telephone: "21112233",
-      temoin2_matricule: "EMP-1044",
-      temoins: "Deux témoins présents sur place.",
-      rapport_police: false,
-      tiers_responsable: false,
-      tiers_nom: "",
-      tiers_assureur: "",
-      signataire_nom: "Amira Gharbi",
-      signataire_qualite: "Infirmière",
-      signature_lieu: "Monastir",
-      signature_date: "2026-03-29",
-      duree_arret: "3",
-      ipp: "",
-      segment: "Atelier A",
-      gravite: "MOYENNE",
-      statut_enquete: "EN_COURS",
-      statut_declaration: "DECLAREE",
-    });
-    setShowForm(true);
-    } catch (e) {
-      console.error(e);
-      setErr("Impossible de charger un collaborateur pour l'exemple.");
-    }
-  };
-
-  const buildPayload = (dossierId, statutDeclaration) => ({
+  const buildPayload = (dossierId) => ({
     dossier: dossierId,
     employeur_cnss: form.employeur_cnss,
     employeur_nom: form.employeur_nom,
@@ -357,7 +239,6 @@ export default function AccidentsPage() {
     victime_profession: form.victime_profession,
     victime_poste_accident: form.victime_poste_accident,
     victime_lieu_travail: form.victime_lieu_travail,
-    victime_salaire: form.victime_salaire,
     autres_victimes: form.autres_victimes,
     date_accident: form.date_accident,
     heure_accident: form.heure_accident || null,
@@ -367,8 +248,6 @@ export default function AccidentsPage() {
     horaire_travail_fin: form.horaire_travail_fin || null,
     activite_lieu: form.activite_lieu || null,
     activite_lieu_autre: form.activite_lieu_autre,
-    activite_service: form.activite_service,
-    moment_travail: form.moment_travail,
     nombre_travailleurs: form.nombre_travailleurs
       ? Number(form.nombre_travailleurs)
       : null,
@@ -380,7 +259,6 @@ export default function AccidentsPage() {
     siege_lesion: form.siege_lesion,
     transport_hopital: form.transport_hopital,
     resultat: form.resultat || null,
-    arret_travail: form.arret_travail,
     date_arret: form.date_arret || null,
     heure_arret: form.heure_arret || null,
     salaire_maintenu: form.salaire_maintenu,
@@ -410,44 +288,9 @@ export default function AccidentsPage() {
     segment: form.segment,
     gravite: form.gravite || null,
     statut_enquete: form.statut_enquete || null,
-    statut_declaration: statutDeclaration || form.statut_declaration,
   });
 
-  const validateDeclaration = (payload) => {
-    const required = [
-      "employeur_nom",
-      "employeur_cnss",
-      "victime_nom",
-      "victime_prenom",
-      "victime_cin",
-      "date_accident",
-      "lieu_accident",
-      "cause",
-      "nature_lesion",
-      "siege_lesion",
-    ];
-
-    const missing = required.filter((field) => !payload[field]);
-    if (missing.length) {
-      return `Champs obligatoires manquants: ${missing.join(", ")}`;
-    }
-
-    if (payload.arret_travail && !payload.date_arret) {
-      return "Veuillez renseigner la date d'arrÃªt.";
-    }
-
-    if (payload.date_arret && payload.date_accident) {
-      const dateAcc = new Date(payload.date_accident);
-      const dateArret = new Date(payload.date_arret);
-      if (dateArret < dateAcc) {
-        return "Date d'arrÃªt incohÃ©rente (antÃ©rieure Ã  la date d'accident).";
-      }
-    }
-
-    return "";
-  };
-
-  const handleSubmit = async (e, statutDeclaration = "DECLAREE") => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.matricule.trim()) {
       setErr("Veuillez saisir une matricule valide.");
@@ -462,18 +305,11 @@ export default function AccidentsPage() {
       );
       const dossierId = dossierRes.data?.id;
       if (!dossierId) {
-        setErr("Dossier m?dical introuvable.");
+        setErr("Dossier m�dical introuvable.");
         return;
       }
 
-      const payload = buildPayload(dossierId, statutDeclaration);
-      if (statutDeclaration !== "BROUILLON") {
-        const validationError = validateDeclaration(payload);
-        if (validationError) {
-          setErr(validationError);
-          return;
-        }
-      }
+      const payload = buildPayload(dossierId);
 
       if (editingId) {
         await api.patch(`/medical/accidents-travail/${editingId}/`, payload);
@@ -502,44 +338,18 @@ export default function AccidentsPage() {
     setShowForm(true);
   };
 
-  const openPdf = async (id, mode = "generate") => {
+  const handlePrint = async (id) => {
     try {
-      const params = mode === "print" ? "?print=1" : "";
-      const res = await api.get(`/medical/accidents-travail/${id}/pdf/${params}`, {
+      const res = await api.get(`/medical/accidents-travail/${id}/pdf/`, {
         responseType: "blob",
       });
       const file = new Blob([res.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(file);
       window.open(url, "_blank");
-      await loadData();
     } catch (e) {
       console.error(e);
-      let message = "Impossible d'ouvrir le PDF.";
-      const data = e?.response?.data;
-      if (data && typeof data === "object" && typeof data.text === "function") {
-        try {
-          const raw = await data.text();
-          const parsed = JSON.parse(raw);
-          message = parsed?.detail || message;
-          if (parsed?.errors?.length) {
-            message = `${message} (${parsed.errors.join(", ")})`;
-          }
-        } catch {
-          // ignore parse errors
-        }
-      } else if (e?.response?.data?.detail) {
-        message = e.response.data.detail;
-      }
-      setErr(message);
+      setErr("Impossible d'ouvrir le PDF.");
     }
-  };
-
-  const handleGenerate = async (id) => {
-    await openPdf(id, "generate");
-  };
-
-  const handlePrint = async (id) => {
-    await openPdf(id, "print");
   };
 
   return (
@@ -549,7 +359,7 @@ export default function AccidentsPage() {
           <div>
             <p className="text-sm font-medium text-slate-500">Module Infirmier</p>
             <h1 className="mt-1 text-3xl font-bold text-slate-900">
-              Déclaration d'accident du travail
+              D�claration d'accident du travail
             </h1>
             <p className="mt-2 text-sm text-slate-500">
               Saisie, consultation, modification et impression du formulaire officiel.
@@ -561,7 +371,7 @@ export default function AccidentsPage() {
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
           >
             <Plus size={16} />
-            {showForm ? "Fermer le formulaire" : "Nouvelle déclaration"}
+            {showForm ? "Fermer le formulaire" : "Nouvelle d�claration"}
           </button>
         </div>
       </div>
@@ -576,7 +386,7 @@ export default function AccidentsPage() {
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">
-              {editingId ? "Modifier la déclaration" : "Nouvelle déclaration"}
+              {editingId ? "Modifier la d�claration" : "Nouvelle d�claration"}
             </h2>
             {editingId && (
               <button
@@ -589,7 +399,7 @@ export default function AccidentsPage() {
             )}
           </div>
 
-          <form onSubmit={(e) => handleSubmit(e, "DECLAREE")} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
             <Section title="Recherche par matricule">
               <div className="grid gap-4 md:grid-cols-2">
                 <InputField
@@ -618,10 +428,10 @@ export default function AccidentsPage() {
                     {selectedProfile.collaborateur.nom}
                   </p>
                   <p className="text-slate-600">
-                    Poste: {selectedProfile.collaborateur.poste || "—"} — Segment:{" "}
+                    Poste: {selectedProfile.collaborateur.poste || "�"} � Segment:{" "}
                     {selectedProfile.collaborateur.segment_nom ||
                       selectedProfile.collaborateur.segment?.nom ||
-                      "—"}
+                      "�"}
                   </p>
                 </div>
               )}
@@ -633,8 +443,8 @@ export default function AccidentsPage() {
                 <InputField label="Nom employeur" name="employeur_nom" value={form.employeur_nom} onChange={handleChange} />
                 <InputField label="Adresse" name="employeur_adresse" value={form.employeur_adresse} onChange={handleChange} />
                 <InputField label="Code postal" name="employeur_code_postal" value={form.employeur_code_postal} onChange={handleChange} />
-                <InputField label="Téléphone" name="employeur_telephone" value={form.employeur_telephone} onChange={handleChange} />
-                <InputField label="Nature d'activité" name="employeur_activite" value={form.employeur_activite} onChange={handleChange} />
+                <InputField label="T�l�phone" name="employeur_telephone" value={form.employeur_telephone} onChange={handleChange} />
+                <InputField label="Nature d'activit�" name="employeur_activite" value={form.employeur_activite} onChange={handleChange} />
               </div>
             </Section>
 
@@ -642,10 +452,10 @@ export default function AccidentsPage() {
               <div className="grid gap-4 md:grid-cols-3">
                 <InputField label="CNSS victime" name="victime_cnss" value={form.victime_cnss} onChange={handleChange} />
                 <InputField label="Nom" name="victime_nom" value={form.victime_nom} onChange={handleChange} />
-                <InputField label="Prénom" name="victime_prenom" value={form.victime_prenom} onChange={handleChange} />
+                <InputField label="Pr�nom" name="victime_prenom" value={form.victime_prenom} onChange={handleChange} />
                 <InputField label="Nom de naissance" name="victime_nom_naissance" value={form.victime_nom_naissance} onChange={handleChange} />
-                <InputField label="Nom du père" name="victime_prenom_pere" value={form.victime_prenom_pere} onChange={handleChange} />
-                <InputField label="Nationalité" name="victime_nationalite" value={form.victime_nationalite} onChange={handleChange} />
+                <InputField label="Nom du p�re" name="victime_prenom_pere" value={form.victime_prenom_pere} onChange={handleChange} />
+                <InputField label="Nationalit�" name="victime_nationalite" value={form.victime_nationalite} onChange={handleChange} />
                 <SelectField label="Sexe" name="victime_sexe" value={form.victime_sexe} onChange={handleChange} options={selectOptions.sexe} />
                 <InputField label="Date naissance" name="victime_date_naissance" type="date" value={form.victime_date_naissance} onChange={handleChange} />
                 <InputField label="Lieu naissance" name="victime_lieu_naissance" value={form.victime_lieu_naissance} onChange={handleChange} />
@@ -653,12 +463,11 @@ export default function AccidentsPage() {
                 <InputField label="Adresse" name="victime_adresse" value={form.victime_adresse} onChange={handleChange} />
                 <InputField label="Code postal" name="victime_code_postal" value={form.victime_code_postal} onChange={handleChange} />
                 <InputField label="Date embauche" name="victime_date_embauche" type="date" value={form.victime_date_embauche} onChange={handleChange} />
-                <InputField label="Spécialité" name="victime_specialite" value={form.victime_specialite} onChange={handleChange} />
+                <InputField label="Sp�cialit�" name="victime_specialite" value={form.victime_specialite} onChange={handleChange} />
                 <InputField label="Situation" name="victime_situation" value={form.victime_situation} onChange={handleChange} />
                 <InputField label="Profession" name="victime_profession" value={form.victime_profession} onChange={handleChange} />
-                <InputField label="Poste occupé" name="victime_poste_accident" value={form.victime_poste_accident} onChange={handleChange} />
+                <InputField label="Poste occup�" name="victime_poste_accident" value={form.victime_poste_accident} onChange={handleChange} />
                 <InputField label="Lieu travail habituel" name="victime_lieu_travail" value={form.victime_lieu_travail} onChange={handleChange} />
-                <InputField label="Salaire" name="victime_salaire" value={form.victime_salaire} onChange={handleChange} />
                 <CheckboxField label="Autres victimes" name="autres_victimes" checked={form.autres_victimes} onChange={handleChange} />
               </div>
             </Section>
@@ -668,62 +477,59 @@ export default function AccidentsPage() {
                 <InputField label="Date accident" name="date_accident" type="date" value={form.date_accident} onChange={handleChange} required />
                 <InputField label="Heure accident" name="heure_accident" type="time" value={form.heure_accident} onChange={handleChange} />
                 <InputField label="Lieu accident" name="lieu_accident" value={form.lieu_accident} onChange={handleChange} />
-                <InputField label="Horaire début" name="horaire_travail_debut" type="time" value={form.horaire_travail_debut} onChange={handleChange} />
+                <InputField label="Horaire d�but" name="horaire_travail_debut" type="time" value={form.horaire_travail_debut} onChange={handleChange} />
                 <InputField label="Horaire fin" name="horaire_travail_fin" type="time" value={form.horaire_travail_fin} onChange={handleChange} />
-                <SelectField label="Activité du lieu" name="activite_lieu" value={form.activite_lieu} onChange={handleChange} options={selectOptions.activite} />
+                <SelectField label="Activit� du lieu" name="activite_lieu" value={form.activite_lieu} onChange={handleChange} options={selectOptions.activite} />
                 {form.activite_lieu === "AUTRE" && (
-                  <InputField label="Autre activité" name="activite_lieu_autre" value={form.activite_lieu_autre} onChange={handleChange} />
+                  <InputField label="Autre activit�" name="activite_lieu_autre" value={form.activite_lieu_autre} onChange={handleChange} />
                 )}
-                <InputField label="Service concerne" name="activite_service" value={form.activite_service} onChange={handleChange} />
-                <InputField label="Moment / horaire" name="moment_travail" value={form.moment_travail} onChange={handleChange} />
                 <InputField label="Nombre travailleurs" name="nombre_travailleurs" type="number" value={form.nombre_travailleurs} onChange={handleChange} />
                 <InputField label="Cause" name="cause" value={form.cause} onChange={handleChange} required />
-                <InputField label="Nature lésion" name="nature_lesion" value={form.nature_lesion} onChange={handleChange} required />
-                <InputField label="Siège lésion" name="siege_lesion" value={form.siege_lesion} onChange={handleChange} required />
+                <InputField label="Nature l�sion" name="nature_lesion" value={form.nature_lesion} onChange={handleChange} required />
+                <InputField label="Si�ge l�sion" name="siege_lesion" value={form.siege_lesion} onChange={handleChange} required />
                 <InputField label="Transport / transfert" name="transport_hopital" value={form.transport_hopital} onChange={handleChange} />
-                <SelectField label="Résultat" name="resultat" value={form.resultat} onChange={handleChange} options={selectOptions.resultat} />
-                <InputField label="Date arrêt" name="date_arret" type="date" value={form.date_arret} onChange={handleChange} />
-                <InputField label="Heure arrêt" name="heure_arret" type="time" value={form.heure_arret} onChange={handleChange} />
-                <SelectField label="Gravité" name="gravite" value={form.gravite} onChange={handleChange} options={selectOptions.gravite} />
-                <SelectField label="Statut enquête" name="statut_enquete" value={form.statut_enquete} onChange={handleChange} options={selectOptions.statut} />
+                <SelectField label="R�sultat" name="resultat" value={form.resultat} onChange={handleChange} options={selectOptions.resultat} />
+                <InputField label="Date arr�t" name="date_arret" type="date" value={form.date_arret} onChange={handleChange} />
+                <InputField label="Heure arr�t" name="heure_arret" type="time" value={form.heure_arret} onChange={handleChange} />
+                <SelectField label="Gravit�" name="gravite" value={form.gravite} onChange={handleChange} options={selectOptions.gravite} />
+                <SelectField label="Statut enqu�te" name="statut_enquete" value={form.statut_enquete} onChange={handleChange} options={selectOptions.statut} />
               </div>
               <div className="grid gap-4 md:grid-cols-2 mt-4">
                 <TextareaField label="Description circonstances" name="description_circonstances" value={form.description_circonstances} onChange={handleChange} />
-                <TextareaField label="Facteurs matériels" name="causes_materielles" value={form.causes_materielles} onChange={handleChange} />
+                <TextareaField label="Facteurs mat�riels" name="causes_materielles" value={form.causes_materielles} onChange={handleChange} />
                 <TextareaField label="Comment l'accident est survenu" name="comment_accident" value={form.comment_accident} onChange={handleChange} />
               </div>
             </Section>
 
-            <Section title="Salaire / arrêt">
+            <Section title="Salaire / arr�t">
               <div className="grid gap-4 md:grid-cols-3">
-                <CheckboxField label="Arret de travail" name="arret_travail" checked={form.arret_travail} onChange={handleChange} />
                 <CheckboxField label="Salaire maintenu" name="salaire_maintenu" checked={form.salaire_maintenu} onChange={handleChange} />
-                <InputField label="Durée" name="salaire_duree" value={form.salaire_duree} onChange={handleChange} />
+                <InputField label="Dur�e" name="salaire_duree" value={form.salaire_duree} onChange={handleChange} />
                 <InputField label="Montant" name="salaire_montant" value={form.salaire_montant} onChange={handleChange} />
-                <InputField label="Unité (jour/mois...)" name="salaire_unite" value={form.salaire_unite} onChange={handleChange} />
-                <InputField label="Durée arrêt (jours)" name="duree_arret" type="number" value={form.duree_arret} onChange={handleChange} />
+                <InputField label="Unit� (jour/mois...)" name="salaire_unite" value={form.salaire_unite} onChange={handleChange} />
+                <InputField label="Dur�e arr�t (jours)" name="duree_arret" type="number" value={form.duree_arret} onChange={handleChange} />
                 <InputField label="IPP" name="ipp" value={form.ipp} onChange={handleChange} />
               </div>
             </Section>
 
-            <Section title="Témoins">
+            <Section title="T�moins">
               <div className="grid gap-4 md:grid-cols-3">
-                <InputField label="Témoin 1 nom" name="temoin1_nom" value={form.temoin1_nom} onChange={handleChange} />
-                <InputField label="Témoin 1 téléphone" name="temoin1_telephone" value={form.temoin1_telephone} onChange={handleChange} />
-                <InputField label="Témoin 1 matricule" name="temoin1_matricule" value={form.temoin1_matricule} onChange={handleChange} />
-                <InputField label="Témoin 2 nom" name="temoin2_nom" value={form.temoin2_nom} onChange={handleChange} />
-                <InputField label="Témoin 2 téléphone" name="temoin2_telephone" value={form.temoin2_telephone} onChange={handleChange} />
-                <InputField label="Témoin 2 matricule" name="temoin2_matricule" value={form.temoin2_matricule} onChange={handleChange} />
+                <InputField label="T�moin 1 nom" name="temoin1_nom" value={form.temoin1_nom} onChange={handleChange} />
+                <InputField label="T�moin 1 t�l�phone" name="temoin1_telephone" value={form.temoin1_telephone} onChange={handleChange} />
+                <InputField label="T�moin 1 matricule" name="temoin1_matricule" value={form.temoin1_matricule} onChange={handleChange} />
+                <InputField label="T�moin 2 nom" name="temoin2_nom" value={form.temoin2_nom} onChange={handleChange} />
+                <InputField label="T�moin 2 t�l�phone" name="temoin2_telephone" value={form.temoin2_telephone} onChange={handleChange} />
+                <InputField label="T�moin 2 matricule" name="temoin2_matricule" value={form.temoin2_matricule} onChange={handleChange} />
               </div>
               <div className="mt-4">
-                <TextareaField label="Autres témoins (nom, adresse)" name="temoins" value={form.temoins} onChange={handleChange} />
+                <TextareaField label="Autres t�moins (nom, adresse)" name="temoins" value={form.temoins} onChange={handleChange} />
               </div>
             </Section>
 
             <Section title="Police / tiers">
               <div className="grid gap-4 md:grid-cols-2">
                 <CheckboxField label="Rapport police" name="rapport_police" checked={form.rapport_police} onChange={handleChange} />
-                <InputField label="Numéro rapport" name="rapport_police_numero" value={form.rapport_police_numero} onChange={handleChange} />
+                <InputField label="Num�ro rapport" name="rapport_police_numero" value={form.rapport_police_numero} onChange={handleChange} />
                 <InputField label="Date rapport" name="rapport_police_date" type="date" value={form.rapport_police_date} onChange={handleChange} />
                 <InputField label="Poste / centre" name="rapport_police_poste" value={form.rapport_police_poste} onChange={handleChange} />
                 <CheckboxField label="Tiers responsable" name="tiers_responsable" checked={form.tiers_responsable} onChange={handleChange} />
@@ -735,20 +541,13 @@ export default function AccidentsPage() {
             <Section title="Signature">
               <div className="grid gap-4 md:grid-cols-3">
                 <InputField label="Nom signataire" name="signataire_nom" value={form.signataire_nom} onChange={handleChange} />
-                <InputField label="Qualité" name="signataire_qualite" value={form.signataire_qualite} onChange={handleChange} />
+                <InputField label="Qualit�" name="signataire_qualite" value={form.signataire_qualite} onChange={handleChange} />
                 <InputField label="Lieu" name="signature_lieu" value={form.signature_lieu} onChange={handleChange} />
                 <InputField label="Date" name="signature_date" type="date" value={form.signature_date} onChange={handleChange} />
               </div>
             </Section>
 
-            <div className="flex flex-wrap justify-end gap-3">
-              <button
-                type="button"
-                onClick={fillExample}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Remplir exemple
-              </button>
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={resetForm}
@@ -757,36 +556,12 @@ export default function AccidentsPage() {
                 Annuler
               </button>
               <button
-                type="button"
-                onClick={(e) => handleSubmit(e, "BROUILLON")}
-                disabled={saving}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Enregistrer brouillon
-              </button>
-              <button
                 type="submit"
                 disabled={saving}
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {saving && <Loader2 size={16} className="animate-spin" />}
-                {editingId ? "Mettre a jour" : "Enregistrer declaration"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleGenerate(editingId)}
-                disabled={!editingId}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Generer version imprimable
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePrint(editingId)}
-                disabled={!editingId}
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Imprimer
+                {editingId ? "Mettre � jour" : "Enregistrer"}
               </button>
             </div>
           </form>
@@ -796,7 +571,7 @@ export default function AccidentsPage() {
       <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Liste des déclarations</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Liste des d�clarations</h2>
             <p className="text-sm text-slate-500">
               Recherche, consultation, modification et impression.
             </p>
@@ -809,36 +584,12 @@ export default function AccidentsPage() {
             />
             <input
               type="text"
-              placeholder="Rechercher par matricule..."
+              placeholder="Rechercher par matricule ou date..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-slate-900"
             />
           </div>
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <SelectField
-            label="Statut de declaration"
-            name="filter_statut"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            options={selectOptions.declaration}
-          />
-          <InputField
-            label="Du"
-            name="filter_start"
-            type="date"
-            value={filterStart}
-            onChange={(e) => setFilterStart(e.target.value)}
-          />
-          <InputField
-            label="Au"
-            name="filter_end"
-            type="date"
-            value={filterEnd}
-            onChange={(e) => setFilterEnd(e.target.value)}
-          />
         </div>
 
         {loading ? (
@@ -851,9 +602,7 @@ export default function AccidentsPage() {
                   <th className="px-3 py-3 font-medium">Date</th>
                   <th className="px-3 py-3 font-medium">Collaborateur</th>
                   <th className="px-3 py-3 font-medium">Matricule</th>
-                  <th className="px-3 py-3 font-medium">Lésion</th>
-                  <th className="px-3 py-3 font-medium">Statut</th>
-                  <th className="px-3 py-3 font-medium">Generee le</th>
+                  <th className="px-3 py-3 font-medium">L�sion</th>
                   <th className="px-3 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -868,8 +617,6 @@ export default function AccidentsPage() {
                       </td>
                       <td className="px-3 py-3 text-slate-700">{item.matricule}</td>
                       <td className="px-3 py-3 text-slate-700">{item.nature_lesion}</td>
-                      <td className="px-3 py-3 text-slate-700">{item.statut_declaration || "-"}</td>
-                      <td className="px-3 py-3 text-slate-700">{item.generated_at || "-"}</td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-2">
                           <button
@@ -887,13 +634,6 @@ export default function AccidentsPage() {
                             Modifier
                           </button>
                           <button
-                            onClick={() => handleGenerate(item.id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            <Printer size={14} />
-                            Generer
-                          </button>
-                          <button
                             onClick={() => handlePrint(item.id)}
                             className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800"
                           >
@@ -906,8 +646,8 @@ export default function AccidentsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-3 py-10 text-center text-slate-500">
-                      Aucune déclaration trouvée.
+                    <td colSpan="5" className="px-3 py-10 text-center text-slate-500">
+                      Aucune declaration trouvee.
                     </td>
                   </tr>
                 )}
@@ -922,7 +662,7 @@ export default function AccidentsPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                Détail de la déclaration
+                D�tail de la d�claration
               </h2>
               <p className="text-sm text-slate-500">
                 Matricule {selectedAccident.matricule}
@@ -940,11 +680,9 @@ export default function AccidentsPage() {
             <Info label="Date accident" value={selectedAccident.date_accident} />
             <Info label="Heure accident" value={selectedAccident.heure_accident || "-"} />
             <Info label="Lieu" value={selectedAccident.lieu_accident || "-"} />
-            <Info label="Nature lésion" value={selectedAccident.nature_lesion} />
-            <Info label="Siège lésion" value={selectedAccident.siege_lesion} />
+            <Info label="Nature l�sion" value={selectedAccident.nature_lesion} />
+            <Info label="Si�ge l�sion" value={selectedAccident.siege_lesion} />
             <Info label="Cause" value={selectedAccident.cause} />
-            <Info label="Statut" value={selectedAccident.statut_declaration || "-"} />
-            <Info label="Generee le" value={selectedAccident.generated_at || "-"} />
           </div>
 
           <div className="mt-4 flex justify-end gap-3">
@@ -954,13 +692,6 @@ export default function AccidentsPage() {
             >
               <PencilLine size={16} />
               Modifier
-            </button>
-            <button
-              onClick={() => handleGenerate(selectedAccident.id)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <Printer size={16} />
-              Generer
             </button>
             <button
               onClick={() => handlePrint(selectedAccident.id)}
@@ -994,7 +725,7 @@ function InputField({ label, name, value, onChange, type = "text", required, pla
       <input
         type={type}
         name={name}
-        value={value ?? ""}
+        value={value}
         onChange={onChange}
         required={required}
         placeholder={placeholder}
@@ -1010,7 +741,7 @@ function TextareaField({ label, name, value, onChange }) {
       <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
       <textarea
         name={name}
-        value={value ?? ""}
+        value={value}
         onChange={onChange}
         rows={4}
         className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-900"
@@ -1025,7 +756,7 @@ function SelectField({ label, name, value, onChange, options }) {
       <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
       <select
         name={name}
-        value={value ?? ""}
+        value={value}
         onChange={onChange}
         className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-900"
       >

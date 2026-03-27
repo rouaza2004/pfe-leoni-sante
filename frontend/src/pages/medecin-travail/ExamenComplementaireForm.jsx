@@ -1,55 +1,56 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
-  Save,
   Activity,
-  FileDown,
+  ArrowLeft,
   Eye,
+  FileDown,
   RotateCcw,
+  Save,
 } from "lucide-react";
 import { api } from "@/api/api";
 import { getUsername } from "@/auth/auth";
 
-const Input = ({ label, ...props }) => (
+const Input = ({ label, hint, ...props }) => (
   <div>
     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
       {label}
     </label>
     <input
       {...props}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
     />
+    {hint ? <p className="mt-2 text-xs text-slate-400">{hint}</p> : null}
   </div>
 );
 
-const TextArea = ({ label, ...props }) => (
+const TextArea = ({ label, rows = 4, ...props }) => (
   <div>
     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
       {label}
     </label>
     <textarea
       {...props}
-      rows={4}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+      rows={rows}
+      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
     />
   </div>
 );
 
 const Check = ({ label, name, checked, onChange }) => (
-  <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 cursor-pointer bg-white hover:bg-slate-50 transition">
+  <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50">
     <input type="checkbox" name={name} checked={checked} onChange={onChange} />
-    <span className="text-sm text-slate-700">{label}</span>
+    <span>{label}</span>
   </label>
 );
 
 const SectionCard = ({ title, children }) => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-    <h2 className="text-sm font-semibold text-slate-900 mb-5 uppercase tracking-wide">
+  <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+    <h2 className="mb-5 text-sm font-semibold uppercase tracking-wide text-slate-900">
       {title}
     </h2>
     {children}
-  </div>
+  </section>
 );
 
 const calcAge = (dateNaissance) => {
@@ -87,7 +88,6 @@ export default function ExamenComplementaireForm() {
   }, []);
 
   const [form, setForm] = useState({
-    numero: "Auto",
     date: todayISO,
     medecin_travail: getUsername() || "",
     nom_prenom: "",
@@ -104,7 +104,6 @@ export default function ExamenComplementaireForm() {
 
   const resetForm = (prefill = {}) => {
     const next = {
-      numero: "Auto",
       date: todayISO,
       medecin_travail: getUsername() || "",
       nom_prenom: "",
@@ -170,6 +169,11 @@ export default function ExamenComplementaireForm() {
     return `${collab.nom || ""} ${collab.prenom || ""}`.trim();
   }, [collab]);
 
+  const numeroAffiche = useMemo(() => {
+    if (!currentExamId) return "Auto";
+    return `N° ${String(currentExamId).padStart(6, "0")}`;
+  }, [currentExamId]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({
@@ -226,13 +230,16 @@ export default function ExamenComplementaireForm() {
     window.open(`/api/medical/examens-complementaires/${examId}/pdf/`, "_blank");
   };
 
+  const ensureExamForPdf = async () => {
+    if (currentExamId) return { id: currentExamId };
+    return createExam();
+  };
+
   const handleGeneratePdf = async () => {
     try {
       setSaving(true);
       setErr("");
-      const exam = currentExamId
-        ? { id: currentExamId }
-        : await createExam();
+      const exam = await ensureExamForPdf();
       openPdf(exam.id);
     } catch (e) {
       console.error(e);
@@ -246,9 +253,7 @@ export default function ExamenComplementaireForm() {
     try {
       setSaving(true);
       setErr("");
-      const exam = currentExamId
-        ? { id: currentExamId }
-        : await createExam();
+      const exam = await ensureExamForPdf();
       openPdf(exam.id);
     } catch (e) {
       console.error(e);
@@ -266,27 +271,30 @@ export default function ExamenComplementaireForm() {
     <div className="p-6 space-y-6">
       <button
         type="button"
-        onClick={() => navigate(`/medecin-travail/collaborateurs/${collaborateurId}`)}
+        onClick={() =>
+          navigate(`/medecin-travail/collaborateurs/${collaborateurId}`)
+        }
         className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
       >
         <ArrowLeft size={16} />
         Retour au dossier collaborateur
       </button>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-slate-500">Médecin du travail</p>
-            <h1 className="text-3xl font-bold text-slate-900 mt-1">
+            <h1 className="mt-1 text-3xl font-bold text-slate-900">
               Demande d’examens complémentaires
             </h1>
-            <p className="text-slate-500 mt-2">
+            <p className="mt-2 text-slate-500">
               Collaborateur :{" "}
-              <span className="font-medium text-slate-700">{fullName || "-"}</span>
+              <span className="font-medium text-slate-700">
+                {fullName || "-"}
+              </span>
             </p>
           </div>
-
-          <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50">
             <Activity className="h-6 w-6 text-slate-700" />
           </div>
         </div>
@@ -305,8 +313,8 @@ export default function ExamenComplementaireForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <SectionCard title="A. En-tête">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <Input label="Numéro / No" name="numero" value={form.numero} readOnly />
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            <Input label="Numéro / No" value={numeroAffiche} readOnly />
             <Input label="Date" name="date" value={form.date} readOnly />
             <Input
               label="Médecin du travail"
@@ -318,7 +326,7 @@ export default function ExamenComplementaireForm() {
         </SectionCard>
 
         <SectionCard title="B. Informations du collaborateur">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Input
               label="Nom et prénom"
               name="nom_prenom"
@@ -353,11 +361,12 @@ export default function ExamenComplementaireForm() {
             name="renseignements_cliniques"
             value={form.renseignements_cliniques}
             onChange={handleChange}
+            rows={6}
           />
         </SectionCard>
 
         <SectionCard title="D. Examens complémentaires demandés">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Check
               label="Visiotest"
               name="visiotest"
@@ -376,8 +385,8 @@ export default function ExamenComplementaireForm() {
         </SectionCard>
 
         <SectionCard title="E. Validation">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <Input label="Date" name="date_footer" value={form.date} readOnly />
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Input label="Date" value={form.date} readOnly />
             <Input
               label="Cachet et signature du médecin du travail"
               name="signature"
@@ -391,7 +400,7 @@ export default function ExamenComplementaireForm() {
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-5 py-3 text-sm font-medium hover:opacity-90 transition disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
           >
             <Save size={16} />
             {saving ? "Enregistrement..." : "Enregistrer"}
@@ -400,7 +409,7 @@ export default function ExamenComplementaireForm() {
             type="button"
             onClick={handleGeneratePdf}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium hover:bg-slate-50 transition disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
           >
             <FileDown size={16} />
             Générer PDF
@@ -409,7 +418,7 @@ export default function ExamenComplementaireForm() {
             type="button"
             onClick={handlePreview}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium hover:bg-slate-50 transition disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
           >
             <Eye size={16} />
             Aperçu
@@ -417,15 +426,17 @@ export default function ExamenComplementaireForm() {
           <button
             type="button"
             onClick={() => resetForm(baseFormRef.current || {})}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium hover:bg-slate-50 transition"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <RotateCcw size={16} />
             Réinitialiser
           </button>
           <button
             type="button"
-            onClick={() => navigate(`/medecin-travail/collaborateurs/${collaborateurId}`)}
-            className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium hover:bg-slate-50 transition"
+            onClick={() =>
+              navigate(`/medecin-travail/collaborateurs/${collaborateurId}`)
+            }
+            className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             Annuler
           </button>
@@ -463,7 +474,7 @@ export default function ExamenComplementaireForm() {
                   <button
                     type="button"
                     onClick={() => openPdf(examen.id)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
                   >
                     <Eye className="h-4 w-4" />
                     Voir PDF
@@ -471,7 +482,7 @@ export default function ExamenComplementaireForm() {
                   <button
                     type="button"
                     onClick={() => openPdf(examen.id)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     <FileDown className="h-4 w-4" />
                     Télécharger

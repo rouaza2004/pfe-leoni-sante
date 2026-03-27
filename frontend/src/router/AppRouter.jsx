@@ -326,6 +326,7 @@ export default function AppRouter() {
         />
 
         <Route
+<<<<<<< HEAD
           path="/bon-chauffeur"
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
@@ -344,6 +345,8 @@ export default function AppRouter() {
         />
 
         <Route
+=======
+>>>>>>> 1fd8565 (update infirmier features)
           path="/infirmier/maladies-professionnelles"
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
