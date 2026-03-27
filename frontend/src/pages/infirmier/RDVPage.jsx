@@ -4,6 +4,7 @@ import { api } from "@/api/api";
 
 const emptyForm = {
   collaborateur: "",
+  medecin: "",
   type_medecin: "TRAITANT",
   date: "",
   heure: "",
@@ -27,7 +28,10 @@ const statutLabel = {
 export default function RDVPage() {
   const [rdvs, setRdvs] = useState([]);
   const [collaborateurs, setCollaborateurs] = useState([]);
+  const [medecins, setMedecins] = useState([]);
   const [search, setSearch] = useState("");
+  const [collabSearch, setCollabSearch] = useState("");
+  const [matchedCollab, setMatchedCollab] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
@@ -50,6 +54,8 @@ export default function RDVPage() {
 
       setRdvs(Array.isArray(rdvRes.data) ? rdvRes.data : []);
       setCollaborateurs(Array.isArray(collabRes.data) ? collabRes.data : []);
+      const medRes = await api.get("/medecins/");
+      setMedecins(Array.isArray(medRes.data) ? medRes.data : []);
     } catch (e) {
       console.error(e);
       setErr("Erreur chargement rendez-vous.");
@@ -66,6 +72,7 @@ export default function RDVPage() {
       [
         item.collaborateur_nom,
         item.collaborateur_prenom,
+        item.medecin_nom,
         item.type_medecin,
         item.date,
         item.heure,
@@ -77,6 +84,39 @@ export default function RDVPage() {
         .includes(q)
     );
   }, [rdvs, search]);
+
+  const filteredCollaborateurs = useMemo(() => {
+    const q = collabSearch.trim().toLowerCase();
+    if (!q) return collaborateurs;
+    return collaborateurs.filter((c) =>
+      [c.nom, c.prenom, c.matricule, c.email]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [collaborateurs, collabSearch]);
+
+  const handleMatriculeChange = (e) => {
+    const value = e.target.value;
+    setCollabSearch(value);
+    const q = value.trim().toLowerCase();
+    if (!q) {
+      setMatchedCollab(null);
+      setForm((prev) => ({ ...prev, collaborateur: "" }));
+      return;
+    }
+    const found = collaborateurs.find(
+      (c) => (c.matricule || "").toLowerCase() === q
+    );
+    if (found) {
+      setMatchedCollab(found);
+      setForm((prev) => ({ ...prev, collaborateur: String(found.id) }));
+    } else {
+      setMatchedCollab(null);
+      setForm((prev) => ({ ...prev, collaborateur: "" }));
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -92,6 +132,7 @@ export default function RDVPage() {
 
       await api.post("/appointments/rdv/", {
         collaborateur: Number(form.collaborateur),
+        medecin: form.medecin ? Number(form.medecin) : null,
         type_medecin: form.type_medecin,
         date: form.date,
         heure: form.heure,
@@ -166,20 +207,21 @@ export default function RDVPage() {
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Collaborateur
               </label>
-              <select
-                name="collaborateur"
-                value={form.collaborateur}
-                onChange={handleChange}
+              <input
+                type="text"
+                placeholder="Rechercher par matricule..."
+                value={collabSearch}
+                onChange={handleMatriculeChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-              >
-                <option value="">Sélectionner</option>
-                {collaborateurs.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} {c.prenom} - {c.matricule}
-                  </option>
-                ))}
-              </select>
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
+              />
+              <div className="mt-2 text-sm text-slate-600">
+                {matchedCollab
+                  ? `${matchedCollab.nom} ${matchedCollab.prenom}`
+                  : collabSearch
+                  ? "Matricule introuvable."
+                  : "Saisir un matricule."}
+              </div>
             </div>
 
             <div>
@@ -195,6 +237,25 @@ export default function RDVPage() {
                 <option value="TRAITANT">Médecin traitant</option>
                 <option value="TRAVAIL">Médecin du travail</option>
                 <option value="CONTROLEUR">Médecin contrôleur</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Médecin
+              </label>
+              <select
+                name="medecin"
+                value={form.medecin}
+                onChange={handleChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              >
+                <option value="">Sélectionner</option>
+                {medecins.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.full_name} ({m.role})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -303,6 +364,7 @@ export default function RDVPage() {
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
                   <th className="px-3 py-3 font-medium">Collaborateur</th>
+                  <th className="px-3 py-3 font-medium">Médecin</th>
                   <th className="px-3 py-3 font-medium">Type médecin</th>
                   <th className="px-3 py-3 font-medium">Date</th>
                   <th className="px-3 py-3 font-medium">Heure</th>
@@ -317,6 +379,9 @@ export default function RDVPage() {
                     <tr key={item.id} className="border-b border-slate-100 last:border-0">
                       <td className="px-3 py-3 font-medium text-slate-900">
                         {item.collaborateur_nom} {item.collaborateur_prenom}
+                      </td>
+                      <td className="px-3 py-3 text-slate-700">
+                        {item.medecin_nom || "-"}
                       </td>
                       <td className="px-3 py-3 text-slate-700">
                         {medecinTypeLabel[item.type_medecin] || item.type_medecin}
@@ -337,7 +402,7 @@ export default function RDVPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="7" className="px-3 py-10 text-center text-slate-500">
                       Aucun rendez-vous trouvé.
                     </td>
                   </tr>

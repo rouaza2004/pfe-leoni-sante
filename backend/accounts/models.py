@@ -22,6 +22,7 @@ class User(AbstractUser):
     ]
 
     role = models.CharField(max_length=30, choices=ROLE_CHOICES, default="INFIRMIER")
+    nom_ar = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"{self.username} ({self.role})"

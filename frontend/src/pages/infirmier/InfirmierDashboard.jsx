@@ -15,7 +15,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/api";
 
-const StatCard = ({ title, value, subtitle, icon, alert = false }) => (
+const StatCard = ({ title, value, subtitle, icon, alert = false, iconClass = "" }) => (
   <div
     className={`rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
       alert ? "border-red-200" : "border-slate-200"
@@ -33,7 +33,7 @@ const StatCard = ({ title, value, subtitle, icon, alert = false }) => (
       <div
         className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
           alert ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-700"
-        }`}
+        } ${iconClass}`}
       >
         {icon}
       </div>
@@ -41,12 +41,14 @@ const StatCard = ({ title, value, subtitle, icon, alert = false }) => (
   </div>
 );
 
-const QuickAction = ({ title, desc, icon, onClick }) => (
+const QuickAction = ({ title, desc, icon, onClick, iconClass = "" }) => (
   <button
     onClick={onClick}
     className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
   >
-    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+    <div
+      className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700 ${iconClass}`}
+    >
       {icon}
     </div>
     <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
@@ -287,25 +289,29 @@ export default function InfirmierDashboard() {
           title="Collaborateurs"
           value={loading ? "..." : stats.totalPatients}
           subtitle="Patients accessibles"
-          icon={<Users size={22} />}
+          icon={<Users size={22} className="text-emerald-600" />}
+          iconClass="bg-emerald-50 text-emerald-600"
         />
         <StatCard
           title="Incidents aujourd'hui"
           value={loading ? "..." : stats.incidentsToday}
           subtitle="Soins / incidents infirmiers"
-          icon={<TriangleAlert size={22} />}
+          icon={<TriangleAlert size={22} className="text-rose-600" />}
+          iconClass="bg-rose-50 text-rose-600"
         />
         <StatCard
           title="Accidents aujourd'hui"
           value={loading ? "..." : stats.accidentsToday}
           subtitle="Déclarations d'accidents"
-          icon={<ShieldAlert size={22} />}
+          icon={<ShieldAlert size={22} className="text-amber-600" />}
+          iconClass="bg-amber-50 text-amber-600"
         />
         <StatCard
           title="Envoyés à HSEE"
           value={loading ? "..." : stats.accidentsSentHSEE}
           subtitle="Accidents transmis"
-          icon={<CheckCircle2 size={22} />}
+          icon={<CheckCircle2 size={22} className="text-blue-600" />}
+          iconClass="bg-blue-50 text-blue-600"
         />
         <StatCard
           title="Stock critique"
@@ -328,32 +334,37 @@ export default function InfirmierDashboard() {
           <QuickAction
             title="Accueil patient"
             desc="Chercher un collaborateur et ouvrir son dossier."
-            icon={<Users size={20} />}
+            icon={<Users size={20} className="text-emerald-600" />}
             onClick={() => navigate("/infirmier/patients")}
+            iconClass="bg-emerald-50 text-emerald-600"
           />
           <QuickAction
             title="Ajouter incident"
             desc="Déclarer un soin infirmier ou incident simple."
-            icon={<TriangleAlert size={20} />}
+            icon={<TriangleAlert size={20} className="text-rose-600" />}
             onClick={() => navigate("/infirmier/incidents")}
+            iconClass="bg-rose-50 text-rose-600"
           />
           <QuickAction
             title="Ajouter accident"
             desc="Déclarer un accident de travail et préparer l'enquête."
-            icon={<ShieldAlert size={20} />}
+            icon={<ShieldAlert size={20} className="text-amber-600" />}
             onClick={() => navigate("/infirmier/accidents")}
+            iconClass="bg-amber-50 text-amber-600"
           />
           <QuickAction
             title="Gestion stock"
             desc="Voir les entrées, sorties et alertes médicaments."
-            icon={<Package size={20} />}
+            icon={<Package size={20} className="text-indigo-600" />}
             onClick={() => navigate("/infirmier/stock")}
+            iconClass="bg-indigo-50 text-indigo-600"
           />
           <QuickAction
             title="Rendez-vous"
             desc="Consulter les visites et suivis programmés."
-            icon={<CalendarDays size={20} />}
+            icon={<CalendarDays size={20} className="text-blue-600" />}
             onClick={() => navigate("/infirmier/rdv")}
+            iconClass="bg-blue-50 text-blue-600"
           />
         </div>
       </div>

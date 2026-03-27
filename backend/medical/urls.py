@@ -1,6 +1,8 @@
 from django.urls import path
 from .views import (
     DossierByCollaborateurView,
+    DossierAutofillView,
+    DossierAutofillOneView,
     ExamenInitialCreateUpdateView,
     VaccinationCreateView,
     VaccinationDeleteView,
@@ -27,19 +29,23 @@ from .views import (
     OrdonnanceListCreateByCollaborateurView,
     CertificatListCreateByCollaborateurView,
     StockItemListCreateAPIView,
+    StockItemDetailAPIView,
     StockMovementListCreateAPIView,
-    FicheAptitudeListView,
-    FicheAptitudeListCreateByCollaborateurView,
     DemandeExamenLaboListCreateByCollaborateurView,
     ExamenComplementaireListCreateByCollaborateurView,
     FicheAptitudePdfView,
+    CertificatMedicalPdfView,
+    OrdonnancePdfView,
 )
 
 urlpatterns = [
     path("fiche-aptitude/<int:pk>/pdf/", FicheAptitudePdfView.as_view()),
-    path("fiches-aptitude/", FicheAptitudeListView.as_view()),
+    path("certificats/<int:pk>/pdf/", CertificatMedicalPdfView.as_view()),
+    path("ordonnances/<int:pk>/pdf/", OrdonnancePdfView.as_view()),
+
     path("dossier/<int:collaborateur_id>/", DossierByCollaborateurView.as_view()),
-    path("fiche-aptitude/<int:collaborateur_id>/", FicheAptitudeListCreateByCollaborateurView.as_view()),
+    path("dossiers/autofill/", DossierAutofillView.as_view()),
+    path("dossier/<int:collaborateur_id>/autofill/", DossierAutofillOneView.as_view()),
     path("examens-labo/<int:collaborateur_id>/", DemandeExamenLaboListCreateByCollaborateurView.as_view()),
     path("examens-complementaires/<int:collaborateur_id>/", ExamenComplementaireListCreateByCollaborateurView.as_view()),
     path("examens-initial/", ExamenInitialCreateUpdateView.as_view()),
@@ -78,5 +84,6 @@ urlpatterns = [
     path("certificats/<int:collaborateur_id>/", CertificatListCreateByCollaborateurView.as_view()),
 
     path("stock/items/", StockItemListCreateAPIView.as_view()),
+    path("stock/items/<int:pk>/", StockItemDetailAPIView.as_view()),
     path("stock/movements/", StockMovementListCreateAPIView.as_view()),
 ]

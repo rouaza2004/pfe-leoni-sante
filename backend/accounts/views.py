@@ -6,9 +6,9 @@ from rest_framework.filters import SearchFilter
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 
-from .models import Collaborateur
+from .models import Collaborateur, User
 from .permissions import CanViewCollaborateurList
-from .serializers import CollaborateurSerializer, MyTokenObtainPairSerializer
+from .serializers import CollaborateurSerializer, MyTokenObtainPairSerializer, UserMedecinSerializer
 from .permissions_map import ROLE_PERMISSIONS
 from medical.models import (
     DossierMedical,
@@ -158,3 +158,13 @@ class RHKpiView(APIView):
             "aptitudes": {"apte": 0, "inapte": 0},
         }
         return Response(data)
+
+
+class MedecinListAPIView(generics.ListAPIView):
+    serializer_class = UserMedecinSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return User.objects.filter(
+            role__in=["MEDECIN_TRAITANT", "MEDECIN_TRAVAIL", "MEDECIN_CONTROLEUR"]
+        ).order_by("first_name", "last_name", "username")

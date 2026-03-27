@@ -77,10 +77,16 @@ const emptyExamenUlterieur = () => ({
   conclusion: "",
 });
 
-export default function DossierMedicalCompletForm() {
+export default function DossierMedicalCompletForm({
+  collaborateurId: propId,
+  readOnly = false,
+  backPath = null,
+  embedded = false,
+}) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const collaborateurId = Number(id);
+  const collaborateurId = Number(propId ?? id);
+  const isReadOnly = readOnly;
 
   const [collab, setCollab] = useState(null);
   const [dossier, setDossier] = useState(null);
@@ -94,6 +100,8 @@ export default function DossierMedicalCompletForm() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [success, setSuccess] = useState("");
+  const [autofillLoading, setAutofillLoading] = useState(false);
+  const [autofillMsg, setAutofillMsg] = useState("");
 
   const [form, setForm] = useState({
     cin: "",
@@ -146,6 +154,126 @@ export default function DossierMedicalCompletForm() {
     precision_aptitude: "",
     conclusion: "",
   });
+
+  const reload = async () => {
+
+      try {
+        setLoading(true);
+        setErr("");
+
+        const [collabRes, dossierRes] = await Promise.all([
+          api.get(`/collaborateurs/${collaborateurId}/`),
+          api.get(`/medical/dossier/${collaborateurId}/`),
+        ]);
+
+        const collabData = collabRes.data || {};
+        const dossierData = dossierRes.data || {};
+        const examen = dossierData?.examen_initial || null;
+
+        setCollab(collabData);
+        setDossier(dossierData);
+        setExamenInitialId(examen?.id || null);
+
+        setVaccinations(
+          dossierData?.vaccinations?.length
+            ? dossierData.vaccinations.map((v) => ({
+                id: v.id || null,
+                vaccin: v.vaccin || "",
+                date_1: v.date_1 || "",
+                date_2: v.date_2 || "",
+                date_3: v.date_3 || "",
+                date_rappel: v.date_rappel || "",
+              }))
+            : [emptyVaccin()]
+        );
+
+        setPostes(
+          dossierData?.postes?.length
+            ? dossierData.postes.map((p) => ({
+                id: p.id || null,
+                date_debut: p.date_debut || "",
+                date_fin: p.date_fin || "",
+                description: p.description || "",
+                risque_professionnel: p.risque_professionnel || "",
+              }))
+            : [emptyPoste()]
+        );
+
+        setExamensUlterieurs(
+          dossierData?.examens_ulterieurs?.length
+            ? dossierData.examens_ulterieurs.map((e) => ({
+                id: e.id || null,
+                type_examen: e.type_examen || "PERIODIQUE",
+                date: e.date || "",
+                medecin_nom: e.medecin_nom || "",
+                poste_travail: e.poste_travail || "",
+                poids: e.poids ?? "",
+                taille: e.taille ?? "",
+                conclusion: e.conclusion || "",
+              }))
+            : [emptyExamenUlterieur()]
+        );
+
+        setForm({
+          cin: collabData.cin || "",
+          date_naissance: collabData.date_naissance || "",
+          telephone: collabData.telephone || "",
+          adresse: collabData.adresse || "",
+          poste: collabData.poste || "",
+          departement: collabData.departement || "",
+
+          entreprise: dossierData.entreprise || "",
+          localite: dossierData.localite || "",
+          date_recrutement: dossierData.date_recrutement || "",
+          niveau_etudes_diplomes: dossierData.niveau_etudes_diplomes || "",
+          profession: dossierData.profession || "",
+          poste_travail_actuel: dossierData.poste_travail_actuel || "",
+
+          antecedents_medicaux: dossierData.antecedents_medicaux || "",
+          antecedents_chirurgicaux: dossierData.antecedents_chirurgicaux || "",
+          antecedents_gynecologiques: dossierData.antecedents_gynecologiques || "",
+          antecedents_heredofamiliaux: dossierData.antecedents_heredofamiliaux || "",
+
+          tabac: dossierData.tabac || "",
+          alcool: dossierData.alcool || "",
+          automedication: dossierData.automedication || "",
+
+          medecin_nom: examen?.medecin_nom || "",
+          date_examen: examen?.date_examen || new Date().toISOString().slice(0, 10),
+          poids: examen?.poids ?? "",
+          taille: examen?.taille ?? "",
+          tension_arterielle: examen?.tension_arterielle || "",
+          pouls: examen?.pouls || "",
+          vision_od_pres: examen?.vision_od_pres || "",
+          vision_od_loin: examen?.vision_od_loin || "",
+          vision_og_pres: examen?.vision_og_pres || "",
+          vision_og_loin: examen?.vision_og_loin || "",
+          audition_od: examen?.audition_od || "",
+          audition_og: examen?.audition_og || "",
+          denture: examen?.denture || "",
+          teguments: examen?.teguments || "",
+          appareil_locomoteur: examen?.appareil_locomoteur || "",
+          appareil_respiratoire: examen?.appareil_respiratoire || "",
+          appareil_cardio_vasculaire: examen?.appareil_cardio_vasculaire || "",
+          abdomen: examen?.abdomen || "",
+          appareil_genito_urinaire: examen?.appareil_genito_urinaire || "",
+          glandes_endocrines: examen?.glandes_endocrines || "",
+          systeme_nerveux: examen?.systeme_nerveux || "",
+          examens_complementaires: examen?.examens_complementaires || "",
+          resultat_examen: examen?.resultat_examen || "",
+          aptitude: examen?.aptitude || "",
+          precision_aptitude: examen?.precision_aptitude || "",
+          conclusion: examen?.conclusion || "",
+        });
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setErr("Impossible de charger le dossier médical complet.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -283,6 +411,8 @@ export default function DossierMedicalCompletForm() {
     return `${collab.nom || ""} ${collab.prenom || ""}`.trim();
   }, [collab]);
 
+  const containerClass = embedded ? "space-y-6" : "p-6 space-y-6";
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -306,8 +436,26 @@ export default function DossierMedicalCompletForm() {
   const removeExamenUlterieur = (index) =>
     setExamensUlterieurs((prev) => prev.filter((_, i) => i !== index));
 
+  const handleAutofill = async () => {
+    if (isReadOnly) return;
+
+    try {
+      setAutofillMsg("");
+      setAutofillLoading(true);
+      await api.post(`/medical/dossier/${collaborateurId}/autofill/`);
+      setAutofillMsg("Auto-remplissage terminÃ©.");
+      await reload();
+    } catch (e) {
+      console.error(e);
+      setAutofillMsg("Erreur lors de l'auto-remplissage.");
+    } finally {
+      setAutofillLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isReadOnly) return;
 
     if (!dossier?.id) {
       setErr("Dossier médical introuvable.");
@@ -470,34 +618,63 @@ export default function DossierMedicalCompletForm() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <button
-        type="button"
-        onClick={() => navigate(`/medecin-travail/collaborateurs/${collaborateurId}`)}
-        className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
-      >
-        <ArrowLeft size={16} />
-        Retour au dossier collaborateur
-      </button>
+    <div className={containerClass}>
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() =>
+            navigate(backPath || `/medecin-travail/collaborateurs/${collaborateurId}`)
+          }
+          className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft size={16} />
+          Retour au dossier collaborateur
+        </button>
+      )}
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-sm text-slate-500">Médecin du travail</p>
-            <h1 className="text-3xl font-bold text-slate-900 mt-1">
-              Dossier médical complet
-            </h1>
-            <p className="text-slate-500 mt-2">
-              Collaborateur :{" "}
-              <span className="font-medium text-slate-700">{fullName || "-"}</span>
-            </p>
-          </div>
+      {!embedded && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm text-slate-500">Médecin du travail</p>
+              <h1 className="text-3xl font-bold text-slate-900 mt-1">
+                Dossier médical complet
+              </h1>
+              <p className="text-slate-500 mt-2">
+                Collaborateur :{" "}
+                <span className="font-medium text-slate-700">{fullName || "-"}</span>
+              </p>
+            </div>
 
-          <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center">
-            <FileText className="h-6 w-6 text-slate-700" />
+            <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center">
+              <FileText className="h-6 w-6 text-slate-700" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {isReadOnly && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          Lecture seule : dossier rempli par le médecin du travail.
+        </div>
+      )}
+
+      {!isReadOnly && (
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleAutofill}
+            disabled={autofillLoading}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-70"
+          >
+            {autofillLoading ? "Auto-remplissage..." : "Auto-remplir ce dossier"}
+          </button>
+          {autofillMsg && (
+            <span className="text-sm text-slate-600">{autofillMsg}</span>
+          )}
+        </div>
+      )}
 
       {err ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -512,6 +689,7 @@ export default function DossierMedicalCompletForm() {
       ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        <fieldset disabled={isReadOnly} className="space-y-6">
         <Section title="Informations collaborateur">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <Input label="CIN" name="cin" value={form.cin} onChange={handleChange} />
@@ -835,24 +1013,28 @@ export default function DossierMedicalCompletForm() {
           </div>
         </Section>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-5 py-3 text-sm font-medium hover:opacity-90 transition disabled:opacity-60"
-          >
-            <Save size={16} />
-            {saving ? "Enregistrement..." : "Enregistrer le dossier complet"}
-          </button>
+        </fieldset>
 
-          <button
-            type="button"
-            onClick={() => navigate(`/medecin-travail/collaborateurs/${collaborateurId}`)}
-            className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium hover:bg-slate-50 transition"
-          >
-            Annuler
-          </button>
-        </div>
+        {!isReadOnly && (
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-5 py-3 text-sm font-medium hover:opacity-90 transition disabled:opacity-60"
+            >
+              <Save size={16} />
+              {saving ? "Enregistrement..." : "Enregistrer le dossier complet"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate(backPath || `/medecin-travail/collaborateurs/${collaborateurId}`)}
+              className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium hover:bg-slate-50 transition"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

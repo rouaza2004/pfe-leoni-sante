@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from accounts.models import Collaborateur
 
 
@@ -20,6 +21,14 @@ class Appointment(models.Model):
         Collaborateur,
         on_delete=models.CASCADE,
         related_name="rdv"
+    )
+
+    medecin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rdv_medecin",
     )
 
     type_medecin = models.CharField(max_length=20, choices=TYPE_MEDECIN)

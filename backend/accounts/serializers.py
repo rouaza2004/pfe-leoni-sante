@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Collaborateur, Site
+from .models import Collaborateur, Site, User
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -56,3 +56,14 @@ class CollaborateurSerializer(serializers.ModelSerializer):
             "created_at",
             "site",
         ]
+
+
+class UserMedecinSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "full_name", "role", "nom_ar"]
+
+    def get_full_name(self, obj):
+        return obj.get_full_name() or obj.username

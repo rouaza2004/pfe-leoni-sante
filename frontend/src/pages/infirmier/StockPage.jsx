@@ -28,13 +28,16 @@ export default function StockPage() {
 
   const [showMoveForm, setShowMoveForm] = useState(false);
   const [showItemForm, setShowItemForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
   const [movement, setMovement] = useState(emptyMove);
   const [newItem, setNewItem] = useState(emptyItem);
+  const [editItem, setEditItem] = useState({ ...emptyItem, id: null });
 
   const [loading, setLoading] = useState(true);
   const [savingMove, setSavingMove] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -77,6 +80,11 @@ export default function StockPage() {
   const handleItemChange = (e) => {
     const { name, value } = e.target;
     setNewItem((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditItem((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleMoveSubmit = async (e) => {
@@ -132,6 +140,61 @@ export default function StockPage() {
     } finally {
       setSavingItem(false);
     }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      setSavingEdit(true);
+      setErr("");
+
+      await api.patch(`/medical/stock/items/${editItem.id}/`, {
+        nom: editItem.nom,
+        type_article: editItem.type_article,
+        quantite: Number(editItem.quantite),
+        seuil_critique: Number(editItem.seuil_critique),
+        unite: editItem.unite,
+      });
+
+      setEditItem({ ...emptyItem, id: null });
+      setShowEditForm(false);
+      await loadItems();
+    } catch (e) {
+      console.error(e);
+      setErr(e?.response?.data?.detail || "Erreur modification article.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteItem = async (item) => {
+    const ok = window.confirm(
+      `Supprimer l'article "${item.nom}" ? Cette action est irréversible.`
+    );
+    if (!ok) return;
+
+    try {
+      setErr("");
+      await api.delete(`/medical/stock/items/${item.id}/`);
+      await loadItems();
+    } catch (e) {
+      console.error(e);
+      setErr(e?.response?.data?.detail || "Erreur suppression article.");
+    }
+  };
+
+  const startEditItem = (item) => {
+    setEditItem({
+      id: item.id,
+      nom: item.nom || "",
+      type_article: item.type_article || "MEDICAMENT",
+      quantite: item.quantite ?? "",
+      seuil_critique: item.seuil_critique ?? "",
+      unite: item.unite || "",
+    });
+    setShowEditForm(true);
+    setShowItemForm(false);
   };
 
   const stockBadge = (item) => {
@@ -306,6 +369,98 @@ export default function StockPage() {
         </div>
       )}
 
+      {showEditForm && (
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-5 text-lg font-semibold text-slate-900">Modifier article</h2>
+
+          <form onSubmit={handleEditSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Nom article</label>
+              <input
+                type="text"
+                name="nom"
+                value={editItem.nom}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
+              <select
+                name="type_article"
+                value={editItem.type_article}
+                onChange={handleEditChange}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              >
+                <option value="MEDICAMENT">MÃ©dicament</option>
+                <option value="CONSOMMABLE">Consommable</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">QuantitÃ©</label>
+              <input
+                type="number"
+                min="0"
+                name="quantite"
+                value={editItem.quantite}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Seuil critique</label>
+              <input
+                type="number"
+                min="0"
+                name="seuil_critique"
+                value={editItem.seuil_critique}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">UnitÃ©</label>
+              <input
+                type="text"
+                name="unite"
+                value={editItem.unite}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="md:col-span-2 xl:col-span-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditItem({ ...emptyItem, id: null });
+                  setShowEditForm(false);
+                }}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+              >
+                {savingEdit ? "Enregistrement..." : "Enregistrer"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {showMoveForm && (
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h2 className="mb-5 text-lg font-semibold text-slate-900">Nouveau mouvement</h2>
@@ -423,6 +578,7 @@ export default function StockPage() {
                   <th className="px-3 py-3 font-medium">Unité</th>
                   <th className="px-3 py-3 font-medium">Seuil</th>
                   <th className="px-3 py-3 font-medium">État</th>
+                  <th className="px-3 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -447,11 +603,29 @@ export default function StockPage() {
                           {item.quantite <= item.seuil_critique ? "Critique" : "Disponible"}
                         </span>
                       </td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditItem(item)}
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item)}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="7" className="px-3 py-10 text-center text-slate-500">
                       Aucun article trouvé.
                     </td>
                   </tr>

@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/api/api";
+import { getUserRole } from "@/auth/auth";
 
-function Field({ label, value, onChange, type = "text" }) {
+function Field({ label, value, onChange, type = "text", disabled }) {
   return (
     <div>
       <label className="text-xs text-slate-500">{label}</label>
       <input
-        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
         type={type}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
       />
     </div>
   );
@@ -35,6 +37,8 @@ export default function FicheMedicale() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
+  const role = getUserRole();
+  const readOnly = role !== "MEDECIN_TRAVAIL" && role !== "ADMIN";
 
   const load = async () => {
     try {
@@ -57,7 +61,11 @@ export default function FicheMedicale() {
       });
     } catch (e) {
       console.error(e);
-      setErr("Erreur chargement fiche médicale.");
+      if (e?.response?.status === 404) {
+        setErr("Fiche médicale non encore créée par le médecin du travail.");
+      } else {
+        setErr("Erreur chargement fiche médicale.");
+      }
     } finally {
       setLoading(false);
     }
@@ -68,6 +76,7 @@ export default function FicheMedicale() {
   }, [collaborateurId]);
 
   const save = async () => {
+    if (readOnly) return;
     try {
       setErr("");
       setSaving(true);
@@ -105,6 +114,11 @@ export default function FicheMedicale() {
 
       <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
         <h2 className="text-lg font-bold text-slate-900">Informations personnelles</h2>
+        {readOnly && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            Lecture seule : fiche remplie par le médecin du travail.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field
@@ -112,32 +126,38 @@ export default function FicheMedicale() {
             type="date"
             value={form.date_naissance}
             onChange={(v) => setForm({ ...form, date_naissance: v })}
+            disabled={readOnly}
           />
           <Field
             label="Lieu de naissance"
             value={form.lieu_naissance}
             onChange={(v) => setForm({ ...form, lieu_naissance: v })}
+            disabled={readOnly}
           />
           <Field
             label="Adresse"
             value={form.adresse}
             onChange={(v) => setForm({ ...form, adresse: v })}
+            disabled={readOnly}
           />
           <Field
             label="Tél"
             value={form.telephone}
             onChange={(v) => setForm({ ...form, telephone: v })}
+            disabled={readOnly}
           />
         </div>
 
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold disabled:opacity-60"
-        >
-          Enregistrer
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold disabled:opacity-60"
+          >
+            Enregistrer
+          </button>
+        )}
 
         {fiche?.updated_at && (
           <p className="text-xs text-slate-500">

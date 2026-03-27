@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Certificat médical</title>
+    <style>
+        @font-face {
+            font-family: "Amiri";
+            src: url("{% static 'fonts/Amiri-Regular.ttf' %}") format("truetype");
+        }
+        @page {
+            size: A4;
+            margin: 2.5cm 2.2cm 2.5cm 2.2cm;
+        }
+
+        body {
+            font-family: "Times New Roman", "DejaVu Serif", serif;
+            font-size: 13px;
+            color: #111;
+            line-height: 1.75;
+        }
+
+        .top-table,
+        .footer-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .top-table {
+            margin-bottom: 26px;
+        }
+
+        .top-left {
+            text-align: left;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .top-right {
+            text-align: right;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .date-line {
+            margin-bottom: 24px;
+            font-weight: bold;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 26px;
+            letter-spacing: 1px;
+            word-spacing: 8px;
+        }
+
+        .paragraph {
+            margin-bottom: 14px;
+            text-align: left;
+        }
+
+        .fill {
+            font-weight: bold;
+        }
+
+        .fill-line {
+            display: inline-block;
+            min-width: 170px;
+            border-bottom: 1px dotted #333;
+            padding: 0 2px 2px 2px;
+        }
+
+        .fill-line.wide {
+            min-width: 280px;
+        }
+
+        .spacer {
+            height: 80px;
+        }
+
+        .footer {
+            margin-top: 60px;
+            border-top: 1px solid #444;
+            padding-top: 8px;
+        }
+
+        .footer-left {
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .footer-right {
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .arabic {
+            font-family: "Amiri", "DejaVu Sans", Arial, sans-serif;
+            direction: rtl;
+            unicode-bidi: isolate;
+        }
+    </style>
+</head>
+<body>
+
+    <table class="top-table">
+        <tr>
+            <td class="top-left">Médecine Générale</td>
+            <td class="top-right arabic">{{ arabic_medecine }}</td>
+        </tr>
+    </table>
+
+    <div class="date-line">
+        Menzel Hayet, le <span class="fill-line wide">{{ date_du_jour }}</span>
+    </div>
+
+    <div class="title">CERTIFICAT&nbsp;&nbsp;&nbsp;MEDICAL</div>
+
+    <div class="paragraph">
+        Je soussigné, Docteur <span class="fill">{{ medecin_nom }}</span>, certifie avoir reçu et
+        examiné aujourd’hui M <span class="fill-line wide">{{ collaborateur_nom_complet }}</span>
+    </div>
+
+    <div class="paragraph">
+        et que son état de santé nécessite (<span class="fill">{{ nb_jours }}</span>) jour(s) de repos à
+        partir du <span class="fill-line wide">{{ date_debut_repos }}</span> sauf complications ultérieures.
+    </div>
+
+    <div class="paragraph">
+        Certificat délivré à l’intéressé(e) pour servir et valoir ce que de droit ./.
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="footer">
+        <table class="footer-table">
+            <tr>
+                <td class="footer-left">Leoni Menzel Hayet</td>
+                <td class="footer-right">Service Médical</td>
+            </tr>
+        </table>
+    </div>
+
+</body>
+</html>

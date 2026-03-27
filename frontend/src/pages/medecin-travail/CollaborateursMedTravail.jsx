@@ -67,6 +67,8 @@ export default function CollaborateursMedTravail() {
     }
   };
 
+
+
   const filtered = collaborateurs.filter((c) =>
     `${c.nom || ""} ${c.prenom || ""} ${c.matricule || ""}`
       .toLowerCase()
@@ -88,15 +90,18 @@ export default function CollaborateursMedTravail() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2 mb-6 bg-white border rounded-lg px-3 py-2 w-full max-w-md">
-        <Search size={18} />
-        <input
-          type="text"
-          placeholder="Rechercher collaborateur..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="outline-none w-full"
-        />
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 w-full max-w-md">
+          <Search size={18} />
+          <input
+            type="text"
+            placeholder="Rechercher collaborateur..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="outline-none w-full"
+          />
+        </div>
+        <div className="flex items-center gap-3" />
       </div>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">

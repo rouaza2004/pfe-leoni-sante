@@ -6,6 +6,7 @@ from .views import (
     CollaborateurDetailAPIView,
     CollaborateurProfilAPIView,
     RHKpiView,
+    MedecinListAPIView,
 )
 
 urlpatterns = [
@@ -15,4 +16,5 @@ urlpatterns = [
     path("collaborateurs/<int:pk>/", CollaborateurDetailAPIView.as_view(), name="collaborateurs-detail"),
     path("collaborateurs/matricule/<str:matricule>/", CollaborateurProfilAPIView.as_view(), name="collaborateurs-profil-matricule"),
     path("rh/kpi/", RHKpiView.as_view(), name="rh-kpi"),
+    path("medecins/", MedecinListAPIView.as_view(), name="medecins-list"),
 ]

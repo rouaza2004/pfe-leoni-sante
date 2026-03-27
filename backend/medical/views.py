@@ -1,23 +1,39 @@
 from pathlib import Path
-
+from io import BytesIO
+import base64
+import os
+import tempfile
+import random
+from datetime import date, timedelta
 from django.conf import settings
+from django.contrib.staticfiles import finders
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Sum, Count, Case, When, Value, CharField
 from django.db.models.functions import ExtractMonth
 from django.http import HttpResponse
+from django.template.loader import render_to_string
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+from xhtml2pdf import pisa
+from xhtml2pdf import files as xhtml_files
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 from rest_framework import generics, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Collaborateur
+from accounts.models import Collaborateur, Site
 
 from .models import (
     DossierMedical,
@@ -57,35 +73,67 @@ from .serializers import (
     ExamenComplementaireSerializer,
 )
 
-class FicheAptitudeListView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        qs = FicheAptitude.objects.select_related("collaborateur").order_by("-created_at")
-        serializer = FicheAptitudeSerializer(qs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+def link_callback(uri, rel):
+    if settings.STATIC_URL and uri.startswith(settings.STATIC_URL):
+        path = finders.find(uri.replace(settings.STATIC_URL, ""))
+        if path:
+            return path
+    if settings.MEDIA_URL and uri.startswith(settings.MEDIA_URL):
+        path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
+        return path
+    return uri
 
 
-class FicheAptitudeListCreateByCollaborateurView(APIView):
-    permission_classes = [IsAuthenticated]
+def require_medecin_travail(request):
+    role = (getattr(request.user, "role", "") or "").strip().upper()
+    if role not in ["MEDECIN_TRAVAIL", "ADMIN"]:
+        raise PermissionDenied(
+            "Seul le médecin du travail peut modifier le dossier médical."
+        )
 
-    def get(self, request, collaborateur_id):
-        collaborateur = get_object_or_404(Collaborateur, id=collaborateur_id)
-        qs = FicheAptitude.objects.filter(collaborateur=collaborateur).order_by("-created_at")
-        return Response(FicheAptitudeSerializer(qs, many=True).data, status=status.HTTP_200_OK)
 
-    def post(self, request, collaborateur_id):
-        collaborateur = get_object_or_404(Collaborateur, id=collaborateur_id)
+def ensure_temp_dir():
+    temp_dir = Path(settings.BASE_DIR) / "tmp"
+    temp_dir.mkdir(exist_ok=True)
+    tempfile.tempdir = str(temp_dir)
 
-        data = request.data.copy()
-        data["collaborateur"] = collaborateur.id
 
-        serializer = FicheAptitudeSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        obj = serializer.save(created_by=request.user)
+def patch_xhtml2pdf_tempfile():
+    if getattr(xhtml_files, "_patched_tempfile", False):
+        return
 
-        return Response(FicheAptitudeSerializer(obj).data, status=status.HTTP_201_CREATED)
-    
+    def get_named_tmp_file(self):
+        data = self.get_data()
+        tmp_file = tempfile.NamedTemporaryFile(suffix=self.suffix, delete=False)
+        if data:
+            tmp_file.write(data)
+            tmp_file.flush()
+            tmp_file.close()
+            xhtml_files.files_tmp.append(tmp_file)
+        if self.path is None:
+            self.path = tmp_file.name
+        return tmp_file
+
+    xhtml_files.BaseFile.get_named_tmp_file = get_named_tmp_file
+    xhtml_files._patched_tempfile = True
+
+
+def shape_arabic(text: str) -> str:
+    reshaped = arabic_reshaper.reshape(text)
+    return get_display(reshaped)
+
+
+def register_arabic_font():
+    try:
+        pdfmetrics.getFont("Amiri")
+        return
+    except Exception:
+        pass
+    font_path = finders.find("fonts/Amiri-Regular.ttf")
+    if font_path:
+        pdfmetrics.registerFont(TTFont("Amiri", font_path))
+
 class FicheAptitudePdfView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -160,13 +208,9 @@ class FicheAptitudePdfView(APIView):
 
         y = height - margin
 
-        # Bordure externe
         p.setLineWidth(1)
         p.rect(margin, margin, width - 2 * margin, height - 2 * margin)
 
-        # =========================
-        # HEADER
-        # =========================
         logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
 
         draw_text(margin + 0.1 * cm, y - 0.35 * cm, "Groupement de Médecine", 14, True)
@@ -216,159 +260,49 @@ class FicheAptitudePdfView(APIView):
         p.line(margin, y - 4.7 * cm, width - margin, y - 4.7 * cm)
         y -= 5.0 * cm
 
-        # =========================
-        # POSITIONS COLONNES
-        # =========================
         left_label_x = margin + 0.2 * cm
         left_value_x = margin + 3.0 * cm
 
         right_label_x = margin + 8.8 * cm
         right_value_x = margin + 11.5 * cm
 
-        # =========================
-        # 1. ENTREPRISE
-        # =========================
         entreprise_h = 2.8 * cm
         draw_box(margin, y, content_width, entreprise_h, "1. L’ENTREPRISE")
 
         yy = y - 0.95 * cm
 
-        draw_field(
-            left_label_x,
-            yy,
-            "Raison sociale",
-            fiche.entreprise,
-            left_value_x,
-            4.0 * cm,
-            max_lines=1
-        )
-
-        draw_field(
-            right_label_x,
-            yy,
-            "Adresse",
-            fiche.adresse_entreprise,
-            right_value_x,
-            3.0 * cm,
-            max_lines=2
-        )
+        draw_field(left_label_x, yy, "Raison sociale", fiche.entreprise, left_value_x, 4.0 * cm, max_lines=1)
+        draw_field(right_label_x, yy, "Adresse", fiche.adresse_entreprise, right_value_x, 3.0 * cm, max_lines=2)
 
         yy -= 0.7 * cm
 
-        draw_field(
-            left_label_x,
-            yy,
-            "Nature d’activité",
-            fiche.nature_activite,
-            left_value_x,
-            4.0 * cm,
-            max_lines=1
-        )
+        draw_field(left_label_x, yy, "Nature d’activité", fiche.nature_activite, left_value_x, 4.0 * cm, max_lines=1)
+        draw_field(right_label_x, yy, "N° CNSS", fiche.numero_cnss, right_value_x, 3.0 * cm, max_lines=1)
 
-        draw_field(
-            right_label_x,
-            yy,
-            "N° CNSS",
-            fiche.numero_cnss,
-            right_value_x,
-            3.0 * cm,
-            max_lines=1
-        )
-
-        # =========================
-        # 2. LE TRAVAILLEUR
-        # =========================
         y -= entreprise_h + 0.25 * cm
         travailleur_h = 4.6 * cm
         draw_box(margin, y, content_width, travailleur_h, "2. LE TRAVAILLEUR")
 
         yy = y - 0.95 * cm
 
-        draw_field(
-            left_label_x,
-            yy,
-            "Nom et prénom",
-            fiche.nom_prenom,
-            left_value_x,
-            4.0 * cm,
-            max_lines=1
-        )
-
-        draw_field(
-            right_label_x,
-            yy,
-            "Date et lieu naissance",
-            fiche.date_lieu_naissance,
-            right_value_x,
-            3.0 * cm,
-            max_lines=1
-        )
+        draw_field(left_label_x, yy, "Nom et prénom", fiche.nom_prenom, left_value_x, 4.0 * cm, max_lines=1)
+        draw_field(right_label_x, yy, "Date et lieu naissance", fiche.date_lieu_naissance, right_value_x, 3.0 * cm, max_lines=1)
 
         yy -= 0.75 * cm
 
-        draw_field(
-            left_label_x,
-            yy,
-            "Adresse",
-            fiche.adresse_travailleur,
-            left_value_x,
-            4.0 * cm,
-            max_lines=2
-        )
-
-        draw_field(
-            right_label_x,
-            yy,
-            "Qualifications",
-            fiche.qualifications_professionnelles,
-            right_value_x,
-            3.0 * cm,
-            max_lines=2
-        )
+        draw_field(left_label_x, yy, "Adresse", fiche.adresse_travailleur, left_value_x, 4.0 * cm, max_lines=2)
+        draw_field(right_label_x, yy, "Qualifications", fiche.qualifications_professionnelles, right_value_x, 3.0 * cm, max_lines=2)
 
         yy -= 1.0 * cm
 
-        draw_field(
-            left_label_x,
-            yy,
-            "N° CNSS",
-            fiche.cnss_travailleur,
-            left_value_x,
-            4.0 * cm,
-            max_lines=1
-        )
-
-        draw_field(
-            right_label_x,
-            yy,
-            "Poste de travail",
-            fiche.poste_travail,
-            right_value_x,
-            3.0 * cm,
-            max_lines=2
-        )
+        draw_field(left_label_x, yy, "N° CNSS", fiche.cnss_travailleur, left_value_x, 4.0 * cm, max_lines=1)
+        draw_field(right_label_x, yy, "Poste de travail", fiche.poste_travail, right_value_x, 3.0 * cm, max_lines=2)
 
         yy -= 0.75 * cm
 
-        date_recrutement = (
-            fiche.date_recrutement.strftime("%d/%m/%Y")
-            if fiche.date_recrutement
-            else "-"
-        )
+        date_recrutement = fiche.date_recrutement.strftime("%d/%m/%Y") if fiche.date_recrutement else "-"
+        draw_field(left_label_x, yy, "Date de recrutement", date_recrutement, left_value_x, 4.0 * cm, max_lines=1)
 
-        draw_field(
-            left_label_x,
-            yy,
-            "Date de recrutement",
-            date_recrutement,
-            left_value_x,
-            4.0 * cm,
-            max_lines=1
-        )
-
-        # =========================
-        # 3. EXAMENS MÉDICAUX
-        # =========================
         y -= travailleur_h + 0.25 * cm
         examens_h = 1.9 * cm
         draw_box(margin, y, content_width, examens_h, "3. EXAMENS MÉDICAUX")
@@ -379,9 +313,6 @@ class FicheAptitudePdfView(APIView):
         draw_checkbox(margin + 7.60 * cm, cy, "Reprise", fiche.type_examen == "REPRISE")
         draw_checkbox(margin + 10.70 * cm, cy, "Spontané", fiche.type_examen == "SPONTANE")
 
-        # =========================
-        # 4. DÉCISION MÉDICALE
-        # =========================
         y -= examens_h + 0.25 * cm
         decision_h = 6.7 * cm
         draw_box(margin, y, content_width, decision_h, "4. DÉCISION MÉDICALE")
@@ -410,9 +341,6 @@ class FicheAptitudePdfView(APIView):
 
             row_y -= 0.9 * cm
 
-        # =========================
-        # FOOTER
-        # =========================
         footer_y = margin + 2.0 * cm
         pdf_date = fiche.date.strftime("%d/%m/%Y") if fiche.date else "-"
 
@@ -424,6 +352,98 @@ class FicheAptitudePdfView(APIView):
         p.showPage()
         p.save()
         return response
+
+
+class OrdonnancePdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        ordonnance = get_object_or_404(
+            Ordonnance.objects.select_related("collaborateur", "created_by"),
+            pk=pk,
+        )
+
+        collab = ordonnance.collaborateur
+
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="ordonnance_{collab.matricule}.pdf"'
+
+        p = canvas.Canvas(response, pagesize=A4)
+        width, height = A4
+
+        margin = 2.2 * cm
+        y = height - 2.6 * cm
+
+        register_arabic_font()
+
+        def txt(x, y_pos, value, size=12, bold=False):
+            p.setFont("Times-Bold" if bold else "Times-Roman", size)
+            p.setFillColor(colors.black)
+            p.drawString(x, y_pos, str(value or ""))
+
+        def right_txt(x, y_pos, value, size=12, bold=False):
+            p.setFont("Times-Bold" if bold else "Times-Roman", size)
+            p.setFillColor(colors.black)
+            p.drawRightString(x, y_pos, str(value or ""))
+
+        def arabic_right(x, y_pos, value, size=12):
+            p.setFont("Amiri", size)
+            p.setFillColor(colors.black)
+            p.drawRightString(x, y_pos, shape_arabic(value))
+
+        today = (
+            ordonnance.date.strftime("%d/%m/%Y")
+            if getattr(ordonnance, "date", None)
+            else timezone.now().strftime("%d/%m/%Y")
+        )
+
+        doctor_name = "Docteur"
+        if request.user and request.user.is_authenticated:
+            full_name = (request.user.get_full_name() or "").strip()
+            doctor_name = full_name if full_name else (request.user.username or "Docteur")
+        elif getattr(ordonnance, "created_by", None):
+            doctor_name = ordonnance.created_by.get_full_name() or ordonnance.created_by.username or "Docteur"
+
+        # Header left
+        txt(margin, y, "Docteur", 11, True)
+        txt(margin, y - 14, doctor_name, 11, True)
+        txt(margin, y - 28, "Médecine Générale", 10, False)
+
+        # Header right (Arabic)
+        arabic_right(width - margin, y, "الدكتور", 11)
+        arabic_name = ""
+        if request.user and request.user.is_authenticated:
+            arabic_name = (request.user.nom_ar or "").strip()
+        if arabic_name:
+            arabic_right(width - margin, y - 14, arabic_name, 11)
+        else:
+            right_txt(width - margin, y - 14, doctor_name, 11, True)
+        arabic_right(width - margin, y - 28, "طب عام", 11)
+
+        # Date line with dotted fill
+        y -= 1.7 * cm
+        date_label = f"Menzel Hayet, le {today}"
+        txt(margin, y, date_label, 11, False)
+
+        # Content area
+        y -= 2.0 * cm
+        contenu = ordonnance.contenu or ""
+        lines = contenu.split("\n") if contenu else []
+        for line in lines:
+            txt(margin, y, line, 12, False)
+            y -= 0.9 * cm
+
+        # Footer
+        footer_y = 2.3 * cm
+        p.line(margin, footer_y + 0.7 * cm, width - margin, footer_y + 0.7 * cm)
+        txt(margin, footer_y, "Leoni Menzel Hayet", 11, True)
+        right_txt(width - margin, footer_y, "Service Médical", 11, True)
+
+        p.showPage()
+        p.save()
+        return response
+
+
 class DemandeExamenLaboListCreateByCollaborateurView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -465,16 +485,19 @@ class ExamenComplementaireListCreateByCollaborateurView(APIView):
 
         return Response(ExamenComplementaireSerializer(obj).data, status=status.HTTP_201_CREATED)
 
+
 class ExamenInitialCreateUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        require_medecin_travail(request)
         serializer = ExamenInitialSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def patch(self, request, pk=None):
+        require_medecin_travail(request)
         if pk is None:
             return Response(
                 {"detail": "PK manquant."},
@@ -486,7 +509,7 @@ class ExamenInitialCreateUpdateView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
 
 class DossierByCollaborateurView(APIView):
     permission_classes = [IsAuthenticated]
@@ -530,7 +553,10 @@ class DossierByCollaborateurView(APIView):
             )
 
         collaborateur = get_object_or_404(Collaborateur, id=collaborateur_id)
-        dossier = self._get_or_create_dossier(collaborateur)
+        if role in self.ALLOWED_EDIT_ROLES:
+            dossier = self._get_or_create_dossier(collaborateur)
+        else:
+            dossier = get_object_or_404(DossierMedical, collaborateur=collaborateur)
 
         return Response(
             DossierMedicalSerializer(dossier).data,
@@ -559,16 +585,170 @@ class DossierByCollaborateurView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class DossierAutofillView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    ALLOWED_EDIT_ROLES = [
+        "MEDECIN_TRAVAIL",
+        "ADMIN",
+    ]
+
+    def _get_user_role(self, request):
+        return getattr(request.user, "role", None)
+
+    def _rand_date(self, start_year=1980, end_year=None):
+        end_year = end_year or date.today().year
+        start = date(start_year, 1, 1)
+        end = date(end_year, 12, 31)
+        delta = (end - start).days
+        return start + timedelta(days=random.randint(0, max(delta, 0)))
+
+    def _autofill_collab(self, collab, postes_pool, departements_pool, sites_pool):
+        changed = False
+
+        if not collab.poste:
+            collab.poste = random.choice(postes_pool)
+            changed = True
+        if not collab.departement:
+            collab.departement = random.choice(departements_pool)
+            changed = True
+        if not collab.cin:
+            collab.cin = str(random.randint(10000000, 99999999))
+            changed = True
+        if not collab.date_naissance:
+            collab.date_naissance = self._rand_date(1960, 2004)
+            changed = True
+        if not collab.telephone:
+            collab.telephone = "2" + str(random.randint(1000000, 9999999))
+            changed = True
+        if not collab.site and sites_pool:
+            collab.site = random.choice(sites_pool)
+            changed = True
+
+        if changed:
+            collab.save()
+
+        dossier, _ = DossierMedical.objects.get_or_create(
+            collaborateur=collab,
+            defaults={
+                "entreprise": getattr(collab.site, "nom", "") if collab.site else "LEONI",
+                "localite": getattr(collab.site, "localite", "") if collab.site else "Menzel Hayet",
+            },
+        )
+
+        dossier_changed = False
+        if not dossier.entreprise:
+            dossier.entreprise = getattr(collab.site, "nom", "") if collab.site else "LEONI"
+            dossier_changed = True
+        if not dossier.localite:
+            dossier.localite = getattr(collab.site, "localite", "") if collab.site else "Menzel Hayet"
+            dossier_changed = True
+        if not dossier.profession:
+            dossier.profession = collab.poste or random.choice(postes_pool)
+            dossier_changed = True
+        if not dossier.poste_travail_actuel:
+            dossier.poste_travail_actuel = collab.poste or random.choice(postes_pool)
+            dossier_changed = True
+        if not dossier.date_recrutement:
+            dossier.date_recrutement = self._rand_date(2015, date.today().year)
+            dossier_changed = True
+
+        if dossier_changed:
+            dossier.save()
+
+        return changed, dossier_changed
+
+
+    def post(self, request):
+        role = self._get_user_role(request)
+        if role not in self.ALLOWED_EDIT_ROLES:
+            return Response(
+                {"detail": "Seul le médecin du travail peut modifier le dossier médical."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        postes_pool = list(
+            Collaborateur.objects.exclude(poste__isnull=True).exclude(poste="").values_list("poste", flat=True)
+        )
+        departements_pool = list(
+            Collaborateur.objects.exclude(departement__isnull=True).exclude(departement="").values_list("departement", flat=True)
+        )
+        sites_pool = list(Site.objects.all())
+
+        if not postes_pool:
+            postes_pool = ["Opérateur", "Technicien", "Superviseur", "Agent qualité"]
+        if not departements_pool:
+            departements_pool = ["Production", "Maintenance", "RH", "Qualité"]
+
+        updated_collab = 0
+        updated_dossier = 0
+
+        for collab in Collaborateur.objects.select_related("site").all():
+            collab_changed, dossier_changed = self._autofill_collab(
+                collab, postes_pool, departements_pool, sites_pool
+            )
+            if collab_changed:
+                updated_collab += 1
+            if dossier_changed:
+                updated_dossier += 1
+
+        return Response(
+            {
+                "updated_collaborateurs": updated_collab,
+                "updated_dossiers": updated_dossier,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class DossierAutofillOneView(DossierAutofillView):
+    def post(self, request, collaborateur_id):
+        require_medecin_travail(request)
+
+        collab = get_object_or_404(
+            Collaborateur.objects.select_related("site"),
+            id=collaborateur_id,
+        )
+
+        postes_pool = list(
+            Collaborateur.objects.exclude(poste__isnull=True).exclude(poste="").values_list("poste", flat=True)
+        ) or ["Opérateur", "Technicien", "Superviseur", "Agent qualité"]
+        departements_pool = list(
+            Collaborateur.objects.exclude(departement__isnull=True).exclude(departement="").values_list("departement", flat=True)
+        ) or ["Production", "Maintenance", "RH", "Qualité"]
+        sites_pool = list(Site.objects.all())
+
+        collab_changed, dossier_changed = self._autofill_collab(
+            collab, postes_pool, departements_pool, sites_pool
+        )
+
+        return Response(
+            {
+                "updated_collaborateur": 1 if collab_changed else 0,
+                "updated_dossier": 1 if dossier_changed else 0,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class VaccinationCreateView(generics.CreateAPIView):
     serializer_class = VaccinationSerializer
     permission_classes = [IsAuthenticated]
     queryset = Vaccination.objects.all()
+
+    def perform_create(self, serializer):
+        require_medecin_travail(self.request)
+        serializer.save()
 
 
 class VaccinationDeleteView(generics.DestroyAPIView):
     serializer_class = VaccinationSerializer
     permission_classes = [IsAuthenticated]
     queryset = Vaccination.objects.all()
+
+    def perform_destroy(self, instance):
+        require_medecin_travail(self.request)
+        instance.delete()
 
 
 class IncidentListCreateView(generics.ListCreateAPIView):
@@ -863,11 +1043,19 @@ class PosteCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = PosteTravail.objects.all()
 
+    def perform_create(self, serializer):
+        require_medecin_travail(self.request)
+        serializer.save()
+
 
 class PosteDeleteView(generics.DestroyAPIView):
     serializer_class = PosteTravailSerializer
     permission_classes = [IsAuthenticated]
     queryset = PosteTravail.objects.all()
+
+    def perform_destroy(self, instance):
+        require_medecin_travail(self.request)
+        instance.delete()
 
 
 class ExamenUlterieurCreateView(generics.CreateAPIView):
@@ -875,11 +1063,19 @@ class ExamenUlterieurCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = ExamenUlterieur.objects.all()
 
+    def perform_create(self, serializer):
+        require_medecin_travail(self.request)
+        serializer.save()
+
 
 class ExamenUlterieurDeleteView(generics.DestroyAPIView):
     serializer_class = ExamenUlterieurSerializer
     permission_classes = [IsAuthenticated]
     queryset = ExamenUlterieur.objects.all()
+
+    def perform_destroy(self, instance):
+        require_medecin_travail(self.request)
+        instance.delete()
 
 
 class FicheMedicaleByCollaborateurView(APIView):
@@ -888,19 +1084,24 @@ class FicheMedicaleByCollaborateurView(APIView):
     def get(self, request, collaborateur_id):
         collaborateur = get_object_or_404(Collaborateur, id=collaborateur_id)
 
-        fiche, _ = FicheMedicale.objects.get_or_create(
-            collaborateur=collaborateur,
-            defaults={
-                "date_naissance": None,
-                "lieu_naissance": "",
-                "adresse": "",
-                "telephone": "",
-            },
-        )
+        role = (getattr(request.user, "role", "") or "").strip().upper()
+        if role in ["MEDECIN_TRAVAIL", "ADMIN"]:
+            fiche, _ = FicheMedicale.objects.get_or_create(
+                collaborateur=collaborateur,
+                defaults={
+                    "date_naissance": None,
+                    "lieu_naissance": "",
+                    "adresse": "",
+                    "telephone": "",
+                },
+            )
+        else:
+            fiche = get_object_or_404(FicheMedicale, collaborateur=collaborateur)
 
         return Response(FicheMedicaleSerializer(fiche).data, status=status.HTTP_200_OK)
 
     def patch(self, request, collaborateur_id):
+        require_medecin_travail(request)
         collaborateur = get_object_or_404(Collaborateur, id=collaborateur_id)
         fiche, _ = FicheMedicale.objects.get_or_create(collaborateur=collaborateur)
 
@@ -956,6 +1157,12 @@ class StockItemListCreateAPIView(generics.ListCreateAPIView):
     queryset = StockItem.objects.all().order_by("nom")
 
 
+class StockItemDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = StockItemSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = StockItem.objects.all()
+
+
 class StockMovementListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = StockMovementSerializer
     permission_classes = [IsAuthenticated]
@@ -984,3 +1191,60 @@ class StockMovementListCreateAPIView(generics.ListCreateAPIView):
             StockMovementSerializer(movement).data,
             status=status.HTTP_201_CREATED,
         )
+
+class CertificatMedicalPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        cert = get_object_or_404(
+            CertificatMedical.objects.select_related("collaborateur", "created_by"),
+            pk=pk,
+        )
+
+        collab = cert.collaborateur
+
+        medecin_nom = "Docteur"
+        if request.user and request.user.is_authenticated:
+            full_name = (request.user.get_full_name() or "").strip()
+            medecin_nom = full_name if full_name else (request.user.username or "Docteur")
+        elif getattr(cert, "created_by", None):
+            full_name = (cert.created_by.get_full_name() or "").strip()
+            medecin_nom = full_name if full_name else (cert.created_by.username or "Docteur")
+
+        collaborateur_nom_complet = f"{getattr(collab, 'nom', '')} {getattr(collab, 'prenom', '')}".strip()
+
+        context = {
+            "date_du_jour": cert.date.strftime("%d/%m/%Y")
+            if getattr(cert, "date", None)
+            else timezone.now().strftime("%d/%m/%Y"),
+
+            "medecin_nom": medecin_nom,
+            "collaborateur_nom_complet": collaborateur_nom_complet,
+            "nb_jours": getattr(cert, "nb_jours_repos", "") or "",
+            "date_debut_repos": cert.date_debut_repos.strftime("%d/%m/%Y")
+            if getattr(cert, "date_debut_repos", None)
+            else "",
+            "arabic_medecine": shape_arabic("طبّ عــام"),
+        }
+
+        html_string = render_to_string("medical/certificat_pdf.html", context)
+
+        result = BytesIO()
+        ensure_temp_dir()
+        patch_xhtml2pdf_tempfile()
+        pdf = pisa.CreatePDF(
+            src=html_string,
+            dest=result,
+            encoding="utf-8",
+            link_callback=link_callback,
+        )
+
+        if pdf.err:
+            return Response(
+                {"detail": "Erreur génération PDF certificat."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        response = HttpResponse(result.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="certificat_{collab.matricule}.pdf"'
+        return response
