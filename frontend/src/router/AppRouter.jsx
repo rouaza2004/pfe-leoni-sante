@@ -244,6 +244,15 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/medecin-controleur/demande-expertise"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <DemandeExpertiseForm />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/medecin-controleur/demande-expertise/:id"
           element={
             <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>

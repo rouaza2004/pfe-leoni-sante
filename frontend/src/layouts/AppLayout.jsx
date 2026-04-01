@@ -88,8 +88,9 @@ export default function AppLayout() {
   }, [role]);
 
   const navItems = useMemo(() => {
+    const dashboardLabel = role === "MEDECIN_CONTROLEUR" ? "Tableau de bord" : "Dashboard";
     const common = [
-      { to: homePath, label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+      { to: homePath, label: dashboardLabel, icon: <LayoutDashboard size={18} /> },
     ];
 
     if (role === "MEDECIN_TRAITANT") {
@@ -147,6 +148,21 @@ export default function AppLayout() {
     if (role === "MEDECIN_CONTROLEUR") {
       return [
         ...common,
+        {
+          to: "/medecin-controleur/recherche",
+          label: "Recherche collaborateur",
+          icon: <Users size={18} />,
+        },
+        {
+          to: "/medecin-controleur/demande-expertise",
+          label: "Demande d'expertise",
+          icon: <ClipboardList size={18} />,
+        },
+        {
+          to: "/medecin-controleur/historique",
+          label: "Historique",
+          icon: <FileText size={18} />,
+        },
         {
           to: "/collaborateur-profile",
           label: "Profil collaborateur",
@@ -388,8 +404,8 @@ export default function AppLayout() {
             </div>
 
             <div>
-              <p className="font-semibold leading-4">Health Management System</p>
-              <p className="text-xs text-slate-400">LEONI</p>
+              <p className="font-semibold leading-4">LEONI</p>
+              <p className="text-xs text-slate-400">Health Management System</p>
             </div>
           </div>
         </div>
