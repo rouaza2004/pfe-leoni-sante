@@ -77,7 +77,7 @@ export default function RDVPage() {
     const q = collabSearch.trim().toLowerCase();
     if (!q) return collaborateurs;
     return collaborateurs.filter((c) =>
-      [c.nom, c.prenom, c.matricule, c.email]
+      [c.matricule]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()

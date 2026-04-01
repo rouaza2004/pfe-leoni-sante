@@ -35,6 +35,8 @@ const emptyForm = {
   medecin_constat: "",
   date_constat: "",
   nature_travail: "",
+  date_debut_exposition: "",
+  date_fin_exposition: "",
   date_arret_exposition: "",
   arret_travail: false,
   date_arret: "",
@@ -42,25 +44,36 @@ const emptyForm = {
   salaire_duree: "",
   salaire_montant: "",
   salaire_unite: "",
+  observations: "",
   signataire_nom: "",
   signataire_qualite: "",
   signature_lieu: "",
   signature_date: "",
+  statut_declaration: "BROUILLON",
 };
 
 const emptyTravail = { entreprise: "", nature_travail: "", materiaux: "", date_debut: "", date_fin: "" };
 
 const selectOptions = {
   sexe: [
-    { value: "", label: "" },
+    { value: "", label: "--" },
     { value: "HOMME", label: "Homme" },
     { value: "FEMME", label: "Femme" },
+  ],
+  declaration: [
+    { value: "", label: "--" },
+    { value: "BROUILLON", label: "Brouillon" },
+    { value: "DECLAREE", label: "Declaree" },
+    { value: "GENEREE", label: "Generee" },
   ],
 };
 
 export default function MaladiesProfessionnellesPage() {
   const [maladies, setMaladies] = useState([]);
   const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStart, setFilterStart] = useState("");
+  const [filterEnd, setFilterEnd] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [travaux, setTravaux] = useState([emptyTravail]);
@@ -77,12 +90,32 @@ export default function MaladiesProfessionnellesPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return maladies;
+    let data = [...maladies];
 
-    return maladies.filter((item) =>
-      [item.matricule].filter(Boolean).join(" ").toLowerCase().includes(q)
+    if (filterStatus) {
+      data = data.filter((item) => item.statut_declaration === filterStatus);
+    }
+
+    if (filterStart) {
+      const start = new Date(filterStart);
+      data = data.filter((item) => new Date(item.date_decouverte) >= start);
+    }
+
+    if (filterEnd) {
+      const end = new Date(filterEnd);
+      data = data.filter((item) => new Date(item.date_decouverte) <= end);
+    }
+
+    if (!q) return data;
+
+    return data.filter((item) =>
+      [item.matricule, item.collaborateur_nom, item.collaborateur_prenom]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
     );
-  }, [maladies, search]);
+  }, [maladies, search, filterStatus, filterStart, filterEnd]);
 
   const loadData = async () => {
     try {
@@ -150,7 +183,86 @@ export default function MaladiesProfessionnellesPage() {
     setShowForm(false);
   };
 
-  const buildPayload = (dossierId) => ({
+  const fillExample = async () => {
+    try {
+      setErr("");
+      const res = await api.get("/collaborateurs/");
+      const first = Array.isArray(res.data) ? res.data[0] : null;
+      const matricule = first?.matricule || "";
+      if (!matricule) {
+        setErr("Aucun collaborateur trouvÃ© pour l'exemple.");
+        return;
+      }
+      setForm((prev) => ({ ...prev, matricule }));
+      const profile = await getCollaborateurProfilByMatricule(matricule);
+      setSelectedProfile(profile);
+      const collab = profile?.collaborateur || {};
+      const dossier = profile?.dossier_medical || {};
+
+      setForm({
+      ...emptyForm,
+      matricule,
+      employeur_cnss: "12345678",
+      employeur_nom: dossier.entreprise || collab.site?.nom || "LEONI Tunisia",
+      employeur_adresse: dossier.localite || collab.site?.localite || "Zone Industrielle, Monastir",
+      employeur_code_postal: "5000",
+      employeur_telephone: "73508100",
+      employeur_activite: "Câblage automobile",
+      victime_cnss: "55667788",
+      victime_nom: collab.nom || "Haddad",
+      victime_prenom: collab.prenom || "Mahmoud",
+      victime_nationalite: "Tunisien",
+      victime_sexe: "HOMME",
+      victime_date_naissance: collab.date_naissance || "1989-11-20",
+      victime_lieu_naissance: "Monastir",
+      victime_cin: collab.cin || "05566778",
+      victime_adresse: collab.adresse || "Khniss, Monastir",
+      victime_code_postal: "5000",
+      victime_date_embauche: "2018-05-15",
+      victime_specialite: collab.poste || "Technicien",
+      victime_situation: "CDI",
+      victime_profession: "Technicien maintenance",
+      victime_lieu_travail: "Atelier maintenance",
+      nom_maladie: "Dermatite de contact",
+      agent_causal: "Solvants",
+      numero_tableau: "Tableau 10",
+      date_decouverte: "2026-03-20",
+      medecin_constat: "Dr. Sami Trabelsi",
+      date_constat: "2026-03-21",
+      date_debut_exposition: "2019-01-01",
+      date_fin_exposition: "2026-03-18",
+      nature_travail: "Manipulation régulière de solvants industriels.",
+      date_arret_exposition: "2026-03-18",
+      arret_travail: true,
+      date_arret: "2026-03-21",
+      salaire_maintenu: true,
+      salaire_duree: "5",
+      salaire_montant: "1200",
+      salaire_unite: "TND/mois",
+      observations: "Éruption cutanée au niveau des mains.",
+      signataire_nom: "Amira Gharbi",
+      signataire_qualite: "Infirmière",
+      signature_lieu: "Monastir",
+      signature_date: "2026-03-22",
+      statut_declaration: "DECLAREE",
+    });
+    setTravaux([
+      {
+        entreprise: dossier.entreprise || "LEONI",
+        nature_travail: "Maintenance équipement",
+        materiaux: "Solvants",
+        date_debut: "2019-01-01",
+        date_fin: "2026-03-18",
+      },
+    ]);
+    setShowForm(true);
+    } catch (e) {
+      console.error(e);
+      setErr("Impossible de charger un collaborateur pour l'exemple.");
+    }
+  };
+
+  const buildPayload = (dossierId, statutDeclaration) => ({
     dossier: dossierId,
     nom_maladie: form.nom_maladie,
     agent_causal: form.agent_causal,
@@ -182,6 +294,8 @@ export default function MaladiesProfessionnellesPage() {
     medecin_constat: form.medecin_constat,
     date_constat: form.date_constat || null,
     nature_travail: form.nature_travail,
+    date_debut_exposition: form.date_debut_exposition || null,
+    date_fin_exposition: form.date_fin_exposition || null,
     date_arret_exposition: form.date_arret_exposition || null,
     arret_travail: form.arret_travail,
     date_arret: form.date_arret || null,
@@ -190,13 +304,47 @@ export default function MaladiesProfessionnellesPage() {
     salaire_montant: form.salaire_montant,
     salaire_unite: form.salaire_unite,
     travaux_anterieurs: travaux,
+    observations: form.observations,
     signataire_nom: form.signataire_nom,
     signataire_qualite: form.signataire_qualite,
     signature_lieu: form.signature_lieu,
     signature_date: form.signature_date || null,
+    statut_declaration: statutDeclaration || form.statut_declaration,
   });
 
-  const handleSubmit = async (e) => {
+  const validateDeclaration = (payload) => {
+    const required = [
+      "employeur_nom",
+      "employeur_cnss",
+      "victime_nom",
+      "victime_prenom",
+      "victime_cin",
+      "nom_maladie",
+      "numero_tableau",
+      "date_decouverte",
+    ];
+
+    const missing = required.filter((field) => !payload[field]);
+    if (missing.length) {
+      return `Champs obligatoires manquants: ${missing.join(", ")}`;
+    }
+
+    if (payload.date_debut_exposition && payload.date_fin_exposition) {
+      const debut = new Date(payload.date_debut_exposition);
+      const fin = new Date(payload.date_fin_exposition);
+      if (fin < debut) {
+        return "Date fin d'exposition incohÃ©rente.";
+      }
+    }
+
+    if (payload.arret_travail && !payload.date_arret) {
+      return "Veuillez renseigner la date d'arrÃªt.";
+    }
+
+    return "";
+  };
+
+  const handleSubmit = async (e, statutDeclaration = "DECLAREE") => {
     e.preventDefault();
     if (!form.matricule.trim()) {
       setErr("Veuillez saisir une matricule valide.");
@@ -211,11 +359,18 @@ export default function MaladiesProfessionnellesPage() {
       );
       const dossierId = dossierRes.data?.id;
       if (!dossierId) {
-        setErr("Dossier médical introuvable.");
+        setErr("Dossier m?dical introuvable.");
         return;
       }
 
-      const payload = buildPayload(dossierId);
+      const payload = buildPayload(dossierId, statutDeclaration);
+      if (statutDeclaration !== "BROUILLON") {
+        const validationError = validateDeclaration(payload);
+        if (validationError) {
+          setErr(validationError);
+          return;
+        }
+      }
 
       if (editingId) {
         await api.patch(`/medical/maladies-professionnelles/${editingId}/`, payload);
@@ -245,18 +400,44 @@ export default function MaladiesProfessionnellesPage() {
     setShowForm(true);
   };
 
-  const handlePrint = async (id) => {
+  const openPdf = async (id, mode = "generate") => {
     try {
-      const res = await api.get(`/medical/maladies-professionnelles/${id}/pdf/`, {
+      const params = mode === "print" ? "?print=1" : "";
+      const res = await api.get(`/medical/maladies-professionnelles/${id}/pdf/${params}`, {
         responseType: "blob",
       });
       const file = new Blob([res.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(file);
       window.open(url, "_blank");
+      await loadData();
     } catch (e) {
       console.error(e);
-      setErr("Impossible d'ouvrir le PDF.");
+      let message = "Impossible d'ouvrir le PDF.";
+      const data = e?.response?.data;
+      if (data && typeof data === "object" && typeof data.text === "function") {
+        try {
+          const raw = await data.text();
+          const parsed = JSON.parse(raw);
+          message = parsed?.detail || message;
+          if (parsed?.errors?.length) {
+            message = `${message} (${parsed.errors.join(", ")})`;
+          }
+        } catch {
+          // ignore parse errors
+        }
+      } else if (e?.response?.data?.detail) {
+        message = e.response.data.detail;
+      }
+      setErr(message);
     }
+  };
+
+  const handleGenerate = async (id) => {
+    await openPdf(id, "generate");
+  };
+
+  const handlePrint = async (id) => {
+    await openPdf(id, "print");
   };
 
   return (
@@ -306,7 +487,7 @@ export default function MaladiesProfessionnellesPage() {
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={(e) => handleSubmit(e, "DECLAREE")} className="space-y-8">
             <Section title="Recherche par matricule">
               <div className="grid gap-4 md:grid-cols-2">
                 <InputField
@@ -379,6 +560,8 @@ export default function MaladiesProfessionnellesPage() {
                 <InputField label="Date découverte" name="date_decouverte" type="date" value={form.date_decouverte} onChange={handleChange} required />
                 <InputField label="Médecin constat" name="medecin_constat" value={form.medecin_constat} onChange={handleChange} />
                 <InputField label="Date constat" name="date_constat" type="date" value={form.date_constat} onChange={handleChange} />
+                <InputField label="Date debut exposition" name="date_debut_exposition" type="date" value={form.date_debut_exposition} onChange={handleChange} />
+                <InputField label="Date fin exposition" name="date_fin_exposition" type="date" value={form.date_fin_exposition} onChange={handleChange} />
                 <InputField label="Date arrêt exposition" name="date_arret_exposition" type="date" value={form.date_arret_exposition} onChange={handleChange} />
                 <CheckboxField label="Arrêt de travail" name="arret_travail" checked={form.arret_travail} onChange={handleChange} />
                 <InputField label="Date arrêt" name="date_arret" type="date" value={form.date_arret} onChange={handleChange} />
@@ -427,6 +610,12 @@ export default function MaladiesProfessionnellesPage() {
               </div>
             </Section>
 
+            <Section title="Observations complementaires">
+              <div className="mt-4">
+                <TextareaField label="Observations" name="observations" value={form.observations} onChange={handleChange} />
+              </div>
+            </Section>
+
             <Section title="Signature">
               <div className="grid gap-4 md:grid-cols-3">
                 <InputField label="Nom signataire" name="signataire_nom" value={form.signataire_nom} onChange={handleChange} />
@@ -436,7 +625,14 @@ export default function MaladiesProfessionnellesPage() {
               </div>
             </Section>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={fillExample}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Remplir exemple
+              </button>
               <button
                 type="button"
                 onClick={resetForm}
@@ -445,12 +641,36 @@ export default function MaladiesProfessionnellesPage() {
                 Annuler
               </button>
               <button
+                type="button"
+                onClick={(e) => handleSubmit(e, "BROUILLON")}
+                disabled={saving}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Enregistrer brouillon
+              </button>
+              <button
                 type="submit"
                 disabled={saving}
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {saving && <Loader2 size={16} className="animate-spin" />}
-                {editingId ? "Mettre à jour" : "Enregistrer"}
+                {editingId ? "Mettre a jour" : "Enregistrer declaration"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGenerate(editingId)}
+                disabled={!editingId}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Generer version imprimable
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrint(editingId)}
+                disabled={!editingId}
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Imprimer
               </button>
             </div>
           </form>
@@ -481,6 +701,30 @@ export default function MaladiesProfessionnellesPage() {
           </div>
         </div>
 
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <SelectField
+            label="Statut de declaration"
+            name="filter_statut"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            options={selectOptions.declaration}
+          />
+          <InputField
+            label="Du"
+            name="filter_start"
+            type="date"
+            value={filterStart}
+            onChange={(e) => setFilterStart(e.target.value)}
+          />
+          <InputField
+            label="Au"
+            name="filter_end"
+            type="date"
+            value={filterEnd}
+            onChange={(e) => setFilterEnd(e.target.value)}
+          />
+        </div>
+
         {loading ? (
           <div className="py-10 text-center text-slate-500">Chargement...</div>
         ) : (
@@ -491,6 +735,8 @@ export default function MaladiesProfessionnellesPage() {
                   <th className="px-3 py-3 font-medium">Date</th>
                   <th className="px-3 py-3 font-medium">Maladie</th>
                   <th className="px-3 py-3 font-medium">Matricule</th>
+                  <th className="px-3 py-3 font-medium">Statut</th>
+                  <th className="px-3 py-3 font-medium">Generee le</th>
                   <th className="px-3 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -501,6 +747,8 @@ export default function MaladiesProfessionnellesPage() {
                       <td className="px-3 py-3 text-slate-700">{item.date_decouverte}</td>
                       <td className="px-3 py-3 text-slate-700">{item.nom_maladie}</td>
                       <td className="px-3 py-3 text-slate-700">{item.matricule}</td>
+                      <td className="px-3 py-3 text-slate-700">{item.statut_declaration || "-"}</td>
+                      <td className="px-3 py-3 text-slate-700">{item.generated_at || "-"}</td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-2">
                           <button
@@ -518,6 +766,13 @@ export default function MaladiesProfessionnellesPage() {
                             Modifier
                           </button>
                           <button
+                            onClick={() => handleGenerate(item.id)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            <Printer size={14} />
+                            Generer
+                          </button>
+                          <button
                             onClick={() => handlePrint(item.id)}
                             className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800"
                           >
@@ -530,7 +785,7 @@ export default function MaladiesProfessionnellesPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="4" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="6" className="px-3 py-10 text-center text-slate-500">
                       Aucune déclaration trouvée.
                     </td>
                   </tr>
@@ -561,6 +816,8 @@ export default function MaladiesProfessionnellesPage() {
             <Info label="Agent causal" value={selectedMaladie.agent_causal || "-"} />
             <Info label="Tableau" value={selectedMaladie.numero_tableau || "-"} />
             <Info label="Date découverte" value={selectedMaladie.date_decouverte} />
+            <Info label="Statut" value={selectedMaladie.statut_declaration || "-"} />
+            <Info label="Generee le" value={selectedMaladie.generated_at || "-"} />
           </div>
 
           <div className="mt-4 flex justify-end gap-3">
@@ -570,6 +827,13 @@ export default function MaladiesProfessionnellesPage() {
             >
               <PencilLine size={16} />
               Modifier
+            </button>
+            <button
+              onClick={() => handleGenerate(selectedMaladie.id)}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <Printer size={16} />
+              Generer
             </button>
             <button
               onClick={() => handlePrint(selectedMaladie.id)}
@@ -603,7 +867,7 @@ function InputField({ label, name, value, onChange, type = "text", required, pla
       <input
         type={type}
         name={name}
-        value={value}
+        value={value ?? ""}
         onChange={onChange}
         required={required}
         placeholder={placeholder}
@@ -619,7 +883,7 @@ function TextareaField({ label, name, value, onChange }) {
       <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
       <textarea
         name={name}
-        value={value}
+        value={value ?? ""}
         onChange={onChange}
         rows={4}
         className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-900"
@@ -634,7 +898,7 @@ function SelectField({ label, name, value, onChange, options }) {
       <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
       <select
         name={name}
-        value={value}
+        value={value ?? ""}
         onChange={onChange}
         className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-900"
       >

@@ -4,6 +4,7 @@ import base64
 import os
 import tempfile
 import random
+import unicodedata
 from datetime import date, timedelta
 from django.conf import settings
 from django.contrib.staticfiles import finders
@@ -15,7 +16,7 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, A5, landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import cm
@@ -30,10 +31,17 @@ from bidi.algorithm import get_display
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+try:
+    import openpyxl
+except ImportError:  # pragma: no cover
+    openpyxl = None
+
 from accounts.models import Collaborateur, Site
+from accounts.serializers import CollaborateurSerializer
 
 from .models import (
     DossierMedical,
@@ -49,9 +57,13 @@ from .models import (
     CertificatMedical,
     StockItem,
     StockMovement,
+    IncidentAvecBon,
+    IncidentSansBon,
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    BonChauffeur,
+    SuiviTransfertUrgence,
 )
 
 from .serializers import (
@@ -68,9 +80,13 @@ from .serializers import (
     CertificatMedicalSerializer,
     StockItemSerializer,
     StockMovementSerializer,
+    IncidentAvecBonSerializer,
+    IncidentSansBonSerializer,
     FicheAptitudeSerializer,
     DemandeExamenLaboSerializer,
     ExamenComplementaireSerializer,
+    BonChauffeurSerializer,
+    SuiviTransfertUrgenceSerializer,
 )
 
 
@@ -145,38 +161,50 @@ class FicheAptitudePdfView(APIView):
             f'inline; filename="fiche_aptitude_{fiche.collaborateur.matricule}.pdf"'
         )
 
-        p = canvas.Canvas(response, pagesize=A4)
-        width, height = A4
+        page_size = landscape(A5)
+        p = canvas.Canvas(response, pagesize=page_size)
+        width, height = page_size
 
-        margin = 1.2 * cm
+        margin = 0.6 * cm
         content_width = width - (2 * margin)
+        base_blue = colors.HexColor("#1a3c8f")
+
+        register_arabic_font()
 
         def safe(value, fallback="-"):
             return value if value not in [None, ""] else fallback
 
-        def draw_text(x, y, text, size=10, bold=False):
-            p.setFillColor(colors.black)
+        def draw_text(x, y, text, size=7.5, bold=False, color=colors.black):
+            p.setFillColor(color)
             p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
             p.drawString(x, y, str(text or ""))
+
+        def arabic_right(x, y, text, size=7.5, color=base_blue):
+            p.setFillColor(color)
+            p.setFont("Amiri", size)
+            p.drawRightString(x, y, shape_arabic(text or ""))
 
         def draw_box(x, y_top, w, h, title=None):
             p.setLineWidth(1)
             p.rect(x, y_top - h, w, h)
             if title:
-                draw_text(x + 0.25 * cm, y_top - 0.45 * cm, title, 11, True)
+                draw_text(x + 0.2 * cm, y_top - 0.35 * cm, title, 8, True, base_blue)
 
         def draw_checkbox(x, y, label, checked=False):
-            size = 0.42 * cm
+            size = 0.35 * cm
+            p.setStrokeColor(base_blue)
             p.rect(x, y - size + 2, size, size)
 
             if checked:
-                p.setFont("Helvetica-Bold", 10)
+                p.setFillColor(base_blue)
+                p.setFont("Helvetica-Bold", 7.5)
                 p.drawCentredString(x + size / 2, y - 1, "X")
 
-            p.setFont("Helvetica", 9)
-            p.drawString(x + 0.62 * cm, y, label)
+            p.setFillColor(base_blue)
+            p.setFont("Helvetica", 7)
+            p.drawString(x + 0.52 * cm, y, label)
 
-        def wrap_lines(text, font_name="Helvetica", font_size=8, max_width=180):
+        def wrap_lines(text, font_name="Helvetica", font_size=7.2, max_width=180):
             words = str(text or "-").split()
             lines = []
             current = ""
@@ -195,126 +223,123 @@ class FicheAptitudePdfView(APIView):
 
             return lines if lines else ["-"]
 
-        def draw_field(x, y, label, value, value_x, max_width, size=8.5, max_lines=1):
-            draw_text(x, y, f"{label} :", 8.5, True)
+        def draw_field(x, y, label, value, value_x, max_width, size=7.2, max_lines=1):
+            draw_text(x, y, f"{label} :", 7.2, True, base_blue)
             lines = wrap_lines(value, "Helvetica", size, max_width)
 
             yy = y
             for line in lines[:max_lines]:
                 draw_text(value_x, yy, line, size, False)
-                yy -= 0.38 * cm
+                yy -= 0.28 * cm
 
             return yy
 
         y = height - margin
 
-        p.setLineWidth(1)
+        p.setLineWidth(0.6)
+        p.setStrokeColor(base_blue)
         p.rect(margin, margin, width - 2 * margin, height - 2 * margin)
 
         logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
 
-        draw_text(margin + 0.1 * cm, y - 0.35 * cm, "Groupement de Médecine", 14, True)
-        draw_text(margin + 0.9 * cm, y - 0.9 * cm, "du travail de Monastir", 14, True)
-        draw_text(margin + 0.25 * cm, y - 1.45 * cm, "Tél.: 73 508 100 Fax: 73 508 101", 9, True)
-
-        cert_x = margin + 0.4 * cm
-        cert_y = y - 2.7 * cm
-        p.rect(cert_x, cert_y, 1.8 * cm, 1.2 * cm)
-        draw_text(cert_x + 0.35 * cm, cert_y + 0.62 * cm, "CERT", 11, True)
-        draw_text(cert_x + 0.25 * cm, cert_y + 0.2 * cm, "ISO 9001", 7, True)
+        draw_text(margin + 0.1 * cm, y - 0.35 * cm, "Groupement de Médecine", 8.5, True, base_blue)
+        draw_text(margin + 0.1 * cm, y - 0.75 * cm, "du travail de Monastir", 8.5, True, base_blue)
+        draw_text(margin + 0.1 * cm, y - 1.05 * cm, "Tél.: 73 508 100 Fax: 73 508 101", 7, True, base_blue)
 
         if logo_path.exists():
             logo = ImageReader(str(logo_path))
             p.drawImage(
                 logo,
-                (width / 2) - 1.0 * cm,
-                y - 2.2 * cm,
-                width=2.0 * cm,
-                height=1.4 * cm,
+                (width / 2) - 0.85 * cm,
+                y - 1.7 * cm,
+                width=1.7 * cm,
+                height=1.2 * cm,
                 preserveAspectRatio=True,
                 mask="auto",
             )
+            draw_text(width / 2 - 0.9 * cm, y - 1.95 * cm, "G.M.T MONASTIR", 6.2, True, base_blue)
+            draw_text(width / 2 - 0.9 * cm, y - 2.2 * cm, "Certifié ISO 9001:2008", 5.8, False, base_blue)
 
-        box_x = width - margin - 2.7 * cm
-        box_y = y - 2.55 * cm
-        p.rect(box_x, box_y, 2.4 * cm, 1.55 * cm)
-        p.line(box_x, box_y + 0.75 * cm, box_x + 2.4 * cm, box_y + 0.75 * cm)
-        draw_text(box_x + 0.28 * cm, box_y + 0.95 * cm, "FR - VME 15/01", 11, True)
-        draw_text(box_x + 0.1 * cm, box_y + 0.12 * cm, "M", 12, True)
-        draw_text(box_x + 0.42 * cm, box_y + 0.18 * cm, "le", 8, False)
+        box_x = width - margin - 2.2 * cm
+        box_y = y - 1.8 * cm
+        p.rect(box_x, box_y, 2.0 * cm, 1.1 * cm)
+        p.line(box_x, box_y + 0.55 * cm, box_x + 2.0 * cm, box_y + 0.55 * cm)
+        draw_text(box_x + 0.18 * cm, box_y + 0.68 * cm, "FR - VME 15/01", 7, True, base_blue)
+        draw_text(box_x + 0.15 * cm, box_y + 0.18 * cm, "Mle", 6.8, True, base_blue)
+        draw_text(box_x + 0.48 * cm, box_y + 0.18 * cm, "............", 6.8, False, base_blue)
 
-        draw_text(width / 2 - 4.1 * cm, y - 3.45 * cm, "FICHE D’APTITUDE AU TRAVAIL", 18, True)
+        draw_text(width / 2 - 3.0 * cm, y - 2.35 * cm, "FICHE D’APTITUDE AU TRAVAIL", 9.5, True, base_blue)
 
-        p.setFont("Helvetica-Bold", 8.5)
+        p.setFont("Helvetica-Bold", 6.2)
+        p.setFillColor(base_blue)
         p.drawCentredString(
             width / 2,
-            y - 3.95 * cm,
+            y - 2.7 * cm,
             "En application des dispositions de l’article 11 du Décret n° 2000-1985 du 12 septembre 2000"
         )
         p.drawCentredString(
             width / 2,
-            y - 4.3 * cm,
+            y - 2.95 * cm,
             "portant organisation et du fonctionnement des services de médecine du travail"
         )
 
-        p.line(margin, y - 4.7 * cm, width - margin, y - 4.7 * cm)
-        y -= 5.0 * cm
-
+        p.line(margin, y - 3.15 * cm, width - margin, y - 3.15 * cm)
+        y -= 3.35 * cm
         left_label_x = margin + 0.2 * cm
         left_value_x = margin + 3.0 * cm
 
         right_label_x = margin + 8.8 * cm
         right_value_x = margin + 11.5 * cm
 
-        entreprise_h = 2.8 * cm
+        entreprise_h = 2.0 * cm
         draw_box(margin, y, content_width, entreprise_h, "1. L’ENTREPRISE")
 
-        yy = y - 0.95 * cm
+        yy = y - 0.7 * cm
 
         draw_field(left_label_x, yy, "Raison sociale", fiche.entreprise, left_value_x, 4.0 * cm, max_lines=1)
         draw_field(right_label_x, yy, "Adresse", fiche.adresse_entreprise, right_value_x, 3.0 * cm, max_lines=2)
 
-        yy -= 0.7 * cm
+        yy -= 0.5 * cm
 
         draw_field(left_label_x, yy, "Nature d’activité", fiche.nature_activite, left_value_x, 4.0 * cm, max_lines=1)
         draw_field(right_label_x, yy, "N° CNSS", fiche.numero_cnss, right_value_x, 3.0 * cm, max_lines=1)
 
         y -= entreprise_h + 0.25 * cm
-        travailleur_h = 4.6 * cm
+        travailleur_h = 3.2 * cm
         draw_box(margin, y, content_width, travailleur_h, "2. LE TRAVAILLEUR")
 
-        yy = y - 0.95 * cm
+        yy = y - 0.7 * cm
 
         draw_field(left_label_x, yy, "Nom et prénom", fiche.nom_prenom, left_value_x, 4.0 * cm, max_lines=1)
         draw_field(right_label_x, yy, "Date et lieu naissance", fiche.date_lieu_naissance, right_value_x, 3.0 * cm, max_lines=1)
 
-        yy -= 0.75 * cm
+        yy -= 0.55 * cm
 
         draw_field(left_label_x, yy, "Adresse", fiche.adresse_travailleur, left_value_x, 4.0 * cm, max_lines=2)
         draw_field(right_label_x, yy, "Qualifications", fiche.qualifications_professionnelles, right_value_x, 3.0 * cm, max_lines=2)
 
-        yy -= 1.0 * cm
+        yy -= 0.75 * cm
 
         draw_field(left_label_x, yy, "N° CNSS", fiche.cnss_travailleur, left_value_x, 4.0 * cm, max_lines=1)
         draw_field(right_label_x, yy, "Poste de travail", fiche.poste_travail, right_value_x, 3.0 * cm, max_lines=2)
 
-        yy -= 0.75 * cm
+        yy -= 0.55 * cm
 
         date_recrutement = fiche.date_recrutement.strftime("%d/%m/%Y") if fiche.date_recrutement else "-"
         draw_field(left_label_x, yy, "Date de recrutement", date_recrutement, left_value_x, 4.0 * cm, max_lines=1)
 
         y -= travailleur_h + 0.25 * cm
-        examens_h = 1.9 * cm
+        examens_h = 1.2 * cm
         draw_box(margin, y, content_width, examens_h, "3. EXAMENS MÉDICAUX")
 
-        cy = y - 1.05 * cm
-        draw_checkbox(margin + 0.30 * cm, cy, "Embauche", fiche.type_examen == "EMBAUCHE")
-        draw_checkbox(margin + 3.80 * cm, cy, "Périodique", fiche.type_examen == "PERIODIQUE")
-        draw_checkbox(margin + 7.60 * cm, cy, "Reprise", fiche.type_examen == "REPRISE")
-        draw_checkbox(margin + 10.70 * cm, cy, "Spontané", fiche.type_examen == "SPONTANE")
+        cy = y - 0.75 * cm
+        draw_checkbox(margin + 0.25 * cm, cy, "Embauche", fiche.type_examen == "EMBAUCHE")
+        draw_checkbox(margin + 3.20 * cm, cy, "Périodique", fiche.type_examen == "PERIODIQUE")
+        draw_checkbox(margin + 6.60 * cm, cy, "Reprise", fiche.type_examen == "REPRISE")
+        draw_checkbox(margin + 9.60 * cm, cy, "Spontanée", fiche.type_examen == "SPONTANE")
 
         y -= examens_h + 0.25 * cm
-        decision_h = 6.7 * cm
+        decision_h = 4.0 * cm
         draw_box(margin, y, content_width, decision_h, "4. DÉCISION MÉDICALE")
 
         recommandations = safe(fiche.recommandations, "")
@@ -328,26 +353,417 @@ class FicheAptitudePdfView(APIView):
             ("Inapte définitif", fiche.aptitude == "INAPTE_DEFINITIF"),
         ]
 
-        row_y = y - 0.95 * cm
+        row_y = y - 0.7 * cm
         for label, checked in rows:
             draw_checkbox(margin + 0.30 * cm, row_y, label, checked)
 
             if checked:
-                lines = wrap_lines(recommandations, "Helvetica", 8, 245)
+                lines = wrap_lines(recommandations, "Helvetica", 7, 240)
                 txt_y = row_y
                 for line in lines[:2]:
-                    draw_text(text_x, txt_y, line, 8, False)
-                    txt_y -= 0.34 * cm
+                    draw_text(text_x, txt_y, line, 7, False)
+                    txt_y -= 0.26 * cm
 
-            row_y -= 0.9 * cm
+            row_y -= 0.6 * cm
 
-        footer_y = margin + 2.0 * cm
+        footer_y = margin + 0.15 * cm
         pdf_date = fiche.date.strftime("%d/%m/%Y") if fiche.date else "-"
 
-        draw_text(margin + 0.25 * cm, footer_y, f"Date : {pdf_date}", 10, False)
-        draw_text(width - 5.5 * cm, footer_y + 0.1 * cm, "Médecin du travail", 10, True)
-        draw_text(width - 5.5 * cm, footer_y - 0.95 * cm, "Signature et cachet", 9, False)
-        p.rect(width - 5.7 * cm, footer_y - 1.7 * cm, 4.5 * cm, 1.6 * cm)
+        draw_text(
+            margin + 0.25 * cm,
+            footer_y + 0.4 * cm,
+            "Ce certificat doit être conservé dans le dossier administratif de l'intéressé chez son employeur",
+            6.5,
+            False,
+            base_blue,
+        )
+        draw_text(width - 5.0 * cm, footer_y + 0.4 * cm, "Date et Signature du médecin du travail", 6.5, True, base_blue)
+        draw_text(width - 4.8 * cm, footer_y + 0.1 * cm, f"Date : {pdf_date}", 6.5, False, base_blue)
+        p.rect(width - 5.2 * cm, footer_y - 0.35 * cm, 4.4 * cm, 0.6 * cm)
+
+        p.showPage()
+        p.save()
+        return response
+
+
+class DemandeExamenLaboPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        demande = get_object_or_404(DemandeExamenLabo, pk=pk)
+
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="demande_labo_{demande.id}.pdf"'
+
+        page_size = landscape(A5)
+        p = canvas.Canvas(response, pagesize=page_size)
+        width, height = page_size
+        base_blue = colors.HexColor("#1a3c8f")
+        margin = 0.8 * cm
+
+        register_arabic_font()
+
+        logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
+        tuv_path = Path(settings.BASE_DIR) / "static" / "images" / "tuv_cert.png"
+
+        def txt(x, y, value, size=8, bold=False, color=base_blue):
+            p.setFillColor(color)
+            p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+            p.drawString(x, y, str(value or ""))
+
+        def arabic_right(x, y, value, size=8):
+            p.setFont("Amiri", size)
+            p.setFillColor(base_blue)
+            p.drawRightString(x, y, shape_arabic(value))
+
+        def dotted_line(x1, y1, x2, y2):
+            p.setStrokeColor(base_blue)
+            p.setLineWidth(0.6)
+            p.setDash(1, 2)
+            p.line(x1, y1, x2, y2)
+            p.setDash()
+
+        # Header
+        txt(margin, height - 1.0 * cm, "Groupement de Médecine du Travail", 8.5, True)
+        txt(margin, height - 1.35 * cm, "Du Gouvernorat de Monastir", 8.5, True)
+
+        if logo_path.exists():
+            logo = ImageReader(str(logo_path))
+            p.drawImage(
+                logo,
+                (width / 2) - 1.0 * cm,
+                height - 2.0 * cm,
+                width=2.0 * cm,
+                height=1.4 * cm,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+            txt(width / 2 - 1.1 * cm, height - 2.2 * cm, "G.M.T MONASTIR", 6, True)
+            txt(width / 2 - 1.1 * cm, height - 2.45 * cm, "Certifié ISO 9001:2008", 5.5, False)
+
+        # FR-VME box
+        box_w, box_h = 2.6 * cm, 1.0 * cm
+        box_x = width - margin - box_w
+        box_y = height - 1.4 * cm
+        p.setStrokeColor(base_blue)
+        p.rect(box_x, box_y, box_w, box_h)
+        txt(box_x + 0.2 * cm, box_y + 0.32 * cm, "FR - VME - 06/02", 7.5, True)
+        arabic_right(width - margin, height - 2.0 * cm, "مجمع طب الشغل", 8)
+        arabic_right(width - margin, height - 2.35 * cm, "بولاية المنستير", 8)
+
+        # N° du Labo + N°
+        txt(margin, height - 2.2 * cm, "N° du Labo", 8, True)
+        dotted_line(margin + 2.2 * cm, height - 2.23 * cm, margin + 6.5 * cm, height - 2.23 * cm)
+        txt(width - margin - 3.2 * cm, height - 2.4 * cm, "N°", 9, True)
+        txt(width - margin - 2.2 * cm, height - 2.4 * cm, f"{demande.id:06d}", 10, True)
+
+        # Title
+        txt(margin + 3.2 * cm, height - 3.0 * cm, "DEMANDE D’EXAMENS DE LABORATOIRE", 9.5, True)
+
+        y = height - 3.6 * cm
+        txt(margin, y, "NOM ET PRÉNOM :", 7.5, True)
+        dotted_line(margin + 3.0 * cm, y - 0.05 * cm, width - margin - 8.0 * cm, y - 0.05 * cm)
+        txt(width - margin - 7.5 * cm, y, "AGE :", 7.5, True)
+        dotted_line(width - margin - 6.2 * cm, y - 0.05 * cm, width - margin - 3.5 * cm, y - 0.05 * cm)
+        txt(width - margin - 3.2 * cm, y, "M° :", 7.5, True)
+        dotted_line(width - margin - 2.3 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+
+        y -= 0.5 * cm
+        txt(margin, y, "C.I.N :", 7.5, True)
+        dotted_line(margin + 1.6 * cm, y - 0.05 * cm, margin + 6.0 * cm, y - 0.05 * cm)
+        txt(margin + 6.4 * cm, y, "GSM :", 7.5, True)
+        dotted_line(margin + 8.0 * cm, y - 0.05 * cm, width - margin - 6.5 * cm, y - 0.05 * cm)
+        txt(width - margin - 6.1 * cm, y, "POSTE DE TRAVAIL :", 7.5, True)
+        dotted_line(width - margin - 2.0 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+
+        y -= 0.5 * cm
+        txt(margin, y, "ENTREPRISE :", 7.5, True)
+        dotted_line(margin + 2.4 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+
+        y -= 0.5 * cm
+        txt(margin, y, "RENSEIGNEMENTS CLINIQUES :", 7.5, True)
+        dotted_line(margin + 4.5 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+
+        y -= 0.6 * cm
+        txt(margin, y, "EXAMENS DE LABORATOIRE :", 7.5, True)
+
+        # Checkboxes
+        items = [
+            ("GLYCEMIE", demande.glycemie),
+            ("CREATININE", demande.creatinine),
+            ("NFS", demande.nfs),
+            ("VS", demande.vs),
+            ("TRANSAMINASES", demande.transaminases),
+            ("ACIDE URIQUE", demande.acide_urique),
+            ("TRIGLYCERIDES", demande.triglycerides),
+            ("CHOLESTEROL", demande.cholesterol),
+            ("EXAMENS COPRO-PARASITOLOGIQUES DES SELLES", demande.examen_selles),
+        ]
+        y -= 0.4 * cm
+        box_size = 0.35 * cm
+        for label, checked in items:
+            p.setStrokeColor(base_blue)
+            p.rect(margin, y - box_size + 0.05 * cm, box_size, box_size)
+            if checked:
+                p.setFont("Helvetica-Bold", 8)
+                p.drawString(margin + 0.08 * cm, y - 0.1 * cm, "X")
+            txt(margin + 0.6 * cm, y, label, 7.5, False)
+            y -= 0.45 * cm
+
+        y -= 0.2 * cm
+        txt(
+            margin,
+            y,
+            "NB: Pour effectuer les analyses de laboratoire, vous devez vous présenter",
+            6.5,
+            False,
+        )
+        y -= 0.35 * cm
+        txt(margin, y, "à jeun et avant 10h du matin.", 6.5, False)
+        y -= 0.35 * cm
+        arabic_right(width - margin, y, "لاجراء التحاليل المخبرية يجب الحضور صائما وقبل الساعة 10 صباحا", 7)
+
+        y -= 0.6 * cm
+        txt(width - margin - 4.5 * cm, y, "DATE:", 7.5, True)
+        dotted_line(width - margin - 3.4 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+        txt(width - margin - 6.0 * cm, y - 0.5 * cm, "CACHET ET SIGNATURE DU MÉDECIN DU TRAVAIL", 6.5, True)
+
+        # Footer with badge
+        if tuv_path.exists():
+            tuv = ImageReader(str(tuv_path))
+            p.drawImage(tuv, margin, margin - 0.1 * cm, width=1.4 * cm, height=1.0 * cm, mask="auto")
+
+        txt(margin + 1.8 * cm, margin + 0.55 * cm, "Groupement de Médecine du travail du Gouvernorat de Monastir", 6, False)
+        txt(margin + 1.8 * cm, margin + 0.3 * cm, "Zone Industrielle Route de Khnis - Monastir", 6, False)
+        txt(margin + 1.8 * cm, margin + 0.05 * cm, "Boîte Postale N° 41 - Poste Gare Monastir - 5079", 6, False)
+        txt(margin + 1.8 * cm, margin - 0.2 * cm, "Tél: 73 508 100 / Fax: 73 508 101", 6, False)
+        arabic_right(width - margin, margin + 0.05 * cm, "صندوق بريد رقم 41 - مركز بريد المحطة - المنستير - 5079", 6.5)
+        arabic_right(width - margin, margin - 0.2 * cm, "هاتف: 73 508 100 / فاكس: 73 508 101", 6.5)
+
+        p.showPage()
+        p.save()
+        return response
+
+
+class ExamenComplementairePdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        examen = get_object_or_404(ExamenComplementaire, pk=pk)
+
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename=\"examen_complementaire_{examen.id}.pdf\"'
+
+        page_size = A5
+        p = canvas.Canvas(response, pagesize=page_size)
+        width, height = page_size
+        base_blue = colors.HexColor("#1a3c8f")
+        margin = 0.8 * cm
+        register_arabic_font()
+
+        logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
+        tuv_path = Path(settings.BASE_DIR) / "static" / "images" / "tuv_cert.png"
+
+        def txt(x, y, value, size=8, bold=False, color=base_blue):
+            p.setFillColor(color)
+            p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+            p.drawString(x, y, str(value or ""))
+
+        def arabic_right(x, y, value, size=8):
+            p.setFont("Amiri", size)
+            p.setFillColor(base_blue)
+            p.drawRightString(x, y, shape_arabic(value))
+
+        def dotted_line(x1, y1, x2, y2):
+            p.setStrokeColor(base_blue)
+            p.setLineWidth(0.6)
+            p.setDash(1, 2)
+            p.line(x1, y1, x2, y2)
+            p.setDash()
+
+        # Header
+        txt(margin, height - 1.0 * cm, "Groupement de Médecine", 8.5, True)
+        txt(margin, height - 1.35 * cm, "du travail du Gouvernorat", 8.5, True)
+        txt(margin, height - 1.7 * cm, "de Monastir", 8.5, True)
+
+        if logo_path.exists():
+            logo = ImageReader(str(logo_path))
+            p.drawImage(
+                logo,
+                margin,
+                height - 2.8 * cm,
+                width=2.0 * cm,
+                height=1.4 * cm,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+            txt(margin + 2.2 * cm, height - 2.2 * cm, "Certifié ISO 9001 : 2008", 6.5, False)
+
+        box_w, box_h = 3.2 * cm, 0.9 * cm
+        box_x = width - margin - box_w
+        box_y = height - 1.2 * cm
+        p.setStrokeColor(base_blue)
+        p.rect(box_x, box_y, box_w, box_h)
+        txt(box_x + 0.3 * cm, box_y + 0.28 * cm, "FR - VME - 03/03", 7.5, True)
+        arabic_right(width - margin, height - 1.8 * cm, "مجمع طب الشغل بولاية المنستير", 7.5)
+        txt(width - margin - 3.5 * cm, height - 2.2 * cm, f"N° {examen.id:06d}", 8, True)
+        txt(width - margin - 3.5 * cm, height - 2.55 * cm, "Mle ..........", 7.5, True)
+
+        # Body title
+        txt(margin + 2.0 * cm, height - 3.3 * cm, "DEMANDE D’EXAMENS COMPLÉMENTAIRES", 9.5, True)
+
+        y = height - 3.9 * cm
+        txt(margin, y, "NOM ET PRÉNOM :", 7.5, True)
+        dotted_line(margin + 3.2 * cm, y - 0.05 * cm, width - margin - 2.0 * cm, y - 0.05 * cm)
+        y -= 0.5 * cm
+        txt(margin, y, "ENTREPRISE :", 7.5, True)
+        dotted_line(margin + 2.4 * cm, y - 0.05 * cm, width - margin - 4.0 * cm, y - 0.05 * cm)
+        txt(width - margin - 3.6 * cm, y, "POSTE DE TRAVAIL :", 7.5, True)
+        dotted_line(width - margin - 1.6 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+
+        y -= 0.5 * cm
+        txt(margin, y, "RENSEIGNEMENTS CLINIQUES :", 7.5, True)
+        dotted_line(margin + 4.7 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+
+        y -= 0.6 * cm
+        txt(margin, y, "EXAMENS COMPLÉMENTAIRES :", 7.5, True)
+        y -= 0.4 * cm
+        items = [
+            ("VISIOTEST", examen.visiotest),
+            ("AUDIOGRAMME", examen.audiogramme),
+            ("ECG", examen.ecg),
+            ("EFR", examen.efr),
+        ]
+        box_size = 0.35 * cm
+        for label, checked in items:
+            p.setStrokeColor(base_blue)
+            p.rect(margin, y - box_size + 0.05 * cm, box_size, box_size)
+            if checked:
+                p.setFont("Helvetica-Bold", 8)
+                p.drawString(margin + 0.08 * cm, y - 0.1 * cm, "X")
+            txt(margin + 0.6 * cm, y, label, 7.5, False)
+            y -= 0.5 * cm
+
+        y -= 0.3 * cm
+        txt(width - margin - 5.0 * cm, y, "DATE:", 7.5, True)
+        dotted_line(width - margin - 3.9 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+        txt(width - margin - 6.5 * cm, y - 0.5 * cm, "CACHET ET SIGNATURE DU MÉDECIN DU TRAVAIL", 6.5, True)
+
+        # Footer
+        if tuv_path.exists():
+            tuv = ImageReader(str(tuv_path))
+            p.drawImage(tuv, margin, margin - 0.1 * cm, width=1.4 * cm, height=1.0 * cm, mask="auto")
+
+        txt(margin + 1.8 * cm, margin + 0.55 * cm, "Groupement de Médecine du travail du Gouvernorat de Monastir", 6, False)
+        txt(margin + 1.8 * cm, margin + 0.3 * cm, "Zone Industrielle Route de Khnis - Monastir", 6, False)
+        txt(margin + 1.8 * cm, margin + 0.05 * cm, "Boîte Postale N° 41 - Poste Gare Monastir - 5079", 6, False)
+        txt(margin + 1.8 * cm, margin - 0.2 * cm, "Tél: 73 508 100 / Fax: 73 508 101", 6, False)
+        arabic_right(width - margin, margin + 0.05 * cm, "صندوق بريد رقم 41 - مركز بريد المحطة - المنستير - 5079", 6.5)
+        arabic_right(width - margin, margin - 0.2 * cm, "هاتف: 73 508 100 / فاكس: 73 508 101", 6.5)
+
+        p.showPage()
+        p.save()
+        return response
+
+
+class DossierMedicalPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        dossier = get_object_or_404(DossierMedical, pk=pk)
+        collab = dossier.collaborateur
+
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename=\"dossier_medical_{collab.matricule}.pdf\"'
+
+        page_size = landscape(A4)
+        p = canvas.Canvas(response, pagesize=page_size)
+        width, height = page_size
+        base_blue = colors.HexColor("#1a3c8f")
+        margin = 0.8 * cm
+        register_arabic_font()
+
+        logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
+        tuv_path = Path(settings.BASE_DIR) / "static" / "images" / "tuv_cert.png"
+
+        def txt(x, y, value, size=8, bold=False, color=base_blue):
+            p.setFillColor(color)
+            p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+            p.drawString(x, y, str(value or ""))
+
+        def dotted_line(x1, y1, x2, y2):
+            p.setStrokeColor(base_blue)
+            p.setLineWidth(0.6)
+            p.setDash(1, 2)
+            p.line(x1, y1, x2, y2)
+            p.setDash()
+
+        # Header
+        if logo_path.exists():
+            logo = ImageReader(str(logo_path))
+            p.drawImage(
+                logo,
+                (width / 2) - 1.2 * cm,
+                height - 2.2 * cm,
+                width=2.4 * cm,
+                height=1.6 * cm,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+        txt(width / 2 - 1.2 * cm, height - 2.35 * cm, "G.M.T MONASTIR", 8, True)
+        txt(width / 2 - 1.5 * cm, height - 2.7 * cm, "Certifié ISO 9001 : 2008", 6.5, False)
+
+        box_w, box_h = 3.0 * cm, 1.0 * cm
+        box_x = width - margin - box_w
+        box_y = height - 1.6 * cm
+        p.setStrokeColor(base_blue)
+        p.rect(box_x, box_y, box_w, box_h)
+        txt(box_x + 0.35 * cm, box_y + 0.3 * cm, "FR - VME 14/01", 7.5, True)
+        txt(box_x + 0.25 * cm, box_y - 0.2 * cm, "Mle ..........", 7.5, True)
+
+        p.line(margin, height - 3.1 * cm, width - margin, height - 3.1 * cm)
+        txt(width / 2 - 2.0 * cm, height - 3.7 * cm, "DOSSIER MEDICAL", 12, True)
+        txt(margin, height - 4.2 * cm, "Entreprise :", 7.5, True)
+        dotted_line(margin + 2.0 * cm, height - 4.22 * cm, width / 2 - 1.0 * cm, height - 4.22 * cm)
+        txt(width / 2 + 0.5 * cm, height - 4.2 * cm, "Localité :", 7.5, True)
+        dotted_line(width / 2 + 2.0 * cm, height - 4.22 * cm, width - margin, height - 4.22 * cm)
+
+        # Photo box
+        p.rect(width - margin - 3.0 * cm, height - 6.0 * cm, 2.6 * cm, 2.8 * cm)
+        txt(width - margin - 2.2 * cm, height - 4.8 * cm, "Photo", 7.5, True)
+
+        # Basic identity block
+        y = height - 5.2 * cm
+        txt(margin, y, "Nom et prénom :", 7.5, True)
+        dotted_line(margin + 2.5 * cm, y - 0.05 * cm, width / 2 - 1.0 * cm, y - 0.05 * cm)
+        txt(width / 2 + 0.5 * cm, y, "Matricule :", 7.5, True)
+        dotted_line(width / 2 + 2.0 * cm, y - 0.05 * cm, width - margin - 3.2 * cm, y - 0.05 * cm)
+
+        y -= 0.6 * cm
+        txt(margin, y, "Date de recrutement :", 7.5, True)
+        dotted_line(margin + 3.4 * cm, y - 0.05 * cm, width / 2 - 1.0 * cm, y - 0.05 * cm)
+        txt(width / 2 + 0.5 * cm, y, "Poste :", 7.5, True)
+        dotted_line(width / 2 + 1.6 * cm, y - 0.05 * cm, width - margin - 3.2 * cm, y - 0.05 * cm)
+
+        y -= 0.6 * cm
+        txt(margin, y, "Profession :", 7.5, True)
+        dotted_line(margin + 2.0 * cm, y - 0.05 * cm, width / 2 - 1.0 * cm, y - 0.05 * cm)
+        txt(width / 2 + 0.5 * cm, y, "Niveau d'études :", 7.5, True)
+        dotted_line(width / 2 + 2.6 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+
+        # Footer with badge
+        if tuv_path.exists():
+            tuv = ImageReader(str(tuv_path))
+            p.drawImage(tuv, margin, margin - 0.1 * cm, width=1.4 * cm, height=1.0 * cm, mask="auto")
+
+        txt(margin + 1.8 * cm, margin + 0.55 * cm, "Groupement de Médecine du travail du Gouvernorat de Monastir", 6, False)
+        txt(margin + 1.8 * cm, margin + 0.3 * cm, "Zone Industrielle Route de Khnis - Monastir", 6, False)
+        txt(margin + 1.8 * cm, margin + 0.05 * cm, "Boîte Postale N° 41 - Poste Gare Monastir - 5079", 6, False)
+        txt(margin + 1.8 * cm, margin - 0.2 * cm, "Tél: 73 508 100 / Fax: 73 508 101", 6, False)
+        p.setFont("Amiri", 6.5)
+        p.setFillColor(base_blue)
+        p.drawRightString(width - margin, margin + 0.05 * cm, shape_arabic("صندوق بريد رقم 41 - مركز بريد المحطة - المنستير - 5079"))
+        p.drawRightString(width - margin, margin - 0.2 * cm, shape_arabic("هاتف: 73 508 100 / فاكس: 73 508 101"))
 
         p.showPage()
         p.save()
@@ -484,6 +900,94 @@ class ExamenComplementaireListCreateByCollaborateurView(APIView):
         obj = serializer.save(created_by=request.user)
 
         return Response(ExamenComplementaireSerializer(obj).data, status=status.HTTP_201_CREATED)
+
+
+class FicheAptitudeListCreateByCollaborateurView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, collaborateur_id):
+        collaborateur = get_object_or_404(Collaborateur, id=collaborateur_id)
+        qs = FicheAptitude.objects.filter(collaborateur=collaborateur).order_by("-date", "-id")
+        return Response(FicheAptitudeSerializer(qs, many=True).data, status=status.HTTP_200_OK)
+
+    def post(self, request, collaborateur_id):
+        collaborateur = get_object_or_404(Collaborateur, id=collaborateur_id)
+        data = request.data.copy()
+        data["collaborateur"] = collaborateur.id
+
+        serializer = FicheAptitudeSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save(created_by=request.user)
+        return Response(FicheAptitudeSerializer(obj).data, status=status.HTTP_201_CREATED)
+
+
+class FicheAptitudeListCreateView(generics.ListCreateAPIView):
+    serializer_class = FicheAptitudeSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = FicheAptitude.objects.all().order_by("-date", "-id")
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class FicheAptitudeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = FicheAptitudeSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = FicheAptitude.objects.all()
+
+
+class ExamenLaboListCreateView(generics.ListCreateAPIView):
+    serializer_class = DemandeExamenLaboSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = DemandeExamenLabo.objects.all().order_by("-date", "-id")
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class ExamenLaboDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = DemandeExamenLaboSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = DemandeExamenLabo.objects.all()
+
+
+class ExamenCompListCreateView(generics.ListCreateAPIView):
+    serializer_class = ExamenComplementaireSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = ExamenComplementaire.objects.all().order_by("-date", "-id")
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class ExamenCompDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ExamenComplementaireSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = ExamenComplementaire.objects.all()
+
+
+class DossierMedicalListCreateView(generics.ListCreateAPIView):
+    serializer_class = DossierMedicalSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = DossierMedical.objects.all().order_by("-created_at", "-id")
+
+
+class DossierMedicalDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = DossierMedicalSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = DossierMedical.objects.all()
+
+
+class CollaborateurMedListCreateView(generics.ListCreateAPIView):
+    serializer_class = CollaborateurSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Collaborateur.objects.all().order_by("nom", "prenom")
+
+
+class CollaborateurMedDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CollaborateurSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Collaborateur.objects.all()
 
 
 class ExamenInitialCreateUpdateView(APIView):
@@ -781,6 +1285,54 @@ class IncidentDetailView(generics.RetrieveDestroyAPIView):
     serializer_class = IncidentInfirmierSerializer
     permission_classes = [IsAuthenticated]
     queryset = IncidentInfirmier.objects.select_related("dossier__collaborateur").all()
+
+
+class IncidentAvecBonListCreateView(generics.ListCreateAPIView):
+    serializer_class = IncidentAvecBonSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = IncidentAvecBon.objects.all().order_by("-created_at")
+
+
+class IncidentAvecBonDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = IncidentAvecBonSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = IncidentAvecBon.objects.all()
+
+
+class IncidentSansBonListCreateView(generics.ListCreateAPIView):
+    serializer_class = IncidentSansBonSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = IncidentSansBon.objects.all().order_by("-created_at")
+
+
+class IncidentSansBonDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = IncidentSansBonSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = IncidentSansBon.objects.all()
+
+
+class BonChauffeurListCreateView(generics.ListCreateAPIView):
+    serializer_class = BonChauffeurSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = BonChauffeur.objects.all().order_by("-numero_ordre", "-id")
+
+
+class BonChauffeurDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BonChauffeurSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = BonChauffeur.objects.all()
+
+
+class SuiviTransfertUrgenceListCreateView(generics.ListCreateAPIView):
+    serializer_class = SuiviTransfertUrgenceSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = SuiviTransfertUrgence.objects.all().order_by("-date", "-id")
+
+
+class SuiviTransfertUrgenceDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = SuiviTransfertUrgenceSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = SuiviTransfertUrgence.objects.all()
 
 
 class AccidentListCreateView(generics.ListCreateAPIView):
@@ -1209,6 +1761,110 @@ class StockMovementListCreateAPIView(generics.ListCreateAPIView):
             StockMovementSerializer(movement).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class MedicamentImportAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if openpyxl is None:
+            return Response(
+                {"detail": "openpyxl is required. Install it with: pip install openpyxl"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        upload = request.FILES.get("file") or request.FILES.get("excel")
+        if not upload:
+            return Response(
+                {"detail": "Aucun fichier fourni (champ attendu: file)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            wb = openpyxl.load_workbook(upload, data_only=True)
+        except Exception as exc:  # pragma: no cover
+            return Response(
+                {"detail": f"Fichier Excel invalide: {exc}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = 0
+        updated = 0
+        skipped = 0
+        processed = 0
+        errors = []
+        update_existing = str(request.data.get("mode", "")).lower() == "update"
+
+        for sheet in wb.worksheets:
+            rows = list(sheet.iter_rows(values_only=True))
+            if not rows:
+                continue
+
+            # Always skip the first row (header)
+            for row_idx, row in enumerate(rows[1:], start=2):
+                try:
+                    value = row[0] if row else None
+                    if value in (None, ""):
+                        skipped += 1
+                        continue
+
+                    nom = " ".join(str(value).strip().split())
+                    nom = unicodedata.normalize("NFC", nom)
+                    if not nom:
+                        skipped += 1
+                        continue
+
+                    processed += 1
+                    existing = (
+                        StockItem.objects.filter(type_article="MEDICAMENT")
+                        .filter(nom__iexact=nom)
+                        .first()
+                    )
+
+                    if existing and not update_existing:
+                        skipped += 1
+                        continue
+
+                    payload = {
+                        "nom": nom,
+                        "type_article": "MEDICAMENT",
+                        "libelle": None,
+                        "forme": None,
+                        "dosage": None,
+                        "categorie": "Général",
+                        "unite": "unité",
+                        "description": None,
+                        "date_expiration": None,
+                        "quantite": 0,
+                        "seuil_critique": 5,
+                        "actif": True,
+                    }
+
+                    if existing:
+                        for field, val in payload.items():
+                            if val is not None and getattr(existing, field, None) in (None, ""):
+                                setattr(existing, field, val)
+                        existing.save()
+                        updated += 1
+                    else:
+                        StockItem.objects.create(**payload)
+                        created += 1
+                except Exception as exc:  # pragma: no cover
+                    errors.append({"row": row_idx, "value": value, "error": str(exc)})
+
+        return Response(
+            {
+                "inserted_count": created,
+                "updated_count": updated,
+                "skipped_count": skipped,
+                "processed_count": processed,
+                "error_count": len(errors),
+                "errors": errors,
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 class CertificatMedicalPdfView(APIView):
     permission_classes = [IsAuthenticated]

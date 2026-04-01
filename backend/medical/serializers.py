@@ -17,6 +17,10 @@ from .models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    IncidentAvecBon,
+    IncidentSansBon,
+    BonChauffeur,
+    SuiviTransfertUrgence,
 )
 
 
@@ -70,12 +74,14 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
     zone = serializers.SerializerMethodField()
     gravite_display = serializers.SerializerMethodField()
     enquete_display = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AccidentTravail
         fields = [
             "id",
             "dossier",
+            "created_by",
             "employeur_cnss",
             "employeur_nom",
             "employeur_adresse",
@@ -100,6 +106,7 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "victime_profession",
             "victime_poste_accident",
             "victime_lieu_travail",
+            "victime_salaire",
             "autres_victimes",
             "date_accident",
             "heure_accident",
@@ -109,6 +116,8 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "horaire_travail_fin",
             "activite_lieu",
             "activite_lieu_autre",
+            "activite_service",
+            "moment_travail",
             "nombre_travailleurs",
             "description_circonstances",
             "causes_materielles",
@@ -135,6 +144,7 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "tiers_nom",
             "tiers_assureur",
             "resultat",
+            "arret_travail",
             "date_arret",
             "heure_arret",
             "salaire_maintenu",
@@ -148,7 +158,11 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "duree_arret",
             "ipp",
             "envoye_hsee",
+            "statut_declaration",
+            "generated_at",
+            "printed_at",
             "created_at",
+            "updated_at",
             "collaborateur_nom",
             "collaborateur_prenom",
             "matricule",
@@ -156,7 +170,15 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "zone",
             "gravite_display",
             "enquete_display",
+            "created_by_name",
         ]
+        read_only_fields = (
+            "created_by",
+            "generated_at",
+            "printed_at",
+            "created_at",
+            "updated_at",
+        )
 
     def get_collaborateur_nom(self, obj):
         return getattr(obj.dossier.collaborateur, "nom", "")
@@ -187,7 +209,65 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
     def get_enquete_display(self, obj):
         if obj.statut_enquete:
             return obj.get_statut_enquete_display()
-        return "Terminée" if obj.envoye_hsee else "En attente"
+        return "Termin?e" if obj.envoye_hsee else "En attente"
+
+    def get_created_by_name(self, obj):
+        user = getattr(obj, "created_by", None)
+        if not user:
+            return ""
+        full_name = (user.get_full_name() or "").strip()
+        return full_name if full_name else (user.username or "")
+
+    def validate(self, attrs):
+        instance = getattr(self, "instance", None)
+        statut = attrs.get(
+            "statut_declaration",
+            getattr(instance, "statut_declaration", "BROUILLON") if instance else "BROUILLON",
+        )
+
+        if statut == "BROUILLON":
+            return attrs
+
+        def val(field):
+            if field in attrs:
+                return attrs.get(field)
+            return getattr(instance, field, None) if instance else None
+
+        required = [
+            "employeur_nom",
+            "employeur_cnss",
+            "victime_nom",
+            "victime_prenom",
+            "victime_cin",
+            "date_accident",
+            "lieu_accident",
+            "cause",
+            "nature_lesion",
+            "siege_lesion",
+        ]
+        missing = [f for f in required if not val(f)]
+        if missing:
+            raise serializers.ValidationError(
+                {"detail": f"Champs obligatoires manquants: {', '.join(missing)}"}
+            )
+
+        cnss = val("employeur_cnss")
+        if cnss and not str(cnss).isdigit():
+            raise serializers.ValidationError({"detail": "Numero CNSS invalide."})
+
+        date_accident = val("date_accident")
+        date_arret = val("date_arret")
+        if date_arret and date_accident and date_arret < date_accident:
+            raise serializers.ValidationError(
+                {"detail": "Date d'arret incoherente (anterieure a la date d'accident)."}
+            )
+
+        if val("arret_travail") and not date_arret:
+            raise serializers.ValidationError(
+                {"detail": "Date d'arret requise lorsque l'arret de travail est oui."}
+            )
+
+        return attrs
 
 
 class PlanActionHSEESerializer(serializers.ModelSerializer):
@@ -213,12 +293,20 @@ class MaladieProfessionnelleSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaladieProfessionnelle
         fields = "__all__"
+        read_only_fields = (
+            "created_by",
+            "generated_at",
+            "printed_at",
+            "created_at",
+            "updated_at",
+        )
 
     def get_fields(self):
         fields = super().get_fields()
         fields["collaborateur_nom"] = serializers.SerializerMethodField()
         fields["collaborateur_prenom"] = serializers.SerializerMethodField()
         fields["matricule"] = serializers.SerializerMethodField()
+        fields["created_by_name"] = serializers.SerializerMethodField()
         return fields
 
     def get_collaborateur_nom(self, obj):
@@ -229,6 +317,62 @@ class MaladieProfessionnelleSerializer(serializers.ModelSerializer):
 
     def get_matricule(self, obj):
         return getattr(obj.dossier.collaborateur, "matricule", "")
+
+    def get_created_by_name(self, obj):
+        user = getattr(obj, "created_by", None)
+        if not user:
+            return ""
+        full_name = (user.get_full_name() or "").strip()
+        return full_name if full_name else (user.username or "")
+
+    def validate(self, attrs):
+        instance = getattr(self, "instance", None)
+        statut = attrs.get(
+            "statut_declaration",
+            getattr(instance, "statut_declaration", "BROUILLON") if instance else "BROUILLON",
+        )
+
+        if statut == "BROUILLON":
+            return attrs
+
+        def val(field):
+            if field in attrs:
+                return attrs.get(field)
+            return getattr(instance, field, None) if instance else None
+
+        required = [
+            "employeur_nom",
+            "employeur_cnss",
+            "victime_nom",
+            "victime_prenom",
+            "victime_cin",
+            "nom_maladie",
+            "numero_tableau",
+            "date_decouverte",
+        ]
+        missing = [f for f in required if not val(f)]
+        if missing:
+            raise serializers.ValidationError(
+                {"detail": f"Champs obligatoires manquants: {', '.join(missing)}"}
+            )
+
+        cnss = val("employeur_cnss")
+        if cnss and not str(cnss).isdigit():
+            raise serializers.ValidationError({"detail": "Numero CNSS invalide."})
+
+        date_debut = val("date_debut_exposition")
+        date_fin = val("date_fin_exposition")
+        if date_debut and date_fin and date_fin < date_debut:
+            raise serializers.ValidationError(
+                {"detail": "Date fin exposition incoherente (anterieure a la date debut)."}
+            )
+
+        if val("arret_travail") and not val("date_arret"):
+            raise serializers.ValidationError(
+                {"detail": "Date d'arret requise lorsque l'arret de travail est oui."}
+            )
+
+        return attrs
 
 
 class PosteTravailSerializer(serializers.ModelSerializer):
@@ -322,11 +466,19 @@ class StockItemSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "nom",
+            "libelle",
+            "forme",
+            "dosage",
             "type_article",
+            "categorie",
             "quantite",
             "seuil_critique",
             "unite",
+            "date_expiration",
+            "description",
+            "actif",
             "created_at",
+            "updated_at",
         ]
 
 
@@ -368,4 +520,28 @@ class ExamenComplementaireSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamenComplementaire
         fields = "__all__"
+
+
+class IncidentAvecBonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IncidentAvecBon
+        fields = "__all__"
+
+
+class IncidentSansBonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IncidentSansBon
+        fields = "__all__"
         read_only_fields = ("created_by", "date", "created_at")
+
+
+class BonChauffeurSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BonChauffeur
+        fields = "__all__"
+
+
+class SuiviTransfertUrgenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SuiviTransfertUrgence
+        fields = "__all__"

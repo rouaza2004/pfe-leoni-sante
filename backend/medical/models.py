@@ -190,6 +190,45 @@ class IncidentInfirmier(models.Model):
 
 
 # =====================================================
+# INCIDENT AVEC BON / SANS BON
+# =====================================================
+
+class IncidentAvecBon(models.Model):
+    date_bon = models.DateField()
+    matricule = models.CharField(max_length=50, blank=True, null=True)
+    nom_prenom = models.CharField(max_length=255, blank=True, null=True)
+    telephone = models.CharField(max_length=30, blank=True, null=True)
+    numero_assurance = models.CharField(max_length=100, blank=True, null=True)
+    date_incident = models.DateField()
+    destination = models.CharField(max_length=255, blank=True, null=True)
+    infirmier = models.CharField(max_length=120, blank=True, null=True)
+    cause = models.CharField(max_length=255, blank=True, null=True)
+    lesion = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Incident avec bon {self.date_incident} - {self.matricule or '-'}"
+
+
+class IncidentSansBon(models.Model):
+    heure = models.TimeField(blank=True, null=True)
+    matricule = models.CharField(max_length=50, blank=True, null=True)
+    segment = models.CharField(max_length=120, blank=True, null=True)
+    plant = models.CharField(max_length=50, blank=True, null=True)
+    nom_prenom = models.CharField(max_length=255, blank=True, null=True)
+    poste = models.CharField(max_length=255, blank=True, null=True)
+    mode_lesion = models.CharField(max_length=255, blank=True, null=True)
+    agent_causal = models.CharField(max_length=255, blank=True, null=True)
+    telephone = models.CharField(max_length=30, blank=True, null=True)
+    infirmier = models.CharField(max_length=120, blank=True, null=True)
+    remarque = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Incident sans bon {self.matricule or '-'}"
+
+
+# =====================================================
 # ACCIDENT DE TRAVAIL
 # =====================================================
 
@@ -205,11 +244,24 @@ class AccidentTravail(models.Model):
         ("EN_COURS", "En cours"),
         ("TERMINEE", "Terminée"),
     ]
+    STATUT_DECLARATION_CHOICES = [
+        ("BROUILLON", "Brouillon"),
+        ("DECLAREE", "Déclarée"),
+        ("GENEREE", "Générée"),
+    ]
+
 
     dossier = models.ForeignKey(
         DossierMedical,
         on_delete=models.CASCADE,
         related_name="accidents"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="accidents_travail_crees",
     )
 
     # Employeur (formulaire officiel)
@@ -244,6 +296,7 @@ class AccidentTravail(models.Model):
     victime_profession = models.CharField(max_length=255, blank=True, null=True)
     victime_poste_accident = models.CharField(max_length=255, blank=True, null=True)
     victime_lieu_travail = models.CharField(max_length=255, blank=True, null=True)
+    victime_salaire = models.CharField(max_length=100, blank=True, null=True)
     autres_victimes = models.BooleanField(default=False)
 
     # Accident
@@ -265,6 +318,8 @@ class AccidentTravail(models.Model):
         null=True,
     )
     activite_lieu_autre = models.CharField(max_length=255, blank=True, null=True)
+    activite_service = models.CharField(max_length=255, blank=True, null=True)
+    moment_travail = models.CharField(max_length=255, blank=True, null=True)
     nombre_travailleurs = models.PositiveIntegerField(blank=True, null=True)
     description_circonstances = models.TextField(blank=True, null=True)
     causes_materielles = models.TextField(blank=True, null=True)
@@ -317,6 +372,7 @@ class AccidentTravail(models.Model):
         blank=True,
         null=True,
     )
+    arret_travail = models.BooleanField(default=False)
     date_arret = models.DateField(blank=True, null=True)
     heure_arret = models.TimeField(blank=True, null=True)
     salaire_maintenu = models.BooleanField(default=False)
@@ -333,7 +389,15 @@ class AccidentTravail(models.Model):
     ipp = models.CharField(max_length=100, blank=True, null=True)
 
     envoye_hsee = models.BooleanField(default=False)
+    statut_declaration = models.CharField(
+        max_length=20,
+        choices=STATUT_DECLARATION_CHOICES,
+        default="BROUILLON",
+    )
+    generated_at = models.DateTimeField(blank=True, null=True)
+    printed_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Accident {self.date_accident} - {self.dossier.collaborateur.matricule}"
@@ -384,6 +448,13 @@ class MaladieProfessionnelle(models.Model):
         on_delete=models.CASCADE,
         related_name="maladies_professionnelles"
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="maladies_professionnelles_creees",
+    )
 
     nom_maladie = models.CharField(max_length=255)
     agent_causal = models.CharField(max_length=255)
@@ -427,6 +498,8 @@ class MaladieProfessionnelle(models.Model):
     medecin_constat = models.CharField(max_length=255, blank=True, null=True)
     date_constat = models.DateField(blank=True, null=True)
     nature_travail = models.TextField(blank=True, null=True)
+    date_debut_exposition = models.DateField(blank=True, null=True)
+    date_fin_exposition = models.DateField(blank=True, null=True)
     date_arret_exposition = models.DateField(blank=True, null=True)
     arret_travail = models.BooleanField(default=False)
     date_arret = models.DateField(blank=True, null=True)
@@ -436,11 +509,25 @@ class MaladieProfessionnelle(models.Model):
     salaire_unite = models.CharField(max_length=50, blank=True, null=True)
 
     travaux_anterieurs = models.JSONField(blank=True, null=True)
+    observations = models.TextField(blank=True, null=True)
 
     signataire_nom = models.CharField(max_length=255, blank=True, null=True)
     signataire_qualite = models.CharField(max_length=255, blank=True, null=True)
     signature_lieu = models.CharField(max_length=255, blank=True, null=True)
     signature_date = models.DateField(blank=True, null=True)
+    statut_declaration = models.CharField(
+        max_length=20,
+        choices=[
+            ("BROUILLON", "Brouillon"),
+            ("DECLAREE", "Déclarée"),
+            ("GENEREE", "Générée"),
+        ],
+        default="BROUILLON",
+    )
+    generated_at = models.DateTimeField(blank=True, null=True)
+    printed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.nom_maladie
@@ -694,11 +781,19 @@ class StockItem(models.Model):
     ]
 
     nom = models.CharField(max_length=150)
+    libelle = models.CharField(max_length=255, blank=True, null=True)
+    forme = models.CharField(max_length=100, blank=True, null=True)
+    dosage = models.CharField(max_length=100, blank=True, null=True)
     type_article = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    categorie = models.CharField(max_length=120, blank=True, null=True)
     quantite = models.PositiveIntegerField(default=0)
     seuil_critique = models.PositiveIntegerField(default=0)
     unite = models.CharField(max_length=50, default="unité")
+    date_expiration = models.DateField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    actif = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.nom} ({self.quantite})"
@@ -723,3 +818,51 @@ class StockMovement(models.Model):
 
     def __str__(self):
         return f"{self.stock_item.nom} - {self.type_mouvement}"
+
+
+# =====================================================
+# TRANSPORT - BON CHAUFFEUR
+# =====================================================
+
+class BonChauffeur(models.Model):
+    numero_ordre = models.PositiveIntegerField(unique=True, null=True, blank=True)
+    nom_chauffeur = models.CharField(max_length=255)
+    date = models.DateField()
+    heure = models.TimeField()
+    medecin = models.CharField(max_length=255, blank=True, null=True)
+    infirmier = models.CharField(max_length=255, blank=True, null=True)
+    nom_malade = models.CharField(max_length=255)
+    matricule = models.CharField(max_length=50, blank=True, null=True)
+    telephone = models.CharField(max_length=30, blank=True, null=True)
+    motif = models.TextField(blank=True, null=True)
+    service_plant = models.CharField(max_length=255, blank=True, null=True)
+    moyen_transport = models.CharField(max_length=255, blank=True, null=True)
+    hopital = models.CharField(max_length=255, blank=True, null=True)
+    accompagnant = models.CharField(max_length=255, blank=True, null=True)
+    montant_prime = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.numero_ordre is None:
+            last = BonChauffeur.objects.order_by("-numero_ordre").first()
+            self.numero_ordre = (last.numero_ordre + 1) if last and last.numero_ordre else 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Bon Chauffeur {self.numero_ordre}"
+
+
+class SuiviTransfertUrgence(models.Model):
+    date = models.DateField()
+    heure = models.TimeField()
+    chauffeur = models.CharField(max_length=255)
+    depart = models.CharField(max_length=255, blank=True, null=True)
+    destination = models.CharField(max_length=255, blank=True, null=True)
+    ordre_transport = models.CharField(max_length=50, blank=True, null=True)
+    plant = models.CharField(max_length=120, blank=True, null=True)
+    indemnite_deplacement = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_center = models.CharField(max_length=120, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Transfert {self.date} {self.heure}"

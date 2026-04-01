@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/api";
 import { Search, User, FilePlus2, FolderOpen } from "lucide-react";
+import { isAuthenticated } from "@/auth/auth";
 
 const getDossierStatus = (collab, dossier) => {
   const hasCollabInfo =
@@ -23,12 +24,45 @@ export default function CollaborateursMedTravail() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectedRef = useRef(false);
 
-  useEffect(() => {
-    fetchCollaborateurs();
-  }, []);
+  const target = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("target") || "dossier";
+  }, [location.search]);
 
-  const fetchCollaborateurs = async () => {
+  const resolveTargetRoute = (collabId) => {
+    switch (target) {
+      case "demande-analyse":
+        return `/medecin-travail/collaborateurs/${collabId}/demande-analyse`;
+      case "examen-complementaire":
+        return `/medecin-travail/collaborateurs/${collabId}/examen-complementaire`;
+      case "fiche-aptitude":
+        return `/medecin-travail/collaborateurs/${collabId}/fiche-aptitude`;
+      case "examens-initial":
+      case "dossier":
+      default:
+        return `/medecin-travail/collaborateurs/${collabId}/dossier`;
+    }
+  };
+
+  const targetCtaLabel = useMemo(() => {
+    switch (target) {
+      case "demande-analyse":
+        return "Créer analyse";
+      case "examen-complementaire":
+        return "Créer examen";
+      case "fiche-aptitude":
+        return "Créer fiche";
+      case "examens-initial":
+      case "dossier":
+      default:
+        return "Ouvrir dossier";
+    }
+  }, [target]);
+
+  const fetchCollaborateurs = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -60,12 +94,30 @@ export default function CollaborateursMedTravail() {
 
       setCollaborateurs(enriched);
     } catch (err) {
+      if (err?.response?.status === 401 && !redirectedRef.current) {
+        redirectedRef.current = true;
+        setLoading(false);
+        navigate("/login", { replace: true });
+        return;
+      }
       console.error(err);
       setCollaborateurs([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      setLoading(false);
+      if (!redirectedRef.current) {
+        redirectedRef.current = true;
+        navigate("/login", { replace: true });
+      }
+      return;
+    }
+    fetchCollaborateurs();
+  }, [fetchCollaborateurs, navigate]);
 
 
 
@@ -115,7 +167,7 @@ export default function CollaborateursMedTravail() {
             >
               <div
                 className="cursor-pointer"
-                onClick={() => navigate(`/medecin-travail/collaborateurs/${c.id}`)}
+                onClick={() => navigate(resolveTargetRoute(c.id))}
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
@@ -162,11 +214,11 @@ export default function CollaborateursMedTravail() {
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => navigate(`/medecin-travail/collaborateurs/${c.id}`)}
+                  onClick={() => navigate(resolveTargetRoute(c.id))}
                   className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium hover:bg-slate-50 transition inline-flex items-center justify-center gap-2"
                 >
                   <FolderOpen size={16} />
-                  Ouvrir
+                  {targetCtaLabel}
                 </button>
 
                 <button

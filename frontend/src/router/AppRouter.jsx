@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
 import LoginPage from "../pages/shared/LoginPage";
 import Dashboard from "../pages/shared/Dashboard";
-import CollaborateurProfilePage from "../pages/shared/CollaborateurProfilePage";
 import FicheAptitudeForm from "../pages/medecin-travail/FicheAptitudeForm";
 import DemandeAnalyseForm from "../pages/medecin-travail/DemandeAnalyseForm";
 import ExamenComplementaireForm from "../pages/medecin-travail/ExamenComplementaireForm";
@@ -18,7 +17,6 @@ import RDV from "../pages/medecin-traitant/RDV";
 
 import MedecinTravailDashboard from "../pages/medecin-travail/MedecinTravailDashboard";
 import CollaborateursMedTravail from "../pages/medecin-travail/CollaborateursMedTravail";
-import CollaborateurMedicalDetail from "../pages/medecin-travail/CollaborateurMedicalDetail";
 import DossierMedicalCompletForm from "../pages/medecin-travail/DossierMedicalCompletForm";
 
 import MedecinControleurDashboard from "../pages/medecin-controleur/MedecinControleurDashboard";
@@ -30,11 +28,14 @@ import HistoriqueMC from "../pages/medecin-controleur/HistoriqueMC";
 import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
 import PatientsPage from "../pages/infirmier/PatientsPage";
 import PatientDetailPage from "../pages/infirmier/PatientDetailPage";
-import IncidentsPage from "../pages/infirmier/IncidentsPage";
+import IncidentsHubPage from "../pages/infirmier/IncidentsHubPage";
 import AccidentsPage from "../pages/infirmier/AccidentsPage";
 import MaladiesProfessionnellesPage from "../pages/infirmier/MaladiesProfessionnellesPage";
 import StockPage from "../pages/infirmier/StockPage";
 import RDVPage from "../pages/infirmier/RDVPage";
+import DashboardPharmacie from "../pages/infirmier/DashboardPharmacie";
+import BonChauffeurPage from "../pages/infirmier/BonChauffeurPage";
+import SuiviTransfertsPage from "../pages/infirmier/SuiviTransfertsPage";
 
 import RHDashboard from "../pages/rh/RHDashboard";
 
@@ -79,25 +80,6 @@ export default function AppRouter() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
-
-        <Route
-          path="/collaborateur-profile"
-          element={
-            <RoleRoute
-              allowedRoles={[
-                "ADMIN",
-                "INFIRMIER",
-                "MEDECIN_TRAITANT",
-                "MEDECIN_TRAVAIL",
-                "MEDECIN_CONTROLEUR",
-                "RESPONSABLE_RH",
-                "AGENT_HSEE",
-              ]}
-            >
-              <CollaborateurProfilePage />
-            </RoleRoute>
-          }
-        />
 
         <Route
           path="/admin"
@@ -193,7 +175,7 @@ export default function AppRouter() {
           path="/medecin-travail/collaborateurs/:id"
           element={
             <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
-              <CollaborateurMedicalDetail />
+              <DossierMedicalCompletForm />
             </RoleRoute>
           }
         />
@@ -310,7 +292,7 @@ export default function AppRouter() {
           path="/infirmier/incidents"
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
-              <IncidentsPage />
+              <IncidentsHubPage />
             </RoleRoute>
           }
         />
@@ -320,6 +302,24 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <AccidentsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/bon-chauffeur"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <BonChauffeurPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/suivi-transferts"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <SuiviTransfertsPage />
             </RoleRoute>
           }
         />
@@ -347,6 +347,15 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <RDVPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard-pharmacie"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <DashboardPharmacie />
             </RoleRoute>
           }
         />

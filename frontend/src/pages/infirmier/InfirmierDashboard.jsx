@@ -18,21 +18,21 @@ import { api } from "@/api/api";
 
 const StatCard = ({ title, value, subtitle, icon, alert = false, iconClass = "" }) => (
   <div
-    className={`rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
+    className={`rounded-2xl border bg-white p-4 shadow-sm transition hover:shadow-md ${
       alert ? "border-red-200" : "border-slate-200"
     }`}
   >
     <div className="flex items-start justify-between">
       <div>
         <p className="text-sm text-slate-500">{title}</p>
-        <p className={`mt-2 text-3xl font-bold ${alert ? "text-red-600" : "text-slate-900"}`}>
+        <p className={`mt-2 text-2xl font-bold ${alert ? "text-red-600" : "text-slate-900"}`}>
           {value}
         </p>
         <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
       </div>
 
       <div
-        className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+        className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
           alert ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-700"
         } ${iconClass}`}
       >
@@ -45,10 +45,10 @@ const StatCard = ({ title, value, subtitle, icon, alert = false, iconClass = "" 
 const QuickAction = ({ title, desc, icon, onClick, iconClass = "" }) => (
   <button
     onClick={onClick}
-    className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    className="rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
   >
     <div
-      className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700 ${iconClass}`}
+      className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 ${iconClass}`}
     >
       {icon}
     </div>
@@ -202,8 +202,8 @@ export default function InfirmierDashboard() {
   }, [incidents]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">Espace Infirmier</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
@@ -242,7 +242,7 @@ export default function InfirmierDashboard() {
       </div>
 
       {err && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
           {err}
         </div>
       )}
@@ -285,15 +285,15 @@ export default function InfirmierDashboard() {
         />
       </div>
 
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Actions rapides</h2>
             <p className="text-sm text-slate-500">Accès direct aux tâches fréquentes</p>
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <QuickAction
             title="Accueil patient"
             desc="Chercher un collaborateur et ouvrir son dossier."
@@ -339,9 +339,9 @@ export default function InfirmierDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="mb-4 flex items-center justify-between">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <div className="mb-3 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Incidents récents</h2>
               <p className="text-sm text-slate-500">Derniers soins infirmiers enregistrés</p>
@@ -363,28 +363,28 @@ export default function InfirmierDashboard() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500">
-                    <th className="px-3 py-3 font-medium">Date</th>
-                    <th className="px-3 py-3 font-medium">Collaborateur</th>
-                    <th className="px-3 py-3 font-medium">Matricule</th>
-                    <th className="px-3 py-3 font-medium">Lésion</th>
-                    <th className="px-3 py-3 font-medium">Soin</th>
+                    <th className="px-3 py-2 font-medium">Date</th>
+                    <th className="px-3 py-2 font-medium">Collaborateur</th>
+                    <th className="px-3 py-2 font-medium">Matricule</th>
+                    <th className="px-3 py-2 font-medium">Lésion</th>
+                    <th className="px-3 py-2 font-medium">Soin</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentIncidents.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-3 py-3 text-slate-700">
+                      <td className="px-3 py-2 text-slate-700">
                         <div>{item.date_incident}</div>
                         <div className="text-xs text-slate-400">{item.heure_incident}</div>
                       </td>
-                      <td className="px-3 py-3 font-medium text-slate-900">
+                      <td className="px-3 py-2 font-medium text-slate-900">
                         {item.collaborateur}
                       </td>
-                      <td className="px-3 py-3 text-slate-700">{item.matricule}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-2 text-slate-700">{item.matricule}</td>
+                      <td className="px-3 py-2">
                         <InjuryBadge text={item.mode_lesion} />
                       </td>
-                      <td className="px-3 py-3 text-slate-700">{item.remarque}</td>
+                      <td className="px-3 py-2 text-slate-700">{item.remarque}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -397,8 +397,8 @@ export default function InfirmierDashboard() {
           )}
         </div>
 
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <div className="mb-3 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Accidents récents</h2>
               <p className="text-sm text-slate-500">Dernières déclarations enregistrées</p>
@@ -420,25 +420,25 @@ export default function InfirmierDashboard() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500">
-                    <th className="px-3 py-3 font-medium">Date</th>
-                    <th className="px-3 py-3 font-medium">Collaborateur</th>
-                    <th className="px-3 py-3 font-medium">Matricule</th>
-                    <th className="px-3 py-3 font-medium">Lésion</th>
-                    <th className="px-3 py-3 font-medium">Statut</th>
+                    <th className="px-3 py-2 font-medium">Date</th>
+                    <th className="px-3 py-2 font-medium">Collaborateur</th>
+                    <th className="px-3 py-2 font-medium">Matricule</th>
+                    <th className="px-3 py-2 font-medium">Lésion</th>
+                    <th className="px-3 py-2 font-medium">Statut</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentAccidents.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-3 py-3 text-slate-700">{item.date_accident}</td>
-                      <td className="px-3 py-3 font-medium text-slate-900">
+                      <td className="px-3 py-2 text-slate-700">{item.date_accident}</td>
+                      <td className="px-3 py-2 font-medium text-slate-900">
                         {item.collaborateur_prenom} {item.collaborateur_nom}
                       </td>
-                      <td className="px-3 py-3 text-slate-700">{item.matricule}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-2 text-slate-700">{item.matricule}</td>
+                      <td className="px-3 py-2">
                         <InjuryBadge text={item.nature_lesion} />
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-2">
                         <HSEEBadge sent={item.envoye_hsee} />
                       </td>
                     </tr>
@@ -454,10 +454,10 @@ export default function InfirmierDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-1">
-          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="mb-4 flex items-center justify-between">
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="space-y-4 xl:col-span-1">
+          <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Alertes stock</h2>
                 <p className="text-sm text-slate-500">Médicaments sous le seuil</p>
@@ -494,8 +494,8 @@ export default function InfirmierDashboard() {
             )}
           </div>
 
-          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Rendez-vous du jour</h2>
                 <p className="text-sm text-slate-500">Programme infirmier</p>
@@ -534,42 +534,42 @@ export default function InfirmierDashboard() {
             )}
           </div>
 
-          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="mb-4">
+          <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="mb-3">
               <h2 className="text-lg font-semibold text-slate-900">Résumé rapide</h2>
               <p className="text-sm text-slate-500">Indicateurs utiles</p>
             </div>
 
             <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                 <span className="text-slate-600">Total incidents</span>
                 <span className="font-semibold text-slate-900">
                   {loading ? "..." : incidents.length}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                 <span className="text-slate-600">Total accidents</span>
                 <span className="font-semibold text-slate-900">
                   {loading ? "..." : accidentStats.total}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                 <span className="text-slate-600">Accidents ce mois</span>
                 <span className="font-semibold text-slate-900">
                   {loading ? "..." : accidentStats.this_month}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                 <span className="text-slate-600">Envoyés à HSEE</span>
                 <span className="font-semibold text-emerald-600">
                   {loading ? "..." : stats.accidentsSentHSEE}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                 <span className="text-slate-600">Articles critiques</span>
                 <span className="font-semibold text-red-600">
                   {loading ? "..." : stats.stockAlerts}
@@ -578,9 +578,8 @@ export default function InfirmierDashboard() {
             </div>
           </div>
         </div>
-
-        <div className="xl:col-span-2" />
       </div>
     </div>
   );
 }
+

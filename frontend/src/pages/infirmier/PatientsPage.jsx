@@ -65,11 +65,14 @@ export default function PatientsPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [listErr, setListErr] = useState("");
 
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedMatricule, setSelectedMatricule] = useState("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailErr, setDetailErr] = useState("");
   const [collabDetail, setCollabDetail] = useState(null);
   const [dossier, setDossier] = useState(null);
+  const [accidents, setAccidents] = useState([]);
+  const [maladiesPro, setMaladiesPro] = useState([]);
+  const [incidents, setIncidents] = useState([]);
 
   const [rdvs, setRdvs] = useState([]);
   const [rdvErr, setRdvErr] = useState("");
@@ -127,13 +130,13 @@ export default function PatientsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedId && collaborateurs.length > 0) {
-      setSelectedId(collaborateurs[0].id);
+    if (!selectedMatricule && collaborateurs.length > 0) {
+      setSelectedMatricule(collaborateurs[0].matricule || "");
     }
-  }, [collaborateurs, selectedId]);
+  }, [collaborateurs, selectedMatricule]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedMatricule) return;
 
     let cancelled = false;
 
@@ -142,20 +145,32 @@ export default function PatientsPage() {
         setDetailLoading(true);
         setDetailErr("");
 
-        const [cRes, dRes] = await Promise.all([
-          api.get(`/collaborateurs/${selectedId}/`),
-          api.get(`/medical/dossier/${selectedId}/`),
-        ]);
+        const profileRes = await api.get(
+          `/collaborateurs/matricule/${selectedMatricule}/`
+        );
+        const profile = profileRes?.data || {};
 
         if (cancelled) return;
-        setCollabDetail(cRes?.data ?? null);
-        setDossier(dRes?.data ?? null);
+        setCollabDetail(profile.collaborateur ?? null);
+        setDossier(profile.dossier_medical ?? null);
+        setAccidents(Array.isArray(profile.accidents) ? profile.accidents : []);
+        setMaladiesPro(
+          Array.isArray(profile.maladies_professionnelles)
+            ? profile.maladies_professionnelles
+            : []
+        );
+        setIncidents(
+          Array.isArray(profile.incidents_infirmiers) ? profile.incidents_infirmiers : []
+        );
       } catch (e) {
         console.error(e);
         if (!cancelled) {
           setDetailErr("Erreur: impossible de charger les détails collaborateur.");
           setCollabDetail(null);
           setDossier(null);
+          setAccidents([]);
+          setMaladiesPro([]);
+          setIncidents([]);
         }
       } finally {
         if (!cancelled) setDetailLoading(false);
@@ -167,7 +182,7 @@ export default function PatientsPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedMatricule]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -179,9 +194,11 @@ export default function PatientsPage() {
   }, [collaborateurs, search]);
 
   const selectedFromList = useMemo(() => {
-    if (!selectedId) return null;
-    return collaborateurs.find((c) => c.id === selectedId) || null;
-  }, [collaborateurs, selectedId]);
+    if (!selectedMatricule) return null;
+    return (
+      collaborateurs.find((c) => c.matricule === selectedMatricule) || null
+    );
+  }, [collaborateurs, selectedMatricule]);
 
   const collab = collabDetail || selectedFromList;
 
@@ -210,15 +227,16 @@ export default function PatientsPage() {
   }, [dossier]);
 
   const filteredRdvs = useMemo(() => {
-    if (!selectedId) return [];
+    if (!selectedMatricule) return [];
+    const target = selectedMatricule.toLowerCase();
     return rdvs.filter((item) => {
-      const directId = item?.collaborateur || item?.collaborateur_id;
-      const nestedId = item?.collaborateur?.id;
-      return [directId, nestedId].some(
-        (val) => String(val) === String(selectedId)
-      );
+      const directMatricule = item?.matricule;
+      const nestedMatricule = item?.collaborateur?.matricule;
+      return [directMatricule, nestedMatricule]
+        .filter(Boolean)
+        .some((val) => String(val).toLowerCase() === target);
     });
-  }, [rdvs, selectedId]);
+  }, [rdvs, selectedMatricule]);
 
   return (
     <div className="space-y-6">
@@ -249,16 +267,16 @@ export default function PatientsPage() {
 
           <div className="mt-4 max-h-[560px] space-y-2 overflow-auto pr-1">
             {filtered.map((c) => {
-              const isSelected = c.id === selectedId;
+              const isSelected = c.matricule === selectedMatricule;
               const segmentLabel =
                 c.segment_nom || c.segment?.nom || c.segment || "--";
               const posteLabel = c.poste || c.poste_nom || "--";
 
               return (
                 <button
-                  key={c.id}
+                  key={c.matricule || c.id}
                   type="button"
-                  onClick={() => setSelectedId(c.id)}
+                  onClick={() => setSelectedMatricule(c.matricule || "")}
                   className={`w-full rounded-2xl border p-3 text-left transition ${
                     isSelected
                       ? "border-slate-900 bg-slate-50"
@@ -292,11 +310,11 @@ export default function PatientsPage() {
         </div>
 
         <div className="space-y-6">
-          {!selectedId && (
+          {!selectedMatricule && (
             <EmptyState text="Sélectionnez un collaborateur pour afficher les détails." />
           )}
 
-          {selectedId && (
+          {selectedMatricule && (
             <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
               {detailLoading ? (
                 <p className="text-sm text-slate-500">Chargement...</p>
@@ -354,7 +372,7 @@ export default function PatientsPage() {
             </div>
           )}
 
-          {selectedId && activeTab === "profil" && (
+          {selectedMatricule && activeTab === "profil" && (
             <div className="grid gap-4 lg:grid-cols-2">
               <InfoCard title="Informations Générales">
                 <div className="flex items-center gap-2">
@@ -443,13 +461,63 @@ export default function PatientsPage() {
             </div>
           )}
 
-          {selectedId && activeTab === "dossier" && (
-            <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <DossierMedical collaborateurId={selectedId} />
+          {selectedMatricule && activeTab === "dossier" && (
+            <div className="space-y-4">
+              <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+                <DossierMedical collaborateurId={collab?.id || selectedFromList?.id} />
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <InfoCard title="Accidents du travail">
+                  {accidents.length === 0 ? (
+                    <EmptyState text="Aucun accident déclaré." />
+                  ) : (
+                    <ul className="space-y-2">
+                      {accidents.slice(0, 5).map((accident) => (
+                        <li key={accident.id} className="text-sm text-slate-700">
+                          {formatDate(accident.date_accident)} ·{" "}
+                          {accident.nature_lesion || "Accident"} ·{" "}
+                          {accident.gravite_display || accident.gravite || "--"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </InfoCard>
+
+                <InfoCard title="Maladies professionnelles">
+                  {maladiesPro.length === 0 ? (
+                    <EmptyState text="Aucune maladie professionnelle." />
+                  ) : (
+                    <ul className="space-y-2">
+                      {maladiesPro.slice(0, 5).map((maladie) => (
+                        <li key={maladie.id} className="text-sm text-slate-700">
+                          {formatDate(maladie.date_decouverte)} ·{" "}
+                          {maladie.nom_maladie || maladie.agent_causal || "--"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </InfoCard>
+
+                <InfoCard title="Incidents infirmiers">
+                  {incidents.length === 0 ? (
+                    <EmptyState text="Aucun incident infirmier." />
+                  ) : (
+                    <ul className="space-y-2">
+                      {incidents.slice(0, 5).map((incident) => (
+                        <li key={incident.id} className="text-sm text-slate-700">
+                          {formatDate(incident.date_incident)} ·{" "}
+                          {incident.mode_lesion || incident.agent_causal || "--"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </InfoCard>
+              </div>
             </div>
           )}
 
-          {selectedId && activeTab === "rdv" && (
+          {selectedMatricule && activeTab === "rdv" && (
             <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
               {rdvErr ? (
                 <p className="text-sm text-red-600">{rdvErr}</p>
@@ -482,7 +550,7 @@ export default function PatientsPage() {
             </div>
           )}
 
-          {selectedId && activeTab === "analyses" && (
+          {selectedMatricule && activeTab === "analyses" && (
             <EmptyState text="Aucune analyse disponible pour ce collaborateur." />
           )}
         </div>

@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import MedicamentImportAPIView
 from .views import (
     DossierByCollaborateurView,
     DossierByMatriculeView,
@@ -9,6 +10,14 @@ from .views import (
     VaccinationDeleteView,
     IncidentListCreateView,
     IncidentDetailView,
+    IncidentAvecBonListCreateView,
+    IncidentAvecBonDetailView,
+    IncidentSansBonListCreateView,
+    IncidentSansBonDetailView,
+    BonChauffeurListCreateView,
+    BonChauffeurDetailView,
+    SuiviTransfertUrgenceListCreateView,
+    SuiviTransfertUrgenceDetailView,
     AccidentListCreateView,
     AccidentDetailView,
     AccidentStatsView,
@@ -34,7 +43,21 @@ from .views import (
     StockMovementListCreateAPIView,
     DemandeExamenLaboListCreateByCollaborateurView,
     ExamenComplementaireListCreateByCollaborateurView,
+    FicheAptitudeListCreateByCollaborateurView,
+    FicheAptitudeListCreateView,
+    FicheAptitudeDetailView,
+    ExamenLaboListCreateView,
+    ExamenLaboDetailView,
+    ExamenCompListCreateView,
+    ExamenCompDetailView,
+    DossierMedicalListCreateView,
+    DossierMedicalDetailView,
+    CollaborateurMedListCreateView,
+    CollaborateurMedDetailView,
     FicheAptitudePdfView,
+    DemandeExamenLaboPdfView,
+    ExamenComplementairePdfView,
+    DossierMedicalPdfView,
     CertificatMedicalPdfView,
     OrdonnancePdfView,
     AccidentTravailPdfView,
@@ -42,7 +65,21 @@ from .views import (
 )
 
 urlpatterns = [
+    path("fiches-aptitude/", FicheAptitudeListCreateView.as_view(), name="fiches-aptitude-list"),
+    path("fiches-aptitude/<int:pk>/", FicheAptitudeDetailView.as_view(), name="fiches-aptitude-detail"),
+    path("examens-labo/", ExamenLaboListCreateView.as_view(), name="examens-labo-list"),
+    path("examens-labo/detail/<int:pk>/", ExamenLaboDetailView.as_view(), name="examens-labo-detail"),
+    path("examens-complementaires/", ExamenCompListCreateView.as_view(), name="examens-comp-list"),
+    path("examens-complementaires/detail/<int:pk>/", ExamenCompDetailView.as_view(), name="examens-comp-detail"),
+    path("dossiers/", DossierMedicalListCreateView.as_view(), name="dossiers-list"),
+    path("dossiers/<int:pk>/", DossierMedicalDetailView.as_view(), name="dossiers-detail"),
+    path("collaborateurs/", CollaborateurMedListCreateView.as_view(), name="collab-med-list"),
+    path("collaborateurs/<int:pk>/", CollaborateurMedDetailView.as_view(), name="collab-med-detail"),
+
     path("fiche-aptitude/<int:pk>/pdf/", FicheAptitudePdfView.as_view()),
+    path("examens-labo/<int:pk>/pdf/", DemandeExamenLaboPdfView.as_view()),
+    path("examens-complementaires/<int:pk>/pdf/", ExamenComplementairePdfView.as_view()),
+    path("dossier/<int:pk>/pdf/", DossierMedicalPdfView.as_view()),
     path("certificats/<int:pk>/pdf/", CertificatMedicalPdfView.as_view()),
     path("ordonnances/<int:pk>/pdf/", OrdonnancePdfView.as_view()),
     path("accidents-travail/<int:pk>/pdf/", AccidentTravailPdfView.as_view()),
@@ -54,6 +91,7 @@ urlpatterns = [
     path("dossier/<int:collaborateur_id>/autofill/", DossierAutofillOneView.as_view()),
     path("examens-labo/<int:collaborateur_id>/", DemandeExamenLaboListCreateByCollaborateurView.as_view()),
     path("examens-complementaires/<int:collaborateur_id>/", ExamenComplementaireListCreateByCollaborateurView.as_view()),
+    path("fiche-aptitude/<int:collaborateur_id>/", FicheAptitudeListCreateByCollaborateurView.as_view()),
     path("examens-initial/", ExamenInitialCreateUpdateView.as_view()),
     path("examens-initial/<int:pk>/", ExamenInitialCreateUpdateView.as_view()),
 
@@ -62,6 +100,14 @@ urlpatterns = [
 
     path("incidents/", IncidentListCreateView.as_view()),
     path("incidents/<int:pk>/", IncidentDetailView.as_view()),
+    path("incidents-avec-bon/", IncidentAvecBonListCreateView.as_view()),
+    path("incidents-avec-bon/<int:pk>/", IncidentAvecBonDetailView.as_view()),
+    path("incidents-sans-bon/", IncidentSansBonListCreateView.as_view()),
+    path("incidents-sans-bon/<int:pk>/", IncidentSansBonDetailView.as_view()),
+    path("bon-chauffeurs/", BonChauffeurListCreateView.as_view()),
+    path("bon-chauffeurs/<int:pk>/", BonChauffeurDetailView.as_view()),
+    path("suivi-transferts/", SuiviTransfertUrgenceListCreateView.as_view()),
+    path("suivi-transferts/<int:pk>/", SuiviTransfertUrgenceDetailView.as_view()),
 
     path("accidents-travail/", AccidentListCreateView.as_view()),
     path("accidents-travail/stats/", AccidentStatsView.as_view()),
@@ -92,4 +138,5 @@ urlpatterns = [
     path("stock/items/", StockItemListCreateAPIView.as_view()),
     path("stock/items/<int:pk>/", StockItemDetailAPIView.as_view()),
     path("stock/movements/", StockMovementListCreateAPIView.as_view()),
+    path("medicaments/import/", MedicamentImportAPIView.as_view(), name="medicament-import"),
 ]
