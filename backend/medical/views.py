@@ -552,9 +552,11 @@ class ExamenComplementairePdfView(APIView):
         examen = get_object_or_404(ExamenComplementaire, pk=pk)
 
         response = HttpResponse(content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename=\"examen_complementaire_{examen.id}.pdf\"'
+        response["Content-Disposition"] = (
+            f'inline; filename="examen_complementaire_{examen.id}.pdf"'
+        )
 
-        page_size = A5
+        page_size = landscape(A4)
         p = canvas.Canvas(response, pagesize=page_size)
         width, height = page_size
         base_blue = colors.HexColor("#1a3c8f")
@@ -564,10 +566,18 @@ class ExamenComplementairePdfView(APIView):
         logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
         tuv_path = Path(settings.BASE_DIR) / "static" / "images" / "tuv_cert.png"
 
+        def safe(value, fallback=""):
+            return value if value not in [None, ""] else fallback
+
         def txt(x, y, value, size=8, bold=False, color=base_blue):
             p.setFillColor(color)
             p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
             p.drawString(x, y, str(value or ""))
+
+        def centered(y, value, size=11, bold=True, color=base_blue):
+            p.setFillColor(color)
+            p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+            p.drawCentredString(width / 2, y, str(value or ""))
 
         def arabic_right(x, y, value, size=8):
             p.setFont("Amiri", size)
@@ -581,85 +591,225 @@ class ExamenComplementairePdfView(APIView):
             p.line(x1, y1, x2, y2)
             p.setDash()
 
+        def wrap_text(value, max_width, font="Helvetica", size=8):
+            words = str(value or "").split()
+            lines = []
+            current = ""
+            for word in words:
+                test = f"{current} {word}".strip()
+                if p.stringWidth(test, font, size) <= max_width:
+                    current = test
+                else:
+                    if current:
+                        lines.append(current)
+                    current = word
+            if current:
+                lines.append(current)
+            return lines
+
+        def draw_value_on_line(x, y, value, max_width, size=8):
+            text_value = str(value or "")
+            if not text_value:
+                return
+            while p.stringWidth(text_value, "Helvetica", size) > max_width and len(text_value) > 0:
+                text_value = text_value[:-1]
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica", size)
+            p.drawString(x, y, text_value)
+
+        def draw_checkbox(x, y, label, checked=False):
+            size = 0.35 * cm
+            p.setStrokeColor(base_blue)
+            p.rect(x, y - size + 0.05 * cm, size, size)
+            if checked:
+                p.setFillColor(base_blue)
+                p.setFont("Helvetica-Bold", 8)
+                p.drawCentredString(x + size / 2, y - 0.1 * cm, "X")
+            txt(x + 0.55 * cm, y, label, 7.5, False)
+
+        right = width - margin
+
         # Header
-        txt(margin, height - 1.0 * cm, "Groupement de Médecine", 8.5, True)
-        txt(margin, height - 1.35 * cm, "du travail du Gouvernorat", 8.5, True)
-        txt(margin, height - 1.7 * cm, "de Monastir", 8.5, True)
+        txt(margin, height - 1.0 * cm, "Groupement de Médecine", 9, True)
+        txt(margin, height - 1.35 * cm, "du travail du Gouvernorat", 9, True)
+        txt(margin, height - 1.7 * cm, "de Monastir", 9, True)
 
         if logo_path.exists():
             logo = ImageReader(str(logo_path))
             p.drawImage(
                 logo,
                 margin,
-                height - 2.8 * cm,
-                width=2.0 * cm,
-                height=1.4 * cm,
+                height - 2.9 * cm,
+                width=2.3 * cm,
+                height=1.5 * cm,
                 preserveAspectRatio=True,
                 mask="auto",
             )
-            txt(margin + 2.2 * cm, height - 2.2 * cm, "Certifié ISO 9001 : 2008", 6.5, False)
+            txt(margin + 2.5 * cm, height - 2.2 * cm, "Certifié ISO 9001 : 2008", 6.5, False)
 
         box_w, box_h = 3.2 * cm, 0.9 * cm
-        box_x = width - margin - box_w
-        box_y = height - 1.2 * cm
+        box_x = right - box_w
+        box_y = height - 1.1 * cm
         p.setStrokeColor(base_blue)
         p.rect(box_x, box_y, box_w, box_h)
         txt(box_x + 0.3 * cm, box_y + 0.28 * cm, "FR - VME - 03/03", 7.5, True)
-        arabic_right(width - margin, height - 1.8 * cm, "مجمع طب الشغل بولاية المنستير", 7.5)
-        txt(width - margin - 3.5 * cm, height - 2.2 * cm, f"N° {examen.id:06d}", 8, True)
-        txt(width - margin - 3.5 * cm, height - 2.55 * cm, "Mle ..........", 7.5, True)
+        arabic_right(right, height - 1.8 * cm, "")
+
+        meta_y = height - 2.45 * cm
+        txt(right - 6.0 * cm, meta_y, "N°", 8, True)
+        dotted_line(right - 5.2 * cm, meta_y - 0.05 * cm, right - 3.2 * cm, meta_y - 0.05 * cm)
+        draw_value_on_line(
+            right - 5.1 * cm,
+            meta_y - 0.2 * cm,
+            f"{examen.id:06d}",
+            1.7 * cm,
+        )
+        meta_y -= 0.45 * cm
+        txt(right - 6.0 * cm, meta_y, "AGE", 8, True)
+        dotted_line(right - 5.2 * cm, meta_y - 0.05 * cm, right - 3.2 * cm, meta_y - 0.05 * cm)
+        draw_value_on_line(
+            right - 5.1 * cm,
+            meta_y - 0.2 * cm,
+            safe(examen.age),
+            1.7 * cm,
+        )
+        meta_y -= 0.45 * cm
+        txt(right - 6.0 * cm, meta_y, "Mle", 8, True)
+        dotted_line(right - 5.2 * cm, meta_y - 0.05 * cm, right - 3.2 * cm, meta_y - 0.05 * cm)
+        draw_value_on_line(
+            right - 5.1 * cm,
+            meta_y - 0.2 * cm,
+            safe(examen.cin),
+            1.7 * cm,
+        )
 
         # Body title
-        txt(margin + 2.0 * cm, height - 3.3 * cm, "DEMANDE D’EXAMENS COMPLÉMENTAIRES", 9.5, True)
+        centered(height - 3.4 * cm, "DEMANDE D’EXAMENS COMPLÉMENTAIRES", 12, True)
 
-        y = height - 3.9 * cm
-        txt(margin, y, "NOM ET PRÉNOM :", 7.5, True)
-        dotted_line(margin + 3.2 * cm, y - 0.05 * cm, width - margin - 2.0 * cm, y - 0.05 * cm)
-        y -= 0.5 * cm
-        txt(margin, y, "ENTREPRISE :", 7.5, True)
-        dotted_line(margin + 2.4 * cm, y - 0.05 * cm, width - margin - 4.0 * cm, y - 0.05 * cm)
-        txt(width - margin - 3.6 * cm, y, "POSTE DE TRAVAIL :", 7.5, True)
-        dotted_line(width - margin - 1.6 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+        y = height - 4.3 * cm
+        txt(margin, y, "NOM ET PRÉNOM :", 8, True)
+        line_start = margin + 3.4 * cm
+        dotted_line(line_start, y - 0.05 * cm, right, y - 0.05 * cm)
+        draw_value_on_line(
+            line_start + 0.1 * cm,
+            y - 0.2 * cm,
+            safe(examen.nom_prenom),
+            right - line_start - 0.2 * cm,
+        )
 
-        y -= 0.5 * cm
-        txt(margin, y, "RENSEIGNEMENTS CLINIQUES :", 7.5, True)
-        dotted_line(margin + 4.7 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
+        y -= 0.55 * cm
+        txt(margin, y, "ENTREPRISE :", 8, True)
+        entreprise_end = right - 7.0 * cm
+        dotted_line(margin + 2.6 * cm, y - 0.05 * cm, entreprise_end, y - 0.05 * cm)
+        draw_value_on_line(
+            margin + 2.7 * cm,
+            y - 0.2 * cm,
+            safe(examen.entreprise),
+            entreprise_end - (margin + 2.8 * cm),
+        )
+
+        poste_label_x = entreprise_end + 0.5 * cm
+        txt(poste_label_x, y, "POSTE DE TRAVAIL :", 8, True)
+        poste_line_start = poste_label_x + 3.7 * cm
+        dotted_line(poste_line_start, y - 0.05 * cm, right, y - 0.05 * cm)
+        draw_value_on_line(
+            poste_line_start + 0.1 * cm,
+            y - 0.2 * cm,
+            safe(examen.poste_travail),
+            right - poste_line_start - 0.2 * cm,
+        )
 
         y -= 0.6 * cm
-        txt(margin, y, "EXAMENS COMPLÉMENTAIRES :", 7.5, True)
-        y -= 0.4 * cm
-        items = [
-            ("VISIOTEST", examen.visiotest),
-            ("AUDIOGRAMME", examen.audiogramme),
-            ("ECG", examen.ecg),
-            ("EFR", examen.efr),
-        ]
-        box_size = 0.35 * cm
-        for label, checked in items:
-            p.setStrokeColor(base_blue)
-            p.rect(margin, y - box_size + 0.05 * cm, box_size, box_size)
-            if checked:
-                p.setFont("Helvetica-Bold", 8)
-                p.drawString(margin + 0.08 * cm, y - 0.1 * cm, "X")
-            txt(margin + 0.6 * cm, y, label, 7.5, False)
-            y -= 0.5 * cm
+        txt(margin, y, "RENSEIGNEMENTS CLINIQUES :", 8, True)
+        r_start = margin + 4.9 * cm
+        line_gap = 0.5 * cm
+        for i in range(3):
+            line_y = y - (i * line_gap)
+            dotted_line(r_start, line_y - 0.05 * cm, right, line_y - 0.05 * cm)
 
-        y -= 0.3 * cm
-        txt(width - margin - 5.0 * cm, y, "DATE:", 7.5, True)
-        dotted_line(width - margin - 3.9 * cm, y - 0.05 * cm, width - margin, y - 0.05 * cm)
-        txt(width - margin - 6.5 * cm, y - 0.5 * cm, "CACHET ET SIGNATURE DU MÉDECIN DU TRAVAIL", 6.5, True)
+        r_lines = wrap_text(
+            examen.renseignements_cliniques,
+            right - r_start - 0.2 * cm,
+            size=8,
+        )
+        for idx, line in enumerate(r_lines[:3]):
+            draw_value_on_line(
+                r_start + 0.1 * cm,
+                y - (idx * line_gap) - 0.2 * cm,
+                line,
+                right - r_start - 0.3 * cm,
+            )
+
+        y = y - (3 * line_gap) - 0.3 * cm
+        txt(margin, y, "RENSEIGNEMENTS COMPLÉMENTAIRES :", 8, True)
+        y -= 0.45 * cm
+        left_col_x = margin + 0.2 * cm
+        right_col_x = (width / 2) + 1.0 * cm
+        draw_checkbox(left_col_x, y, "VISIOTEST", examen.visiotest)
+        draw_checkbox(right_col_x, y, "AUDIOGRAMME", examen.audiogramme)
+        y -= 0.5 * cm
+        draw_checkbox(left_col_x, y, "ECG", examen.ecg)
+        draw_checkbox(right_col_x, y, "EFR", examen.efr)
+
+        y -= 0.8 * cm
+        txt(right - 6.0 * cm, y, "DATE:", 8, True)
+        dotted_line(right - 4.9 * cm, y - 0.05 * cm, right, y - 0.05 * cm)
+        draw_value_on_line(
+            right - 4.8 * cm,
+            y - 0.2 * cm,
+            safe(examen.date),
+            4.6 * cm,
+        )
+        txt(
+            right - 8.6 * cm,
+            y - 0.5 * cm,
+            "CACHET ET SIGNATURE DU MÉDECIN DU TRAVAIL",
+            7,
+            True,
+        )
 
         # Footer
         if tuv_path.exists():
             tuv = ImageReader(str(tuv_path))
-            p.drawImage(tuv, margin, margin - 0.1 * cm, width=1.4 * cm, height=1.0 * cm, mask="auto")
+            p.drawImage(
+                tuv,
+                margin,
+                margin - 0.1 * cm,
+                width=1.4 * cm,
+                height=1.0 * cm,
+                mask="auto",
+            )
 
-        txt(margin + 1.8 * cm, margin + 0.55 * cm, "Groupement de Médecine du travail du Gouvernorat de Monastir", 6, False)
-        txt(margin + 1.8 * cm, margin + 0.3 * cm, "Zone Industrielle Route de Khnis - Monastir", 6, False)
-        txt(margin + 1.8 * cm, margin + 0.05 * cm, "Boîte Postale N° 41 - Poste Gare Monastir - 5079", 6, False)
-        txt(margin + 1.8 * cm, margin - 0.2 * cm, "Tél: 73 508 100 / Fax: 73 508 101", 6, False)
-        arabic_right(width - margin, margin + 0.05 * cm, "صندوق بريد رقم 41 - مركز بريد المحطة - المنستير - 5079", 6.5)
-        arabic_right(width - margin, margin - 0.2 * cm, "هاتف: 73 508 100 / فاكس: 73 508 101", 6.5)
+        txt(
+            margin + 1.8 * cm,
+            margin + 0.55 * cm,
+            "Groupement de Médecine du travail du Gouvernorat de Monastir",
+            6,
+            False,
+        )
+        txt(
+            margin + 1.8 * cm,
+            margin + 0.3 * cm,
+            "Zone Industrielle Route de Khnis - Monastir",
+            6,
+            False,
+        )
+        txt(
+            margin + 1.8 * cm,
+            margin + 0.05 * cm,
+            "Boîte Postale N° 41 - Poste Gare Monastir - 5079",
+            6,
+            False,
+        )
+        txt(
+            margin + 1.8 * cm,
+            margin - 0.2 * cm,
+            "Tél: 73 508 100 / Fax: 73 508 101",
+            6,
+            False,
+        )
+        arabic_right(width - margin, margin + 0.05 * cm, "")
+        arabic_right(width - margin, margin - 0.2 * cm, "")
 
         p.showPage()
         p.save()
