@@ -23,7 +23,7 @@ const tabs = [
 
 function InfoCard({ title, children }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
+    <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
       <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       <div className="mt-3 space-y-2.5 text-sm text-slate-600">{children}</div>
     </div>
@@ -32,7 +32,7 @@ function InfoCard({ title, children }) {
 
 function EmptyState({ text }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm shadow-slate-200/40">
+    <div className="rounded-[24px] border border-dashed border-sky-200 bg-sky-50/40 p-6 text-sm text-slate-600 shadow-sm shadow-slate-200/40">
       {text}
     </div>
   );
@@ -194,7 +194,7 @@ export default function RechercheCollaborateurMC() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/50">
+      <section className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-sky-50/35 to-white p-6 shadow-sm shadow-slate-200/50">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Accueil Patient
         </h1>
@@ -204,9 +204,9 @@ export default function RechercheCollaborateurMC() {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
+        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-500" />
             <input
               type="text"
               value={matricule}
@@ -215,12 +215,12 @@ export default function RechercheCollaborateurMC() {
                 if (e.key === "Enter") handleSearch();
               }}
               placeholder="Rechercher par matricule..."
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-24 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+              className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-24 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
             />
             <button
               type="button"
               onClick={handleSearch}
-              className="absolute right-1.5 top-1.5 inline-flex h-8 items-center rounded-xl bg-slate-900 px-3 text-xs font-medium text-white transition hover:bg-slate-800"
+              className="absolute right-1.5 top-1.5 inline-flex h-8 items-center rounded-xl bg-slate-900 px-3 text-xs font-medium text-white shadow-sm shadow-sky-900/25 transition hover:bg-slate-800"
             >
               Rechercher
             </button>
@@ -248,12 +248,12 @@ export default function RechercheCollaborateurMC() {
                   }}
                   className={`w-full rounded-[22px] border p-3 text-left transition ${
                     isSelected
-                      ? "border-slate-900 bg-slate-50 shadow-sm"
-                      : "border-slate-200 bg-white hover:bg-slate-50"
+                      ? "border-sky-300 bg-sky-50 shadow-sm shadow-sky-100/60"
+                      : "border-slate-200 bg-white hover:border-sky-200 hover:bg-sky-50/40"
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-sm font-semibold text-slate-700">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 text-sm font-semibold text-sky-700">
                       {getInitials(item.prenom, item.nom)}
                     </div>
 
@@ -286,14 +286,14 @@ export default function RechercheCollaborateurMC() {
             <EmptyState text="Sélectionnez un collaborateur pour afficher les détails." />
           ) : (
             <>
-              <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
+              <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
                 {loadingDetail ? (
                   <p className="text-sm text-slate-500">Chargement...</p>
                 ) : collab ? (
                   <>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-lg font-semibold text-slate-700">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 text-lg font-semibold text-sky-700">
                           {getInitials(collab.prenom, collab.nom)}
                         </div>
                         <div>
@@ -307,7 +307,7 @@ export default function RechercheCollaborateurMC() {
                         </div>
                       </div>
 
-                      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 ring-1 ring-sky-200">
                         <ShieldCheck className="h-4 w-4" />
                         Dossier actif
                       </span>
@@ -321,8 +321,8 @@ export default function RechercheCollaborateurMC() {
                           onClick={() => setActiveTab(tab.id)}
                           className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                             activeTab === tab.id
-                              ? "bg-slate-900 text-white"
-                              : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                              ? "bg-slate-900 text-white shadow-sm shadow-sky-900/25"
+                              : "border border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50/40"
                           }`}
                         >
                           {tab.label}
@@ -339,26 +339,26 @@ export default function RechercheCollaborateurMC() {
                 <div className="grid gap-4 lg:grid-cols-2">
                   <InfoCard title="Informations Générales">
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-slate-400" />
+                      <User className="h-4 w-4 text-sky-500" />
                       <span>{`${collab.prenom || ""} ${collab.nom || ""}`.trim() || "--"}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-slate-400" />
+                      <Mail className="h-4 w-4 text-sky-500" />
                       <span>{collab.email || "--"}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <BadgeCheck className="h-4 w-4 text-slate-400" />
+                      <BadgeCheck className="h-4 w-4 text-sky-500" />
                       <span>CIN : {collab.cin || "--"}</span>
                     </div>
                   </InfoCard>
 
                   <InfoCard title="Poste & Département">
                     <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-slate-400" />
+                      <Briefcase className="h-4 w-4 text-sky-500" />
                       <span>{posteLabel}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-slate-400" />
+                      <Building2 className="h-4 w-4 text-sky-500" />
                       <span>{departementLabel}</span>
                     </div>
                   </InfoCard>
@@ -395,11 +395,11 @@ export default function RechercheCollaborateurMC() {
 
                   <InfoCard title="Suivi médical">
                     <div className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4 text-slate-400" />
+                      <CalendarDays className="h-4 w-4 text-sky-500" />
                       <span>Dernière mise à jour : {formatDate(collab.created_at)}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4 text-slate-400" />
+                      <CalendarDays className="h-4 w-4 text-sky-500" />
                       <span>Suivi en cours : Contrôle médical</span>
                     </div>
                     <div className="pt-1">
@@ -409,7 +409,7 @@ export default function RechercheCollaborateurMC() {
                           onClick={() =>
                             navigate(`/medecin-controleur/controle-medical/${collab.id}`)
                           }
-                          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800"
+                          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-sm shadow-sky-900/25 transition hover:bg-slate-800"
                         >
                           <FileCheck size={14} />
                           Créer contrôle médical
@@ -419,7 +419,7 @@ export default function RechercheCollaborateurMC() {
                           onClick={() =>
                             navigate(`/medecin-controleur/demande-expertise/${collab.id}`)
                           }
-                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800 transition hover:bg-sky-100"
                         >
                           <FileSearch size={14} />
                           Demande expertise

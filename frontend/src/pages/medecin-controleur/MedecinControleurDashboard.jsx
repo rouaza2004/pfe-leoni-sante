@@ -1,7 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell,
   CalendarDays,
   ChevronRight,
   Clock3,
@@ -22,24 +21,28 @@ const summaryCards = [
     value: "08",
     detail: "2 visites terrain cet après-midi",
     icon: <Stethoscope size={16} />,
+    tone: "info",
   },
   {
     title: "Reprises à valider",
     value: "03",
     detail: "Décisions après contrôle",
     icon: <FileCheck2 size={16} />,
+    tone: "warning",
   },
   {
     title: "Demandes d'expertise",
     value: "02",
     detail: "1 dossier prioritaire",
     icon: <FileSearch size={16} />,
+    tone: "secondary",
   },
   {
     title: "Dossiers sensibles",
     value: "04",
     detail: "Arrêts longs à suivre",
     icon: <ShieldAlert size={16} />,
+    tone: "danger",
   },
 ];
 
@@ -52,7 +55,7 @@ const appointments = [
     type: "Contrôle arrêt maladie",
     context: "Visite à domicile • Quartier industriel",
     status: "Terminé",
-    statusTone: "soft",
+    statusTone: "success",
   },
   {
     id: 2,
@@ -62,7 +65,7 @@ const appointments = [
     type: "Reprise travail",
     context: "Validation après 21 jours d'arrêt",
     status: "En cours",
-    statusTone: "dark",
+    statusTone: "inProgress",
   },
   {
     id: 3,
@@ -72,7 +75,7 @@ const appointments = [
     type: "Accident de travail",
     context: "Contrôle suite à accident avec arrêt",
     status: "En attente",
-    statusTone: "muted",
+    statusTone: "warning",
   },
   {
     id: 4,
@@ -82,7 +85,7 @@ const appointments = [
     type: "Contrôle périodique",
     context: "Suivi d'un dossier récurrent",
     status: "Suivant",
-    statusTone: "soft",
+    statusTone: "info",
   },
 ];
 
@@ -92,18 +95,21 @@ const upcomingPatients = [
     time: "16:10",
     type: "Demande d'expertise",
     note: "Avis externe demandé par RH",
+    tone: "secondary",
   },
   {
     name: "Hatem Gharbi",
     time: "Demain • 09:00",
     type: "Reprise travail",
     note: "Contrôle post-hospitalisation",
+    tone: "warning",
   },
   {
     name: "Rim Mzoughi",
     time: "Demain • 11:30",
     type: "Arrêt maladie",
     note: "Vérification de prolongation",
+    tone: "info",
   },
 ];
 
@@ -123,30 +129,100 @@ const alerts = [
 ];
 
 const quickStats = [
-  { label: "Taux de réalisation", value: "75%" },
-  { label: "Décisions de reprise", value: "05" },
-  { label: "Arrêts confirmés", value: "02" },
-  { label: "Expertises externes", value: "01" },
+  { label: "Taux de réalisation", value: "75%", tone: "info" },
+  { label: "Décisions de reprise", value: "05", tone: "success" },
+  { label: "Arrêts confirmés", value: "02", tone: "warning" },
+  { label: "Expertises externes", value: "01", tone: "secondary" },
+];
+
+const topOverviewCards = [
+  {
+    title: "Visites aujourd'hui",
+    value: "04",
+    icon: <CalendarDays size={16} />,
+    tone: "info",
+  },
+  {
+    title: "Visites en retard",
+    value: "01",
+    icon: <ShieldAlert size={16} />,
+    tone: "danger",
+  },
+  {
+    title: "Conformité",
+    value: "92%",
+    icon: <FileCheck2 size={16} />,
+    tone: "success",
+  },
+  {
+    title: "Collaborateurs suivis",
+    value: "18",
+    icon: <Users size={16} />,
+    tone: "info",
+  },
 ];
 
 const statusClasses = {
-  dark: "border-slate-900 bg-slate-900 text-white",
-  soft: "border-slate-200 bg-slate-100 text-slate-800",
-  muted: "border-slate-200 bg-slate-50 text-slate-700",
+  inProgress: "border-slate-300 bg-slate-900 text-white",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  warning: "border-amber-200 bg-amber-50 text-amber-700",
+  info: "border-sky-200 bg-sky-50 text-sky-700",
 };
 
-function SummaryCard({ title, value, detail, icon }) {
+const accentClasses = {
+  info: {
+    icon: "border-sky-200 bg-sky-50 text-sky-700",
+    value: "text-sky-700",
+    pill: "bg-sky-50 text-sky-700 ring-sky-200",
+  },
+  success: {
+    icon: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    value: "text-emerald-700",
+    pill: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  },
+  warning: {
+    icon: "border-amber-200 bg-amber-50 text-amber-700",
+    value: "text-amber-700",
+    pill: "bg-amber-50 text-amber-700 ring-amber-200",
+  },
+  danger: {
+    icon: "border-rose-200 bg-rose-50 text-rose-700",
+    value: "text-rose-700",
+    pill: "bg-rose-50 text-rose-700 ring-rose-200",
+  },
+  secondary: {
+    icon: "border-violet-200 bg-violet-50 text-violet-700",
+    value: "text-violet-700",
+    pill: "bg-violet-50 text-violet-700 ring-violet-200",
+  },
+};
+
+const topCardClasses = {
+  info: "border-sky-200/90 shadow-sky-100/40",
+  success: "border-emerald-200/90 shadow-emerald-100/40",
+  warning: "border-amber-200/90 shadow-amber-100/40",
+  danger: "border-rose-200/90 shadow-rose-100/40",
+  secondary: "border-violet-200/90 shadow-violet-100/40",
+};
+
+function SummaryCard({ title, value, detail, icon, tone = "info" }) {
+  const toneClass = accentClasses[tone] || accentClasses.info;
+
   return (
-    <div className="rounded-[26px] border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50">
+    <div className="rounded-[26px] border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-500">{title}</p>
-          <p className="mt-1.5 text-[26px] font-semibold tracking-tight text-slate-900">
+          <p
+            className={`mt-1.5 text-[26px] font-semibold tracking-tight ${toneClass.value}`}
+          >
             {value}
           </p>
           <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
         </div>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 text-slate-800">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border ${toneClass.icon}`}
+        >
           {icon}
         </div>
       </div>
@@ -166,7 +242,7 @@ function StatusBadge({ label, tone }) {
 
 function PanelCard({ title, subtitle, children, action, onAction }) {
   return (
-    <section className="rounded-[26px] border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50">
+    <section className="rounded-[26px] border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
       <div className="mb-3.5 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
@@ -191,6 +267,16 @@ function PanelCard({ title, subtitle, children, action, onAction }) {
 export default function MedecinControleurDashboard() {
   const navigate = useNavigate();
   const username = getUsername();
+  const sessionIdentifier = username || "medecin-controleur";
+  const [currentHour, setCurrentHour] = useState(() => new Date().getHours());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setCurrentHour(new Date().getHours());
+    }, 60 * 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const currentDate = useMemo(
     () =>
@@ -203,22 +289,31 @@ export default function MedecinControleurDashboard() {
     []
   );
 
-  const initials = useMemo(() => {
-    const parts = (username || "Médecin Contrôleur")
-      .split(/[.\s_-]+/)
-      .filter(Boolean)
-      .slice(0, 2);
+  const greeting = useMemo(
+    () => {
+      if (currentHour < 12) {
+        return "Bonjour";
+      }
 
-    return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "MC";
-  }, [username]);
+      if (currentHour < 18) {
+        return "Bon après-midi";
+      }
 
-  const capacityDone = 14;
+      return "Bonsoir";
+    },
+    [currentHour]
+  );
+
   const capacityTotal = 20;
-  const progressWidth = `${(capacityDone / capacityTotal) * 100}%`;
+  const capacityCompleted = 0;
+  const capacityRemaining = 1;
+  const capacityCurrent = capacityCompleted + capacityRemaining;
+  const progressWidth = `${(capacityCurrent / capacityTotal) * 100}%`;
+  const activeConsultation = "Mahdi Ayadi";
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-500">
@@ -236,7 +331,7 @@ export default function MedecinControleurDashboard() {
                 LEONI
               </p>
               <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-slate-900">
-                Tableau de bord
+                {`${greeting}, ${sessionIdentifier}`}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-5 text-slate-600">
                 Suivi des contrôles médicaux, reprises travail, arrêts maladie et
@@ -254,35 +349,41 @@ export default function MedecinControleurDashboard() {
                 className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
               />
             </label>
-
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm shadow-slate-200/40">
-              <button
-                type="button"
-                onClick={() => navigate("/notifications")}
-                className="relative inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-800 transition hover:bg-slate-200"
-                title="Notifications"
-              >
-                <Bell size={16} />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500" />
-              </button>
-
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-xs font-semibold text-white">
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-900">
-                    {username || "Médecin contrôleur"}
-                  </p>
-                  <p className="text-xs text-slate-500">Médecin contrôleur</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.9fr)_repeat(3,minmax(0,1fr))]">
-          <div className="rounded-[26px] border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm shadow-slate-200/40">
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {topOverviewCards.map((card) => {
+              const toneClass = accentClasses[card.tone] || accentClasses.info;
+              const topCardClass = topCardClasses[card.tone] || topCardClasses.info;
+
+              return (
+                <article
+                  key={card.title}
+                  className={`rounded-[22px] border bg-white p-3 shadow-sm ${topCardClass}`}
+                >
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">{card.title}</p>
+                      <p
+                        className={`mt-2 text-[24px] font-semibold leading-none tracking-tight ${toneClass.value}`}
+                      >
+                        {card.value}
+                      </p>
+                    </div>
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${toneClass.icon}`}
+                    >
+                      {card.icon}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="rounded-[26px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm shadow-slate-200/40">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Capacité du jour</p>
@@ -291,7 +392,7 @@ export default function MedecinControleurDashboard() {
                 </p>
               </div>
               <p className="min-w-[92px] text-right text-[30px] font-semibold leading-none tracking-tight text-slate-900">
-                {capacityDone} / {capacityTotal}
+                {capacityRemaining} / {capacityTotal}
               </p>
             </div>
 
@@ -303,47 +404,21 @@ export default function MedecinControleurDashboard() {
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-full bg-white px-3 py-1.5 text-slate-700 ring-1 ring-slate-200">
-                9 terminés
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200">
+                {capacityCompleted} terminées
               </span>
-              <span className="rounded-full bg-white px-3 py-1.5 text-slate-700 ring-1 ring-slate-200">
-                5 restants
+              <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200">
+                {capacityRemaining} restants
               </span>
               <span className="rounded-full bg-slate-900 px-3 py-1.5 text-white">
-                En consultation : Khelifi Mourad
+                En consultation : {activeConsultation}
               </span>
             </div>
-          </div>
-
-          <div className="rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/40">
-            <p className="text-xs text-slate-500">Dossiers urgents</p>
-            <p className="mt-1.5 text-[26px] font-semibold text-slate-900">02</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Accident de travail et expertise
-            </p>
-          </div>
-
-          <div className="rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/40">
-            <p className="text-xs text-slate-500">Contrôles terminés</p>
-            <p className="mt-1.5 text-[26px] font-semibold text-slate-900">09</p>
-            <p className="mt-1 text-xs text-slate-500">Mis à jour avant midi</p>
-          </div>
-
-          <div className="rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/40">
-            <p className="text-xs text-slate-500">Décisions en attente</p>
-            <p className="mt-1.5 text-[26px] font-semibold text-slate-900">03</p>
-            <p className="mt-1 text-xs text-slate-500">À statuer après visite</p>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((card) => (
-          <SummaryCard key={card.title} {...card} />
-        ))}
-      </section>
-
-      <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Rendez-vous du jour</h2>
@@ -363,11 +438,11 @@ export default function MedecinControleurDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => navigate("/medecin-controleur/historique")}
+              onClick={() => navigate("/medecin-controleur/controle-medical")}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <FileSearch size={15} />
-              Voir l'historique
+              Contrôle médical
             </button>
           </div>
         </div>
@@ -429,8 +504,8 @@ export default function MedecinControleurDashboard() {
       <PanelCard
         title="Prochains patients"
         subtitle="Files de contrôle à venir"
-        action="Voir tout"
-        onAction={() => navigate("/medecin-controleur/historique")}
+        action="Ouvrir"
+        onAction={() => navigate("/medecin-controleur/controle-medical")}
       >
         <div className="space-y-2">
           {upcomingPatients.map((patient) => (
@@ -441,13 +516,21 @@ export default function MedecinControleurDashboard() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-slate-900">{patient.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">{patient.type}</p>
                 </div>
                 <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
                   {patient.time}
                 </span>
               </div>
-              <p className="mt-2 text-xs leading-5 text-slate-600">{patient.note}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    (accentClasses[patient.tone] || accentClasses.info).pill
+                  }`}
+                >
+                  {patient.type}
+                </span>
+                <p className="text-xs leading-5 text-slate-600">{patient.note}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -459,10 +542,10 @@ export default function MedecinControleurDashboard() {
             {alerts.map((alert) => (
               <div
                 key={alert.title}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                className="rounded-2xl border border-rose-200 bg-rose-50/60 p-3"
               >
                 <div className="flex items-start gap-2.5">
-                  <ShieldAlert size={16} className="mt-0.5 shrink-0 text-slate-800" />
+                  <ShieldAlert size={16} className="mt-0.5 shrink-0 text-rose-700" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">{alert.title}</p>
                     <p className="mt-1 text-xs leading-5 text-slate-600">
@@ -483,7 +566,13 @@ export default function MedecinControleurDashboard() {
                 className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2.5"
               >
                 <span className="text-xs text-slate-600">{item.label}</span>
-                <span className="text-sm font-medium text-slate-900">{item.value}</span>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-sm font-medium ring-1 ${
+                    (accentClasses[item.tone] || accentClasses.info).pill
+                  }`}
+                >
+                  {item.value}
+                </span>
               </div>
             ))}
           </div>

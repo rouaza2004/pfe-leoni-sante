@@ -144,6 +144,11 @@ export default function AppLayout() {
           icon: <Users size={18} />,
         },
         {
+          to: "/medecin-controleur/controle-medical",
+          label: "Contrôle médical",
+          icon: <FileText size={18} />,
+        },
+        {
           to: "/medecin-controleur/demande-expertise",
           label: "Demande d'expertise",
           icon: <ClipboardList size={18} />,
@@ -154,9 +159,14 @@ export default function AppLayout() {
           icon: <FileText size={18} />,
         },
         {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
+          to: "/medecin-controleur/rendez-vous",
+          label: "Rendez-vous",
+          icon: <Calendar size={18} />,
+        },
+        {
+          to: "/medecin-controleur/rapport",
+          label: "Rapport",
+          icon: <BarChart3 size={18} />,
         },
       ];
     }

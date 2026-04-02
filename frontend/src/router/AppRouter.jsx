@@ -24,8 +24,12 @@ import DossierMedicalCompletForm from "../pages/medecin-travail/DossierMedicalCo
 import MedecinControleurDashboard from "../pages/medecin-controleur/MedecinControleurDashboard";
 import RechercheCollaborateurMC from "../pages/medecin-controleur/RechercheCollaborateurMC";
 import ControleMedicalForm from "../pages/medecin-controleur/ControleMedicalForm";
+import ControleMedicalPdfPage from "../pages/medecin-controleur/ControleMedicalPdfPage";
 import DemandeExpertiseForm from "../pages/medecin-controleur/DemandeExpertiseForm";
-import HistoriqueMC from "../pages/medecin-controleur/HistoriqueMC";
+import DemandeExpertisePdfPage from "../pages/medecin-controleur/DemandeExpertisePdfPage";
+import HistoriquePage from "../pages/medecin-controleur/HistoriquePage";
+import RendezVousPage from "../pages/medecin-controleur/RendezVousPage";
+import RapportPage from "../pages/medecin-controleur/RapportPage";
 
 import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
 import PatientsPage from "../pages/infirmier/PatientsPage";
@@ -89,7 +93,6 @@ export default function AppRouter() {
                 "INFIRMIER",
                 "MEDECIN_TRAITANT",
                 "MEDECIN_TRAVAIL",
-                "MEDECIN_CONTROLEUR",
                 "RESPONSABLE_RH",
                 "AGENT_HSEE",
               ]}
@@ -253,6 +256,15 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/medecin-controleur/controle-medical"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <ControleMedicalPdfPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/medecin-controleur/controle-medical/:id"
           element={
             <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
@@ -265,7 +277,34 @@ export default function AppRouter() {
           path="/medecin-controleur/demande-expertise"
           element={
             <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-              <DemandeExpertiseForm />
+              <DemandeExpertisePdfPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-controleur/historique"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <HistoriquePage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-controleur/rendez-vous"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <RendezVousPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-controleur/rapport"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
+              <RapportPage />
             </RoleRoute>
           }
         />
@@ -275,15 +314,6 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
               <DemandeExpertiseForm />
-            </RoleRoute>
-          }
-        />
-
-        <Route
-          path="/medecin-controleur/historique"
-          element={
-            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR"]}>
-              <HistoriqueMC />
             </RoleRoute>
           }
         />
