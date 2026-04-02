@@ -120,6 +120,7 @@ export default function ExamenComplementaireForm() {
     };
     baseFormRef.current = next;
     setForm(next);
+    setCurrentExamId(null);
   };
 
   useEffect(() => {

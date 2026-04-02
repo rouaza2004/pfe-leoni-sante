@@ -310,10 +310,7 @@ class AccidentTravail(models.Model):
     victime_profession = models.CharField(max_length=255, blank=True, null=True)
     victime_poste_accident = models.CharField(max_length=255, blank=True, null=True)
     victime_lieu_travail = models.CharField(max_length=255, blank=True, null=True)
-<<<<<<< HEAD
     victime_salaire = models.CharField(max_length=100, blank=True, null=True)
-=======
->>>>>>> 1fd8565 (update infirmier features)
     autres_victimes = models.BooleanField(default=False)
 
     # Accident
@@ -335,11 +332,8 @@ class AccidentTravail(models.Model):
         null=True,
     )
     activite_lieu_autre = models.CharField(max_length=255, blank=True, null=True)
-<<<<<<< HEAD
     activite_service = models.CharField(max_length=255, blank=True, null=True)
     moment_travail = models.CharField(max_length=255, blank=True, null=True)
-=======
->>>>>>> 1fd8565 (update infirmier features)
     nombre_travailleurs = models.PositiveIntegerField(blank=True, null=True)
     description_circonstances = models.TextField(blank=True, null=True)
     causes_materielles = models.TextField(blank=True, null=True)
@@ -392,10 +386,7 @@ class AccidentTravail(models.Model):
         blank=True,
         null=True,
     )
-<<<<<<< HEAD
     arret_travail = models.BooleanField(default=False)
-=======
->>>>>>> 1fd8565 (update infirmier features)
     date_arret = models.DateField(blank=True, null=True)
     heure_arret = models.TimeField(blank=True, null=True)
     salaire_maintenu = models.BooleanField(default=False)
@@ -521,11 +512,8 @@ class MaladieProfessionnelle(models.Model):
     medecin_constat = models.CharField(max_length=255, blank=True, null=True)
     date_constat = models.DateField(blank=True, null=True)
     nature_travail = models.TextField(blank=True, null=True)
-<<<<<<< HEAD
     date_debut_exposition = models.DateField(blank=True, null=True)
     date_fin_exposition = models.DateField(blank=True, null=True)
-=======
->>>>>>> 1fd8565 (update infirmier features)
     date_arret_exposition = models.DateField(blank=True, null=True)
     arret_travail = models.BooleanField(default=False)
     date_arret = models.DateField(blank=True, null=True)
@@ -535,16 +523,12 @@ class MaladieProfessionnelle(models.Model):
     salaire_unite = models.CharField(max_length=50, blank=True, null=True)
 
     travaux_anterieurs = models.JSONField(blank=True, null=True)
-<<<<<<< HEAD
     observations = models.TextField(blank=True, null=True)
-=======
->>>>>>> 1fd8565 (update infirmier features)
 
     signataire_nom = models.CharField(max_length=255, blank=True, null=True)
     signataire_qualite = models.CharField(max_length=255, blank=True, null=True)
     signature_lieu = models.CharField(max_length=255, blank=True, null=True)
     signature_date = models.DateField(blank=True, null=True)
-<<<<<<< HEAD
     statut_declaration = models.CharField(
         max_length=20,
         choices=[
@@ -558,8 +542,6 @@ class MaladieProfessionnelle(models.Model):
     printed_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-=======
->>>>>>> 1fd8565 (update infirmier features)
 
     def __str__(self):
         return self.nom_maladie
@@ -850,7 +832,6 @@ class StockMovement(models.Model):
 
     def __str__(self):
         return f"{self.stock_item.nom} - {self.type_mouvement}"
-<<<<<<< HEAD
 
 
 # =====================================================
@@ -899,5 +880,3 @@ class SuiviTransfertUrgence(models.Model):
 
     def __str__(self):
         return f"Transfert {self.date} {self.heure}"
-=======
->>>>>>> 1fd8565 (update infirmier features)

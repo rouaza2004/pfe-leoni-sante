@@ -81,10 +81,7 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "dossier",
-<<<<<<< HEAD
             "created_by",
-=======
->>>>>>> 1fd8565 (update infirmier features)
             "employeur_cnss",
             "employeur_nom",
             "employeur_adresse",
@@ -109,10 +106,7 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "victime_profession",
             "victime_poste_accident",
             "victime_lieu_travail",
-<<<<<<< HEAD
             "victime_salaire",
-=======
->>>>>>> 1fd8565 (update infirmier features)
             "autres_victimes",
             "date_accident",
             "heure_accident",
@@ -122,11 +116,8 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "horaire_travail_fin",
             "activite_lieu",
             "activite_lieu_autre",
-<<<<<<< HEAD
             "activite_service",
             "moment_travail",
-=======
->>>>>>> 1fd8565 (update infirmier features)
             "nombre_travailleurs",
             "description_circonstances",
             "causes_materielles",
@@ -153,10 +144,7 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "tiers_nom",
             "tiers_assureur",
             "resultat",
-<<<<<<< HEAD
             "arret_travail",
-=======
->>>>>>> 1fd8565 (update infirmier features)
             "date_arret",
             "heure_arret",
             "salaire_maintenu",
@@ -548,7 +536,6 @@ class ExamenComplementaireSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamenComplementaire
         fields = "__all__"
-<<<<<<< HEAD
 
 
 class IncidentAvecBonSerializer(serializers.ModelSerializer):
@@ -574,6 +561,4 @@ class SuiviTransfertUrgenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = SuiviTransfertUrgence
         fields = "__all__"
-=======
         read_only_fields = ("created_by", "date", "created_at")
->>>>>>> 1fd8565 (update infirmier features)
