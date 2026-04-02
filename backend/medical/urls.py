@@ -32,6 +32,9 @@ from .views import (
     StockItemListCreateAPIView,
     StockItemDetailAPIView,
     StockMovementListCreateAPIView,
+    ControleMedicalRecordListCreateView,
+    DemandeExpertiseRecordListCreateView,
+    MedecinControleurReportView,
     DemandeExamenLaboListCreateByCollaborateurView,
     ExamenComplementaireListCreateByCollaborateurView,
     FicheAptitudePdfView,
@@ -92,4 +95,7 @@ urlpatterns = [
     path("stock/items/", StockItemListCreateAPIView.as_view()),
     path("stock/items/<int:pk>/", StockItemDetailAPIView.as_view()),
     path("stock/movements/", StockMovementListCreateAPIView.as_view()),
+    path("medecin-controleur/controles/", ControleMedicalRecordListCreateView.as_view()),
+    path("medecin-controleur/expertises/", DemandeExpertiseRecordListCreateView.as_view()),
+    path("medecin-controleur/rapport/", MedecinControleurReportView.as_view()),
 ]
