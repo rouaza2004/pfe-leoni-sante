@@ -365,7 +365,7 @@ export default function CollaborateurMedicalDetail() {
           desc="Prescrire des analyses de laboratoire."
           icon={<FlaskConical className="h-5 w-5 text-slate-700" />}
           onClick={() =>
-            navigate(`/medecin-travail/collaborateurs/${collaborateurId}/demande-analyse`)
+            navigate(`/medecin-travail/analyses-labo?collaborateurId=${collaborateurId}`)
           }
         />
 

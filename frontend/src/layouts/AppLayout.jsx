@@ -124,16 +124,21 @@ export default function AppLayout() {
         },
         {
           to: "/medecin-travail/collaborateurs?target=dossier",
-          label: "Dossiers médicaux",
+          label: "Dossiers m\u00E9dicaux",
           icon: <FileText size={18} />,
         },
         {
+          to: "/medecin-travail/rdv",
+          label: "Rendez-vous",
+          icon: <Calendar size={18} />,
+        },
+        {
           to: "/medecin-travail/collaborateurs?target=examen-complementaire",
-          label: "Examens complémentaires",
+          label: "Examens compl\u00E9mentaires",
           icon: <Activity size={18} />,
         },
         {
-          to: "/medecin-travail/collaborateurs?target=demande-analyse",
+          to: "/medecin-travail/analyses-labo",
           label: "Analyses labo",
           icon: <FlaskConical size={18} />,
         },

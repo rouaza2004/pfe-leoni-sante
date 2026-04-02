@@ -15,7 +15,7 @@ import DossierMedical from "./DossierMedical";
 
 const tabs = [
   { id: "profil", label: "Profil & Administratif" },
-  { id: "dossier", label: "Dossier Médical" },
+  { id: "dossier", label: "Dossier MÃ©dical" },
   { id: "rdv", label: "Rendez-vous" },
   { id: "analyses", label: "Analyses" },
 ];
@@ -45,13 +45,13 @@ const aptitudeLabel = (value) => {
     case "APTE":
       return "Apte";
     case "APTE_AMENAGEMENT":
-      return "Apte avec aménagement";
+      return "Apte avec amÃ©nagement";
     case "INAPTE_TEMPORAIRE":
       return "Inapte temporaire";
     case "APTE_APRES_CHANGEMENT":
-      return "Apte après changement";
+      return "Apte aprÃ¨s changement";
     case "INAPTE_DEFINITIF":
-      return "Inapte définitif";
+      return "Inapte dÃ©finitif";
     default:
       return value || "--";
   }
@@ -154,7 +154,7 @@ export default function Collaborateurs() {
       } catch (e) {
         console.error(e);
         if (!cancelled) {
-          setDetailErr("Erreur: impossible de charger les détails collaborateur.");
+          setDetailErr("Erreur: impossible de charger les dÃ©tails collaborateur.");
           setCollabDetail(null);
           setDossier(null);
         }
@@ -239,7 +239,7 @@ export default function Collaborateurs() {
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <h1 className="text-3xl font-bold text-slate-900">Collaborateurs</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Sélectionnez un collaborateur pour afficher ses détails.
+          SÃ©lectionnez un collaborateur pour afficher ses dÃ©tails.
         </p>
       </div>
 
@@ -290,7 +290,7 @@ export default function Collaborateurs() {
                         {c.matricule || "--"}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {posteLabel} · {segmentLabel}
+                        {posteLabel} Â· {segmentLabel}
                       </p>
                     </div>
                   </div>
@@ -300,7 +300,7 @@ export default function Collaborateurs() {
 
             {!loadingList && filtered.length === 0 && (
               <p className="text-sm text-slate-500">
-                Aucun collaborateur trouvé.
+                Aucun collaborateur trouvÃ©.
               </p>
             )}
           </div>
@@ -308,7 +308,7 @@ export default function Collaborateurs() {
 
         <div className="space-y-6">
           {!selectedId && (
-            <EmptyState text="Sélectionnez un collaborateur pour afficher les détails." />
+            <EmptyState text="SÃ©lectionnez un collaborateur pour afficher les dÃ©tails." />
           )}
 
           {selectedId && (
@@ -371,7 +371,7 @@ export default function Collaborateurs() {
 
           {selectedId && activeTab === "profil" && (
             <div className="grid gap-4 lg:grid-cols-2">
-              <InfoCard title="Informations Générales">
+              <InfoCard title="Informations GÃ©nÃ©rales">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-slate-400" />
                   <span>
@@ -389,7 +389,7 @@ export default function Collaborateurs() {
                 </div>
               </InfoCard>
 
-              <InfoCard title="Poste & Département">
+              <InfoCard title="Poste & DÃ©partement">
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-slate-400" />
                   <span>{collab?.poste || collab?.poste_nom || "--"}</span>
@@ -408,7 +408,7 @@ export default function Collaborateurs() {
                   </span>
                 </div>
                 <div>
-                  Localité :
+                  LocalitÃ© :
                   <span className="ml-2 font-medium text-slate-700">
                     {collab?.site?.localite || "--"}
                   </span>
@@ -424,7 +424,7 @@ export default function Collaborateurs() {
                 </div>
               </InfoCard>
 
-              <InfoCard title="Statut & Validité">
+              <InfoCard title="Statut & ValiditÃ©">
                 <div>
                   Statut :
                   <span className="ml-2 font-medium text-slate-700">
@@ -439,14 +439,14 @@ export default function Collaborateurs() {
                 </div>
               </InfoCard>
 
-              <InfoCard title="Suivi médical">
+              <InfoCard title="Suivi mÃ©dical">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-slate-400" />
-                  <span>Dernière visite : {lastVisit}</span>
+                  <span>DerniÃ¨re visite : {lastVisit}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-slate-400" />
-                  <span>Visite périodique : {lastPeriodic}</span>
+                  <span>Visite pÃ©riodique : {lastPeriodic}</span>
                 </div>
                 <div>
                   Aptitude :
@@ -469,7 +469,7 @@ export default function Collaborateurs() {
               {rdvErr ? (
                 <p className="text-sm text-red-600">{rdvErr}</p>
               ) : filteredRdvs.length === 0 ? (
-                <EmptyState text="Aucun rendez-vous trouvé pour ce collaborateur." />
+                <EmptyState text="Aucun rendez-vous trouvÃ© pour ce collaborateur." />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">

@@ -3,7 +3,7 @@ import AppLayout from "../layouts/AppLayout";
 import LoginPage from "../pages/shared/LoginPage";
 import Dashboard from "../pages/shared/Dashboard";
 import FicheAptitudeForm from "../pages/medecin-travail/FicheAptitudeForm";
-import DemandeAnalyseForm from "../pages/medecin-travail/DemandeAnalyseForm";
+import AnalysesLaboPage from "../pages/medecin-travail/AnalysesLaboPage";
 import ExamenComplementaireForm from "../pages/medecin-travail/ExamenComplementaireForm";
 import FichesAptitudePage from "../pages/medecin-travail/FichesAptitudePage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -18,6 +18,7 @@ import RDV from "../pages/medecin-traitant/RDV";
 import MedecinTravailDashboard from "../pages/medecin-travail/MedecinTravailDashboard";
 import CollaborateursMedTravail from "../pages/medecin-travail/CollaborateursMedTravail";
 import DossierMedicalCompletForm from "../pages/medecin-travail/DossierMedicalCompletForm";
+import RDVMedTravailPage from "../pages/medecin-travail/RDVMedTravailPage";
 
 import MedecinControleurDashboard from "../pages/medecin-controleur/MedecinControleurDashboard";
 import RechercheCollaborateurMC from "../pages/medecin-controleur/RechercheCollaborateurMC";
@@ -172,6 +173,15 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/medecin-travail/rdv"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
+              <RDVMedTravailPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/medecin-travail/collaborateurs/:id"
           element={
             <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
@@ -199,10 +209,10 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/medecin-travail/collaborateurs/:id/demande-analyse"
+          path="/medecin-travail/analyses-labo"
           element={
             <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
-              <DemandeAnalyseForm />
+              <AnalysesLaboPage />
             </RoleRoute>
           }
         />
