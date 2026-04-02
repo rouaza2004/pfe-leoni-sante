@@ -23,6 +23,20 @@ class DossierMedical(models.Model):
     profession = models.CharField(max_length=255, blank=True, null=True)
     poste_travail_actuel = models.CharField(max_length=255, blank=True, null=True)
 
+    groupe_sanguin = models.CharField(max_length=5, blank=True, null=True)
+    allergies = models.TextField(blank=True, null=True)
+    traitements_en_cours = models.TextField(blank=True, null=True)
+    observations = models.TextField(blank=True, null=True)
+    statut = models.CharField(
+        max_length=20,
+        choices=[
+            ("COMPLET", "Complet"),
+            ("EN_COURS", "En cours"),
+            ("INCOMPLET", "Incomplet"),
+        ],
+        default="EN_COURS",
+    )
+
     # antécédents
     antecedents_medicaux = models.TextField(blank=True, null=True)
     antecedents_chirurgicaux = models.TextField(blank=True, null=True)
