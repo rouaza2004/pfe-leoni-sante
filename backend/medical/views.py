@@ -150,239 +150,310 @@ def register_arabic_font():
     if font_path:
         pdfmetrics.registerFont(TTFont("Amiri", font_path))
 
+
+def generate_aptitude_fiche_pdf(fiche, user=None):
+    buffer = BytesIO()
+    page_size = landscape(A5)
+    p = canvas.Canvas(buffer, pagesize=page_size)
+    width, height = page_size
+
+    margin = 0.55 * cm
+    content_width = width - (2 * margin)
+    base_blue = colors.HexColor("#1a3c8f")
+
+    register_arabic_font()
+
+    def safe(value, fallback=""):
+        return value if value not in [None, ""] else fallback
+
+    def set_font(size):
+        p.setFont("Amiri", size)
+
+    def draw_text(x, y, text, size=7.2, bold=False, color=colors.black):
+        p.setFillColor(color)
+        set_font(size)
+        p.drawString(x, y, str(text or ""))
+
+    def draw_center(x, y, text, size=9.0, bold=True, color=base_blue):
+        p.setFillColor(color)
+        set_font(size)
+        p.drawCentredString(x, y, str(text or ""))
+
+    def dotted_line(x1, y1, x2, y2):
+        p.setStrokeColor(base_blue)
+        p.setLineWidth(0.55)
+        p.setDash(1, 2)
+        p.line(x1, y1, x2, y2)
+        p.setDash()
+
+    def fit_text(text, max_width, font_name="Amiri", font_size=7.0):
+        if not text:
+            return ""
+        if p.stringWidth(text, font_name, font_size) <= max_width:
+            return text
+        trimmed = text
+        suffix = "..."
+        while trimmed and p.stringWidth(trimmed + suffix, font_name, font_size) > max_width:
+            trimmed = trimmed[:-1]
+        return trimmed + suffix
+
+    def label_line(x, y, label, line_end, value=None, label_size=7.0, value_size=7.0):
+        draw_text(x, y, label, label_size, True, base_blue)
+        label_w = p.stringWidth(label, "Amiri", label_size)
+        line_start = x + label_w + 0.12 * cm
+        dotted_line(line_start, y - 0.08 * cm, line_end, y - 0.08 * cm)
+        if value:
+            max_w = max(0, line_end - line_start - 0.05 * cm)
+            draw_text(
+                line_start + 0.02 * cm,
+                y,
+                fit_text(value, max_w, "Amiri", value_size),
+                value_size,
+                False,
+                colors.black,
+            )
+
+    def draw_checkbox(x, y, label, checked=False):
+        size = 0.34 * cm
+        p.setStrokeColor(base_blue)
+        p.setLineWidth(0.8)
+        p.rect(x, y - size + 1, size, size)
+        if checked:
+            p.setFillColor(base_blue)
+            set_font(7.0)
+            p.drawCentredString(x + size / 2, y - 1, "X")
+        p.setFillColor(base_blue)
+        set_font(7.0)
+        p.drawString(x + 0.5 * cm, y, label)
+
+    left = margin
+    right = width - margin
+    mid = left + content_width * 0.62
+    y = height - margin
+
+    logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
+    tuv_path = Path(settings.BASE_DIR) / "static" / "images" / "tuv_cert.png"
+
+    draw_text(left, y - 0.28 * cm, "Groupement de M?decine", 8.1, True, base_blue)
+    draw_text(left, y - 0.58 * cm, "du travail de Monastir", 8.1, True, base_blue)
+    draw_text(left, y - 0.88 * cm, "T?l.: 73 508 100 Fax: 73 508 101", 6.5, True, base_blue)
+
+    if tuv_path.exists():
+        cert = ImageReader(str(tuv_path))
+        p.drawImage(
+            cert,
+            left + 0.05 * cm,
+            y - 1.55 * cm,
+            width=1.1 * cm,
+            height=1.1 * cm,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+
+    if logo_path.exists():
+        logo = ImageReader(str(logo_path))
+        p.drawImage(
+            logo,
+            (width / 2) - 1.15 * cm,
+            y - 1.65 * cm,
+            width=2.3 * cm,
+            height=1.4 * cm,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+        draw_text(width / 2 - 1.15 * cm, y - 1.9 * cm, "G.M.T MONASTIR", 5.9, True, base_blue)
+        draw_text(width / 2 - 1.15 * cm, y - 2.15 * cm, "Certifi? ISO 9001:2008", 5.4, False, base_blue)
+
+    # FR-VME box
+    box_w, box_h = 2.2 * cm, 0.9 * cm
+    box_x = right - box_w
+    box_y = y - 1.2 * cm
+    p.setStrokeColor(base_blue)
+    p.setLineWidth(0.8)
+    p.rect(box_x, box_y, box_w, box_h)
+    p.line(box_x, box_y + box_h / 2, box_x + box_w, box_y + box_h / 2)
+    draw_text(box_x + 0.16 * cm, box_y + 0.31 * cm, "FR - VME 15/01", 6.8, True, base_blue)
+    draw_text(box_x + 0.16 * cm, box_y + 0.05 * cm, "Mle", 6.4, True, base_blue)
+    draw_text(box_x + 0.5 * cm, box_y + 0.05 * cm, "............", 6.4, False, base_blue)
+
+    title_y = y - 1.95 * cm
+    draw_center(width / 2, title_y, "FICHE D?APTITUDE AU TRAVAIL", 9.2, True, base_blue)
+    draw_center(
+        width / 2,
+        title_y - 0.32 * cm,
+        "En application des dispositions de l?article 11 du D?cret n? 2000-1985 du 12 septembre 2000",
+        6.1,
+        True,
+        base_blue,
+    )
+    draw_center(
+        width / 2,
+        title_y - 0.6 * cm,
+        "portant organisation et du fonctionnement des services de m?decine du travail",
+        6.1,
+        True,
+        base_blue,
+    )
+
+    y = title_y - 0.88 * cm
+
+    # 1- L'ENTREPRISE
+    draw_text(left, y, "1- L'ENTREPRISE :", 7.3, True, base_blue)
+    y -= 0.42 * cm
+    label_line(left, y, "Raison sociale :", mid - 0.18 * cm, safe(fiche.entreprise))
+    label_line(mid + 0.18 * cm, y, "Adresse :", right, safe(fiche.adresse_entreprise))
+    y -= 0.5 * cm
+    label_line(left, y, "Nature d'activit? :", mid - 0.18 * cm, safe(fiche.nature_activite))
+    label_line(mid + 0.18 * cm, y, "N? CNSS :", right, safe(fiche.numero_cnss))
+
+    # 2- LE TRAVAILLEUR
+    y -= 0.62 * cm
+    draw_text(left, y, "2- LE TRAVAILLEUR :", 7.3, True, base_blue)
+    y -= 0.42 * cm
+    label_line(left, y, "Nom et Pr?nom :", mid - 0.18 * cm, safe(fiche.nom_prenom))
+    label_line(mid + 0.18 * cm, y, "Date et lieu de naissance (Age) :", right, safe(fiche.date_lieu_naissance))
+    y -= 0.5 * cm
+    col1_end = left + content_width * 0.44
+    col2_end = left + content_width * 0.62
+    label_line(left, y, "Adresse :", col1_end, safe(fiche.adresse_travailleur))
+    label_line(col1_end + 0.18 * cm, y, "N? CNSS :", col2_end, safe(fiche.cnss_travailleur))
+    label_line(
+        col2_end + 0.18 * cm,
+        y,
+        "Qualifications professionnelles :",
+        right,
+        safe(fiche.qualifications_professionnelles),
+        label_size=6.5,
+        value_size=6.5,
+    )
+    y -= 0.5 * cm
+    date_recrutement = fiche.date_recrutement.strftime("%d/%m/%Y") if fiche.date_recrutement else ""
+    label_line(left, y, "Date de recrutement :", mid - 0.18 * cm, date_recrutement)
+    label_line(mid + 0.18 * cm, y, "Poste de travail :", right, safe(fiche.poste_travail))
+
+    # 3- EXAMENS MEDICAUX
+    y -= 0.62 * cm
+    draw_text(left, y, "3- EXAMENS MEDICAUX :", 7.3, True, base_blue)
+    y -= 0.42 * cm
+    draw_checkbox(left + 0.2 * cm, y, "Embauche", fiche.type_examen == "EMBAUCHE")
+    draw_checkbox(left + 3.05 * cm, y, "P?riodique", fiche.type_examen == "PERIODIQUE")
+    draw_checkbox(left + 6.25 * cm, y, "Reprise", fiche.type_examen == "REPRISE")
+    draw_checkbox(left + 9.15 * cm, y, "Spontan?e", fiche.type_examen == "SPONTANE")
+
+    # Je soussign?
+    y -= 0.62 * cm
+    medecin_nom = safe(getattr(fiche, "medecin_travail", None), "")
+    if not medecin_nom:
+        medecin_nom = "Docteur"
+        if user and getattr(user, "get_full_name", None):
+            full_name = (user.get_full_name() or "").strip()
+            medecin_nom = full_name if full_name else (user.username or "Docteur")
+
+    draw_text(left, y, "Je soussign?(e) :", 6.9, True, base_blue)
+    label_w = p.stringWidth("Je soussign?(e) :", "Amiri", 6.9)
+    line_start = left + label_w + 0.12 * cm
+    line_end = left + content_width * 0.45
+    dotted_line(line_start, y - 0.08 * cm, line_end, y - 0.08 * cm)
+    draw_text(
+        line_start + 0.02 * cm,
+        y,
+        fit_text(medecin_nom, line_end - line_start - 0.05 * cm),
+        6.9,
+        False,
+        colors.black,
+    )
+    draw_text(
+        line_end + 0.18 * cm,
+        y,
+        "m?decin du travail, certifie que le travailleur surnomm? est :",
+        6.5,
+        False,
+        base_blue,
+    )
+
+    # Decision lines
+    y -= 0.55 * cm
+    details_text = " - ".join(
+        [
+            t
+            for t in [safe(getattr(fiche, "conclusion", None), ""), safe(fiche.recommandations, "")]
+            if t
+        ]
+    )
+
+    decisions = [
+        (
+            "Apte au poste ( pr?ciser le poste de travail, les EPI et les recommandations sp?cifiques si n?cessaires ) :",
+            fiche.aptitude == "APTE",
+        ),
+        ("Apte avec am?nagement du poste (? pr?ciser) :", fiche.aptitude == "APTE_AMENAGEMENT"),
+        ("Inapte temporaire au poste (pr?ciser la p?riode) :", fiche.aptitude == "INAPTE_TEMPORAIRE"),
+        ("Apte apr?s changement du poste (? pr?ciser) :", fiche.aptitude == "APTE_APRES_CHANGEMENT"),
+        ("Inapte d?finitif ? tout poste du travail dans l'entreprise :", fiche.aptitude == "INAPTE_DEFINITIF"),
+    ]
+
+    for label, checked in decisions:
+        draw_checkbox(left, y, "", checked)
+        label_x = left + 0.5 * cm
+        draw_text(label_x, y, label, 6.5, False, base_blue)
+        label_w = p.stringWidth(label, "Amiri", 6.5)
+        line_start = label_x + label_w + 0.08 * cm
+        line_end = right
+        dotted_line(line_start, y - 0.08 * cm, line_end, y - 0.08 * cm)
+        if checked and details_text:
+            max_w = max(0, line_end - line_start - 0.05 * cm)
+            draw_text(
+                line_start + 0.02 * cm,
+                y,
+                fit_text(details_text, max_w, "Amiri", 6.5),
+                6.5,
+                False,
+                colors.black,
+            )
+        y -= 0.42 * cm
+
+    # Footer
+    footer_y = margin + 0.25 * cm
+    pdf_date = (
+        fiche.date_examen.strftime("%d/%m/%Y")
+        if getattr(fiche, "date_examen", None)
+        else (fiche.date.strftime("%d/%m/%Y") if fiche.date else "")
+    )
+    draw_text(
+        left,
+        footer_y + 0.1 * cm,
+        "Ce certificat doit ?tre conserv? dans le dossier administratif de l'int?ress? chez son employeur",
+        6.1,
+        False,
+        base_blue,
+    )
+    draw_text(
+        right - 5.0 * cm,
+        footer_y + 0.18 * cm,
+        "Date et Signature du m?decin du travail",
+        6.1,
+        True,
+        base_blue,
+    )
+    draw_text(right - 5.0 * cm, footer_y - 0.05 * cm, f"Date : {pdf_date}", 6.1, False, base_blue)
+    dotted_line(right - 5.0 * cm, footer_y - 0.18 * cm, right, footer_y - 0.18 * cm)
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer
+
 class FicheAptitudePdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
         fiche = get_object_or_404(FicheAptitude, pk=pk)
 
-        response = HttpResponse(content_type="application/pdf")
+        pdf_buffer = generate_aptitude_fiche_pdf(fiche, user=request.user)
+        response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
         response["Content-Disposition"] = (
             f'inline; filename="fiche_aptitude_{fiche.collaborateur.matricule}.pdf"'
         )
-
-        page_size = landscape(A5)
-        p = canvas.Canvas(response, pagesize=page_size)
-        width, height = page_size
-
-        margin = 0.6 * cm
-        content_width = width - (2 * margin)
-        base_blue = colors.HexColor("#1a3c8f")
-
-        register_arabic_font()
-
-        def safe(value, fallback="-"):
-            return value if value not in [None, ""] else fallback
-
-        def draw_text(x, y, text, size=7.5, bold=False, color=colors.black):
-            p.setFillColor(color)
-            p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
-            p.drawString(x, y, str(text or ""))
-
-        def arabic_right(x, y, text, size=7.5, color=base_blue):
-            p.setFillColor(color)
-            p.setFont("Amiri", size)
-            p.drawRightString(x, y, shape_arabic(text or ""))
-
-        def draw_box(x, y_top, w, h, title=None):
-            p.setLineWidth(1)
-            p.rect(x, y_top - h, w, h)
-            if title:
-                draw_text(x + 0.2 * cm, y_top - 0.35 * cm, title, 8, True, base_blue)
-
-        def draw_checkbox(x, y, label, checked=False):
-            size = 0.35 * cm
-            p.setStrokeColor(base_blue)
-            p.rect(x, y - size + 2, size, size)
-
-            if checked:
-                p.setFillColor(base_blue)
-                p.setFont("Helvetica-Bold", 7.5)
-                p.drawCentredString(x + size / 2, y - 1, "X")
-
-            p.setFillColor(base_blue)
-            p.setFont("Helvetica", 7)
-            p.drawString(x + 0.52 * cm, y, label)
-
-        def wrap_lines(text, font_name="Helvetica", font_size=7.2, max_width=180):
-            words = str(text or "-").split()
-            lines = []
-            current = ""
-
-            for word in words:
-                test = f"{current} {word}".strip()
-                if p.stringWidth(test, font_name, font_size) <= max_width:
-                    current = test
-                else:
-                    if current:
-                        lines.append(current)
-                    current = word
-
-            if current:
-                lines.append(current)
-
-            return lines if lines else ["-"]
-
-        def draw_field(x, y, label, value, value_x, max_width, size=7.2, max_lines=1):
-            draw_text(x, y, f"{label} :", 7.2, True, base_blue)
-            lines = wrap_lines(value, "Helvetica", size, max_width)
-
-            yy = y
-            for line in lines[:max_lines]:
-                draw_text(value_x, yy, line, size, False)
-                yy -= 0.28 * cm
-
-            return yy
-
-        y = height - margin
-
-        p.setLineWidth(0.6)
-        p.setStrokeColor(base_blue)
-        p.rect(margin, margin, width - 2 * margin, height - 2 * margin)
-
-        logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo_gmt_monastir.png"
-
-        draw_text(margin + 0.1 * cm, y - 0.35 * cm, "Groupement de Médecine", 8.5, True, base_blue)
-        draw_text(margin + 0.1 * cm, y - 0.75 * cm, "du travail de Monastir", 8.5, True, base_blue)
-        draw_text(margin + 0.1 * cm, y - 1.05 * cm, "Tél.: 73 508 100 Fax: 73 508 101", 7, True, base_blue)
-
-        if logo_path.exists():
-            logo = ImageReader(str(logo_path))
-            p.drawImage(
-                logo,
-                (width / 2) - 0.85 * cm,
-                y - 1.7 * cm,
-                width=1.7 * cm,
-                height=1.2 * cm,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
-            draw_text(width / 2 - 0.9 * cm, y - 1.95 * cm, "G.M.T MONASTIR", 6.2, True, base_blue)
-            draw_text(width / 2 - 0.9 * cm, y - 2.2 * cm, "Certifié ISO 9001:2008", 5.8, False, base_blue)
-
-        box_x = width - margin - 2.2 * cm
-        box_y = y - 1.8 * cm
-        p.rect(box_x, box_y, 2.0 * cm, 1.1 * cm)
-        p.line(box_x, box_y + 0.55 * cm, box_x + 2.0 * cm, box_y + 0.55 * cm)
-        draw_text(box_x + 0.18 * cm, box_y + 0.68 * cm, "FR - VME 15/01", 7, True, base_blue)
-        draw_text(box_x + 0.15 * cm, box_y + 0.18 * cm, "Mle", 6.8, True, base_blue)
-        draw_text(box_x + 0.48 * cm, box_y + 0.18 * cm, "............", 6.8, False, base_blue)
-
-        draw_text(width / 2 - 3.0 * cm, y - 2.35 * cm, "FICHE D’APTITUDE AU TRAVAIL", 9.5, True, base_blue)
-
-        p.setFont("Helvetica-Bold", 6.2)
-        p.setFillColor(base_blue)
-        p.drawCentredString(
-            width / 2,
-            y - 2.7 * cm,
-            "En application des dispositions de l’article 11 du Décret n° 2000-1985 du 12 septembre 2000"
-        )
-        p.drawCentredString(
-            width / 2,
-            y - 2.95 * cm,
-            "portant organisation et du fonctionnement des services de médecine du travail"
-        )
-
-        p.line(margin, y - 3.15 * cm, width - margin, y - 3.15 * cm)
-        y -= 3.35 * cm
-        left_label_x = margin + 0.2 * cm
-        left_value_x = margin + 3.0 * cm
-
-        right_label_x = margin + 8.8 * cm
-        right_value_x = margin + 11.5 * cm
-
-        entreprise_h = 2.0 * cm
-        draw_box(margin, y, content_width, entreprise_h, "1. L’ENTREPRISE")
-
-        yy = y - 0.7 * cm
-
-        draw_field(left_label_x, yy, "Raison sociale", fiche.entreprise, left_value_x, 4.0 * cm, max_lines=1)
-        draw_field(right_label_x, yy, "Adresse", fiche.adresse_entreprise, right_value_x, 3.0 * cm, max_lines=2)
-
-        yy -= 0.5 * cm
-
-        draw_field(left_label_x, yy, "Nature d’activité", fiche.nature_activite, left_value_x, 4.0 * cm, max_lines=1)
-        draw_field(right_label_x, yy, "N° CNSS", fiche.numero_cnss, right_value_x, 3.0 * cm, max_lines=1)
-
-        y -= entreprise_h + 0.25 * cm
-        travailleur_h = 3.2 * cm
-        draw_box(margin, y, content_width, travailleur_h, "2. LE TRAVAILLEUR")
-
-        yy = y - 0.7 * cm
-
-        draw_field(left_label_x, yy, "Nom et prénom", fiche.nom_prenom, left_value_x, 4.0 * cm, max_lines=1)
-        draw_field(right_label_x, yy, "Date et lieu naissance", fiche.date_lieu_naissance, right_value_x, 3.0 * cm, max_lines=1)
-
-        yy -= 0.55 * cm
-
-        draw_field(left_label_x, yy, "Adresse", fiche.adresse_travailleur, left_value_x, 4.0 * cm, max_lines=2)
-        draw_field(right_label_x, yy, "Qualifications", fiche.qualifications_professionnelles, right_value_x, 3.0 * cm, max_lines=2)
-
-        yy -= 0.75 * cm
-
-        draw_field(left_label_x, yy, "N° CNSS", fiche.cnss_travailleur, left_value_x, 4.0 * cm, max_lines=1)
-        draw_field(right_label_x, yy, "Poste de travail", fiche.poste_travail, right_value_x, 3.0 * cm, max_lines=2)
-
-        yy -= 0.55 * cm
-
-        date_recrutement = fiche.date_recrutement.strftime("%d/%m/%Y") if fiche.date_recrutement else "-"
-        draw_field(left_label_x, yy, "Date de recrutement", date_recrutement, left_value_x, 4.0 * cm, max_lines=1)
-
-        y -= travailleur_h + 0.25 * cm
-        examens_h = 1.2 * cm
-        draw_box(margin, y, content_width, examens_h, "3. EXAMENS MÉDICAUX")
-
-        cy = y - 0.75 * cm
-        draw_checkbox(margin + 0.25 * cm, cy, "Embauche", fiche.type_examen == "EMBAUCHE")
-        draw_checkbox(margin + 3.20 * cm, cy, "Périodique", fiche.type_examen == "PERIODIQUE")
-        draw_checkbox(margin + 6.60 * cm, cy, "Reprise", fiche.type_examen == "REPRISE")
-        draw_checkbox(margin + 9.60 * cm, cy, "Spontanée", fiche.type_examen == "SPONTANE")
-
-        y -= examens_h + 0.25 * cm
-        decision_h = 4.0 * cm
-        draw_box(margin, y, content_width, decision_h, "4. DÉCISION MÉDICALE")
-
-        recommandations = safe(fiche.recommandations, "")
-        text_x = margin + 4.0 * cm
-
-        rows = [
-            ("Apte au poste", fiche.aptitude == "APTE"),
-            ("Apte avec aménagement du poste", fiche.aptitude == "APTE_AMENAGEMENT"),
-            ("Inapte temporaire au poste", fiche.aptitude == "INAPTE_TEMPORAIRE"),
-            ("Apte après changement du poste", fiche.aptitude == "APTE_APRES_CHANGEMENT"),
-            ("Inapte définitif", fiche.aptitude == "INAPTE_DEFINITIF"),
-        ]
-
-        row_y = y - 0.7 * cm
-        for label, checked in rows:
-            draw_checkbox(margin + 0.30 * cm, row_y, label, checked)
-
-            if checked:
-                lines = wrap_lines(recommandations, "Helvetica", 7, 240)
-                txt_y = row_y
-                for line in lines[:2]:
-                    draw_text(text_x, txt_y, line, 7, False)
-                    txt_y -= 0.26 * cm
-
-            row_y -= 0.6 * cm
-
-        footer_y = margin + 0.15 * cm
-        pdf_date = fiche.date.strftime("%d/%m/%Y") if fiche.date else "-"
-
-        draw_text(
-            margin + 0.25 * cm,
-            footer_y + 0.4 * cm,
-            "Ce certificat doit être conservé dans le dossier administratif de l'intéressé chez son employeur",
-            6.5,
-            False,
-            base_blue,
-        )
-        draw_text(width - 5.0 * cm, footer_y + 0.4 * cm, "Date et Signature du médecin du travail", 6.5, True, base_blue)
-        draw_text(width - 4.8 * cm, footer_y + 0.1 * cm, f"Date : {pdf_date}", 6.5, False, base_blue)
-        p.rect(width - 5.2 * cm, footer_y - 0.35 * cm, 4.4 * cm, 0.6 * cm)
-
-        p.showPage()
-        p.save()
         return response
 
 

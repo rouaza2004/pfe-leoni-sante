@@ -691,6 +691,10 @@ class FicheAptitude(models.Model):
     date_recrutement = models.DateField(null=True, blank=True)
     poste_travail = models.CharField(max_length=255, blank=True, null=True)
 
+    medecin_travail = models.CharField(max_length=255, blank=True, null=True)
+    conclusion = models.TextField(blank=True, null=True)
+    date_examen = models.DateField(null=True, blank=True)
+
     type_examen = models.CharField(max_length=30, choices=TYPE_EXAMEN_CHOICES)
     aptitude = models.CharField(max_length=40, choices=APTITUDE_CHOICES)
     recommandations = models.TextField(blank=True, null=True)
