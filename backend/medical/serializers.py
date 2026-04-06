@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from django.db import transaction
 from .models import (
     DossierMedical,
     ExamenInitial,
@@ -21,6 +23,7 @@ from .models import (
     IncidentSansBon,
     BonChauffeur,
     SuiviTransfertUrgence,
+    PointageMedecin,
 )
 
 
@@ -512,6 +515,71 @@ class StockMovementSerializer(serializers.ModelSerializer):
             "remarque",
             "created_at",
         ]
+
+    def create(self, validated_data):
+        qty = int(validated_data.get("quantite") or 0)
+        if qty <= 0:
+            raise ValidationError({"quantite": "La quantité doit être supérieure à 0."})
+
+        movement_type = validated_data.get("type_mouvement")
+        stock_item = validated_data.get("stock_item")
+
+        if movement_type not in ("ENTREE", "SORTIE"):
+            raise ValidationError({"type_mouvement": "Type de mouvement invalide."})
+
+        with transaction.atomic():
+            locked_item = (
+                StockItem.objects.select_for_update()
+                .filter(pk=stock_item.pk)
+                .first()
+            )
+            if not locked_item:
+                raise ValidationError({"stock_item": "Médicament introuvable."})
+
+            if movement_type == "SORTIE":
+                if qty > locked_item.quantite:
+                    raise ValidationError(
+                        {"quantite": "Quantité demandée supérieure au stock disponible."}
+                    )
+                locked_item.quantite = locked_item.quantite - qty
+            else:
+                locked_item.quantite = locked_item.quantite + qty
+
+            locked_item.save(update_fields=["quantite", "updated_at"])
+            movement_data = dict(validated_data)
+            movement_data.pop("stock_item", None)
+            movement = StockMovement.objects.create(stock_item=locked_item, **movement_data)
+            return movement
+
+
+class PointageMedecinSerializer(serializers.ModelSerializer):
+    medecin_nom = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PointageMedecin
+        fields = [
+            "id",
+            "medecin",
+            "medecin_nom",
+            "date",
+            "heure_arrivee",
+            "heure_depart",
+            "statut",
+            "note",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_medecin_nom(self, obj):
+        medecin = getattr(obj, "medecin", None)
+        if not medecin:
+            return ""
+        full_name = ""
+        try:
+            full_name = medecin.get_full_name() or ""
+        except Exception:
+            full_name = ""
+        return full_name or getattr(medecin, "username", "") or ""
 
 
 class FicheAptitudeSerializer(serializers.ModelSerializer):

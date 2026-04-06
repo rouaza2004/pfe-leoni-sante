@@ -12,6 +12,8 @@ import MedecinTraitantDashboard from "../pages/medecin-traitant/MedecinTraitantD
 import Collaborateurs from "../pages/medecin-traitant/Collaborateurs";
 import CollaborateurDetail from "../pages/medecin-traitant/CollaborateurDetail";
 import FicheMedicale from "../pages/medecin-traitant/FicheMedicale";
+import FicheMedicalePage from "../pages/medecin-traitant/FicheMedicalePage";
+import CertificatOrdonnancePage from "../pages/medecin-traitant/CertificatOrdonnancePage";
 import DocumentsMedicauxPage from "../pages/medecin-traitant/DocumentsMedicauxPage";
 import RDV from "../pages/medecin-traitant/RDV";
 
@@ -31,6 +33,7 @@ import PatientsPage from "../pages/infirmier/PatientsPage";
 import PatientDetailPage from "../pages/infirmier/PatientDetailPage";
 import IncidentsHubPage from "../pages/infirmier/IncidentsHubPage";
 import AccidentsPage from "../pages/infirmier/AccidentsPage";
+import EnqueteInitialePage from "../pages/infirmier/EnqueteInitialePage";
 import MaladiesProfessionnellesPage from "../pages/infirmier/MaladiesProfessionnellesPage";
 import StockPage from "../pages/infirmier/StockPage";
 import RDVPage from "../pages/infirmier/RDVPage";
@@ -39,6 +42,7 @@ import BonChauffeurPage from "../pages/infirmier/BonChauffeurPage";
 import SuiviTransfertsPage from "../pages/infirmier/SuiviTransfertsPage";
 
 import RHDashboard from "../pages/rh/RHDashboard";
+import PointageMedecinsPage from "../pages/rh/PointageMedecinsPage";
 
 import HSEEDashboard from "../pages/hsee/HSEEDashboard";
 import HSEEStatsPage from "../pages/hsee/HSEEStatsPage";
@@ -114,6 +118,24 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
               <CollaborateurDetail />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-traitant/fiche-medicale"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
+              <FicheMedicalePage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-traitant/certificat-ordonnance"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE"]}>
+              <CertificatOrdonnancePage />
             </RoleRoute>
           }
         />
@@ -326,7 +348,15 @@ export default function AppRouter() {
         />
 
         <Route
-<<<<<<< HEAD
+          path="/infirmier/enquete-initiale"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <EnqueteInitialePage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/bon-chauffeur"
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
@@ -345,8 +375,6 @@ export default function AppRouter() {
         />
 
         <Route
-=======
->>>>>>> 1fd8565 (update infirmier features)
           path="/infirmier/maladies-professionnelles"
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
@@ -387,6 +415,15 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
               <RHDashboard />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/pointage"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "ADMIN", "INFIRMIER", "AGENT_HSEE"]}>
+              <PointageMedecinsPage />
             </RoleRoute>
           }
         />

@@ -839,6 +839,35 @@ class StockMovement(models.Model):
 
 
 # =====================================================
+# POINTAGE MEDECINS
+# =====================================================
+
+class PointageMedecin(models.Model):
+    STATUT_CHOICES = [
+        ("PRESENT", "Présent"),
+        ("ABSENT", "Absent"),
+        ("CONGE", "Congé"),
+        ("MISSION", "Mission"),
+    ]
+
+    medecin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="pointages_medecin",
+    )
+    date = models.DateField()
+    heure_arrivee = models.TimeField()
+    heure_depart = models.TimeField(blank=True, null=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="PRESENT")
+    note = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.medecin_id} - {self.date}"
+
+
+# =====================================================
 # TRANSPORT - BON CHAUFFEUR
 # =====================================================
 

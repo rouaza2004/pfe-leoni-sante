@@ -20,15 +20,31 @@ const tabs = [
 ];
 
 const InfoCard = ({ title, children }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
     <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-    <div className="mt-3 space-y-2 text-sm text-slate-600">{children}</div>
+    <div className="mt-4 space-y-3">{children}</div>
   </div>
 );
 
 const EmptyState = ({ text }) => (
   <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
     {text}
+  </div>
+);
+
+const InfoRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-start gap-3 rounded-2xl bg-slate-50/70 px-3 py-2.5">
+    {Icon ? (
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200">
+        <Icon className="h-4 w-4 text-slate-400" />
+      </div>
+    ) : null}
+    <div className="min-w-0">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+        {value || "--"}
+      </p>
+    </div>
   </div>
 );
 
@@ -277,10 +293,10 @@ export default function PatientsPage() {
                   key={c.matricule || c.id}
                   type="button"
                   onClick={() => setSelectedMatricule(c.matricule || "")}
-                  className={`w-full rounded-2xl border p-3 text-left transition ${
+                  className={`w-full rounded-[22px] border p-3 text-left transition ${
                     isSelected
-                      ? "border-slate-900 bg-slate-50"
-                      : "border-slate-200 hover:bg-slate-50"
+                      ? "border-slate-900 bg-slate-50 shadow-sm"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -294,9 +310,14 @@ export default function PatientsPage() {
                       <p className="text-xs text-slate-500">
                         {c.matricule || "--"}
                       </p>
-                      <p className="text-xs text-slate-500">
-                        {posteLabel} · {segmentLabel}
-                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
+                          {posteLabel}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
+                          {segmentLabel}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -326,22 +347,24 @@ export default function PatientsPage() {
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-lg font-semibold text-slate-700">
                       {getInitials(collab?.prenom, collab?.nom)}
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-bold text-slate-900">
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-semibold text-slate-900">
                         {`${collab?.prenom || ""} ${collab?.nom || ""}`.trim() ||
                           "--"}
                       </h2>
-                      <p className="text-sm text-slate-500">
-                        Matricule : {collab?.matricule || "--"}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {collab?.poste || collab?.poste_nom || "--"}
-                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                          Matricule : {collab?.matricule || "--"}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                          {collab?.poste || collab?.poste_nom || "--"}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   <span
-                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
                       dossier?.id
                         ? "bg-emerald-50 text-emerald-700"
                         : "bg-amber-50 text-amber-700"
@@ -359,10 +382,10 @@ export default function PatientsPage() {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                    className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                       activeTab === tab.id
                         ? "bg-slate-900 text-white"
-                        : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
                     {tab.label}
@@ -375,88 +398,85 @@ export default function PatientsPage() {
           {selectedMatricule && activeTab === "profil" && (
             <div className="grid gap-4 lg:grid-cols-2">
               <InfoCard title="Informations Générales">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-slate-400" />
-                  <span>
-                    {`${collab?.prenom || ""} ${collab?.nom || ""}`.trim() ||
-                      "--"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-slate-400" />
-                  <span>{collab?.email || "--"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <BadgeCheck className="h-4 w-4 text-slate-400" />
-                  <span>CIN : {collab?.cin || "--"}</span>
-                </div>
+                <InfoRow
+                  icon={User}
+                  label="Nom complet"
+                  value={
+                    `${collab?.prenom || ""} ${collab?.nom || ""}`.trim() || "--"
+                  }
+                />
+                <InfoRow
+                  icon={Mail}
+                  label="Adresse e-mail"
+                  value={collab?.email || "--"}
+                />
+                <InfoRow icon={BadgeCheck} label="CIN" value={collab?.cin || "--"} />
               </InfoCard>
 
               <InfoCard title="Poste & Département">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-slate-400" />
-                  <span>{collab?.poste || collab?.poste_nom || "--"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-slate-400" />
-                  <span>{collab?.departement || "--"}</span>
-                </div>
+                <InfoRow
+                  icon={Briefcase}
+                  label="Poste"
+                  value={collab?.poste || collab?.poste_nom || "--"}
+                />
+                <InfoRow
+                  icon={Building2}
+                  label="Département"
+                  value={collab?.departement || "--"}
+                />
               </InfoCard>
 
               <InfoCard title="Site / Segment">
-                <div>
-                  Site :
-                  <span className="ml-2 font-medium text-slate-700">
-                    {collab?.site?.nom || "--"}
-                  </span>
-                </div>
-                <div>
-                  Localité :
-                  <span className="ml-2 font-medium text-slate-700">
-                    {collab?.site?.localite || "--"}
-                  </span>
-                </div>
-                <div>
-                  Segment :
-                  <span className="ml-2 font-medium text-slate-700">
-                    {collab?.segment_nom ||
-                      collab?.segment?.nom ||
-                      collab?.segment ||
-                      "--"}
-                  </span>
-                </div>
+                <InfoRow label="Site" value={collab?.site?.nom || "--"} />
+                <InfoRow label="Localité" value={collab?.site?.localite || "--"} />
+                <InfoRow
+                  label="Segment"
+                  value={
+                    collab?.segment_nom ||
+                    collab?.segment?.nom ||
+                    collab?.segment ||
+                    "--"
+                  }
+                />
               </InfoCard>
 
               <InfoCard title="Statut & Validité">
-                <div>
-                  Statut :
-                  <span className="ml-2 font-medium text-slate-700">
-                    {dossier?.id ? "Dossier actif" : "Dossier manquant"}
-                  </span>
+                <div className="rounded-2xl bg-slate-50/70 px-3 py-2.5">
+                  <p className="text-xs font-medium text-slate-500">Statut du dossier</p>
+                  <div className="mt-2">
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
+                        dossier?.id
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      {dossier?.id ? "Dossier actif" : "Dossier manquant"}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  Date recrutement :
-                  <span className="ml-2 font-medium text-slate-700">
-                    {formatDate(dossier?.date_recrutement)}
-                  </span>
-                </div>
+                <InfoRow
+                  label="Date de recrutement"
+                  value={formatDate(dossier?.date_recrutement)}
+                />
               </InfoCard>
 
               <InfoCard title="Suivi médical">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-slate-400" />
-                  <span>Dernière visite : {lastVisit}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-slate-400" />
-                  <span>Visite périodique : {lastPeriodic}</span>
-                </div>
-                <div>
-                  Aptitude :
-                  <span className="ml-2 font-medium text-slate-700">
-                    {aptitudeLabel(dossier?.examen_initial?.aptitude)}
-                  </span>
-                </div>
+                <InfoRow
+                  icon={CalendarDays}
+                  label="Dernière visite"
+                  value={lastVisit}
+                />
+                <InfoRow
+                  icon={CalendarDays}
+                  label="Visite périodique"
+                  value={lastPeriodic}
+                />
+                <InfoRow
+                  label="Aptitude"
+                  value={aptitudeLabel(dossier?.examen_initial?.aptitude)}
+                />
               </InfoCard>
             </div>
           )}

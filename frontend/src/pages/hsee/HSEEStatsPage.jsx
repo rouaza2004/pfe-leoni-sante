@@ -153,8 +153,8 @@ export default function HSEEStatsPage() {
             </div>
           </div>
 
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-80 min-h-[280px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
               <BarChart data={segments}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="segment" />
@@ -187,8 +187,8 @@ export default function HSEEStatsPage() {
             </div>
           </div>
 
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-80 min-h-[280px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
               <PieChart>
                 <Pie
                   data={gravites}
@@ -231,8 +231,8 @@ export default function HSEEStatsPage() {
           </div>
         </div>
 
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-80 min-h-[280px]">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
             <BarChart data={mois}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="mois" />

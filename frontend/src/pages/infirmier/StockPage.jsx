@@ -301,12 +301,23 @@ export default function StockPage() {
       setSavingMove(true);
       setErr("");
 
-      await api.post("/medical/stock/movements/", {
-        stock_item: Number(movement.stock_item),
-        type_mouvement: movement.type_mouvement,
-        quantite: Number(movement.quantite),
-        remarque: movement.remarque,
-      });
+      const accessToken = localStorage.getItem("access");
+      await api.post(
+        "/medical/stock/movements/",
+        {
+          stock_item: Number(movement.stock_item),
+          type_mouvement: movement.type_mouvement,
+          quantite: Number(movement.quantite),
+          remarque: movement.remarque,
+        },
+        accessToken
+          ? {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          : undefined
+      );
 
       setMovement(emptyMove);
       setShowMoveForm(false);

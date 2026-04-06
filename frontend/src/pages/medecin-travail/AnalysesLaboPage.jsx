@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { FileText, RotateCcw } from "lucide-react";
 import { jsPDF } from "jspdf";
-import leoniLogoUrl from "@/assets/leoni-logo.png";
 import { useLocation } from "react-router-dom";
+
+const GMT_LOGO_URL = "/gmt_logo_transparent.png?v=2";
+const CERT_LOGO_URL = "/cert_logo.png";
 const amiriUrl = "/amiri/Amiri-Regular.ttf";
 
 const INITIAL_FORM = {
@@ -10,6 +12,7 @@ const INITIAL_FORM = {
   nom_prenom: "",
   age: "",
   civilite: "M.",
+  matricule: "",
   cin: "",
   gsm: "",
   entreprise: "",
@@ -41,9 +44,11 @@ const EXAMENS = [
   { key: "examen_selles", label: "Examens copro-parasitologiques des selles" },
 ];
 
-const ARABIC_HEADER = "مجمع طب الشغل بولاية المنستير";
-const ARABIC_NOTE =
-  "ملاحظة: لإجراء تحاليل المخبر يجب الحضور على الريق وقبل الساعة العاشرة صباحا";
+const ARABIC_HEADER = "مجمع طب الشغل";
+const ARABIC_SUBHEADER = "بولاية المنستير";
+
+const ARABIC_NOTE = "لإجراء التحاليل المخبرية يجب الحضور صائما و قبل الساعة 10 صباحا";
+
 
 const mmToPx = (mm) => mm * 3.78;
 
@@ -52,6 +57,7 @@ const loadImageAsDataUrl = async (url) => {
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
+    if (!blob.type || !blob.type.startsWith("image/")) return null;
     return await new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
@@ -141,146 +147,111 @@ const drawLabelLine = (doc, label, x, y, lineWidth) => {
 const buildPdf = async (form) => {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 10;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 12;
 
   doc.setFont("helvetica", "normal");
   doc.setTextColor("#0f172a");
 
-  const logoCandidates = ["/gmt_logo.png", "/logo_gmt.png", leoniLogoUrl];
-  let logoDataUrl = null;
-  for (const candidate of logoCandidates) {
-    // eslint-disable-next-line no-await-in-loop
-    const data = await loadImageAsDataUrl(candidate);
-    if (data) {
-      logoDataUrl = data;
-      break;
-    }
-  }
+  const logoDataUrl = await loadImageAsDataUrl(GMT_LOGO_URL);
+  const certLogoDataUrl = await loadImageAsDataUrl(CERT_LOGO_URL);
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", pageWidth / 2 - 10, 10, 20, 20);
+    doc.addImage(logoDataUrl, "PNG", pageWidth / 2 - 10, 10, 20, 16);
   } else {
-    doc.rect(pageWidth / 2 - 12, 10, 24, 20);
+    doc.rect(pageWidth / 2 - 10, 10, 20, 16);
   }
 
-  doc.setFontSize(9);
-  doc.text("N° du Labo : " + (form.numero_labo || "..............."), margin, 14);
   doc.setFontSize(8.5);
-  doc.text(
-    "Groupement de Médecine du Travail du Gouvernorat de Monastir",
-    margin,
-    20
-  );
+  doc.text(`N° du Labo : ${form.numero_labo || "..............."}`, margin, 14);
+  doc.setFontSize(8.5);
+  doc.text("Groupement de Médecine du Travail", margin, 20);
+  doc.text("Du Gouvernorat de Monastir", margin, 24);
 
   doc.setFontSize(7.5);
-  doc.text("Certifié ISO 9001 : 2008", pageWidth / 2 - 18, 32);
+  doc.text("Certifié ISO 9001 : 2008", pageWidth / 2, 30, { align: "center" });
 
   doc.setFontSize(8.5);
-  doc.rect(pageWidth - margin - 34, 10, 34, 12);
-  doc.text("FR - VME - 06/02", pageWidth - margin - 31, 17);
+  doc.rect(pageWidth - margin - 28, 10, 28, 10);
+  doc.text("FR - VME - 06/02", pageWidth - margin - 26, 16.5);
 
-  const arabicHeader = await renderArabicBlock(ARABIC_HEADER, 12, 60);
+  const arabicHeader = await renderArabicBlock(ARABIC_HEADER, 11, 45);
   if (arabicHeader.dataUrl) {
-    doc.addImage(
-      arabicHeader.dataUrl,
-      "PNG",
-      pageWidth - margin - 60,
-      26,
-      arabicHeader.widthMm,
-      arabicHeader.heightMm
-    );
+    doc.addImage(arabicHeader.dataUrl, "PNG", pageWidth - margin - 45, 22, arabicHeader.widthMm, arabicHeader.heightMm);
+  }
+  const arabicSub = await renderArabicBlock(ARABIC_SUBHEADER, 10, 45);
+  if (arabicSub.dataUrl) {
+    doc.addImage(arabicSub.dataUrl, "PNG", pageWidth - margin - 45, 28, arabicSub.widthMm, arabicSub.heightMm);
   }
 
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(
-    "DEMANDE D’EXAMENS DE LABORATOIRE",
-    pageWidth / 2,
-    44,
-    { align: "center" }
-  );
+  doc.text("DEMANDE D'EXAMENS DE LABORATOIRE", pageWidth / 2, 40, { align: "center" });
   doc.setFont("helvetica", "normal");
 
-  let y = 55;
+  if (form.numero_labo) {
+    doc.setFontSize(10);
+    doc.text(`N° ${form.numero_labo}`, pageWidth - margin - 20, 46);
+  }
+
+  let y = 52;
   drawLabelLine(doc, "NOM ET PRENOM :", margin, y, 70);
   doc.text(form.nom_prenom || "", margin + 35, y - 0.6);
-  drawLabelLine(doc, "AGE :", pageWidth - margin - 60, y, 20);
-  doc.text(form.age || "", pageWidth - margin - 35, y - 0.6);
+  drawLabelLine(doc, "AGE :", pageWidth - margin - 60, y, 18);
+  doc.text(form.age || "", pageWidth - margin - 40, y - 0.6);
+  drawLabelLine(doc, "Mle :", pageWidth - margin - 30, y, 18);
+  doc.text(form.matricule || "", pageWidth - margin - 10, y - 0.6, { align: "right" });
 
   y += 8;
-  drawLabelLine(doc, "CIVILITÉ :", margin, y, 28);
-  doc.text(form.civilite || "M.", margin + 22, y - 0.6);
-  drawLabelLine(doc, "C.I.N :", pageWidth - margin - 60, y, 25);
-  doc.text(form.cin || "", pageWidth - margin - 35, y - 0.6);
+  drawLabelLine(doc, "C.I.N :", margin, y, 45);
+  doc.text(form.cin || "", margin + 20, y - 0.6);
+  drawLabelLine(doc, "GSM :", pageWidth / 2 - 10, y, 40);
+  doc.text(form.gsm || "", pageWidth / 2 + 12, y - 0.6);
 
   y += 8;
-  drawLabelLine(doc, "GSM :", margin, y, 40);
-  doc.text(form.gsm || "", margin + 16, y - 0.6);
-  drawLabelLine(doc, "ENTREPRISE :", pageWidth - margin - 80, y, 50);
-  doc.text(form.entreprise || "", pageWidth - margin - 40, y - 0.6);
+  drawLabelLine(doc, "ENTREPRISE :", margin, y, 70);
+  doc.text(form.entreprise || "", margin + 30, y - 0.6);
+  drawLabelLine(doc, "POSTE DE TRAVAIL :", pageWidth / 2 - 10, y, 70);
+  doc.text(form.poste_travail || "", pageWidth / 2 + 30, y - 0.6);
 
   y += 8;
-  drawLabelLine(doc, "POSTE DE TRAVAIL :", margin, y, 80);
-  doc.text(form.poste_travail || "", margin + 38, y - 0.6);
-
-  y += 8;
-  drawLabelLine(doc, "RENSEIGNEMENTS CLINIQUES :", margin, y, 120);
+  drawLabelLine(doc, "RENSEIGNEMENTS CLINIQUES :", margin, y, pageWidth - margin * 2 - 60);
   doc.text(form.renseignements_cliniques || "", margin + 60, y - 0.6);
 
   y += 12;
   doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
   doc.text("EXAMENS DE LABORATOIRE :", margin, y);
   doc.setFont("helvetica", "normal");
 
-  y += 6;
+  y += 7;
   const boxSize = 4.2;
-  const col1X = margin;
-  const col2X = pageWidth / 2 + 5;
-  let leftY = y;
-  let rightY = y;
-  EXAMENS.forEach((item, idx) => {
-    const isLeft = idx < Math.ceil(EXAMENS.length / 2);
-    const drawX = isLeft ? col1X : col2X;
-    const drawY = isLeft ? leftY : rightY;
-    drawCheckbox(doc, drawX, drawY - 3.5, boxSize, form.examens[item.key]);
-    doc.setFontSize(10);
-    doc.text(item.label, drawX + 7, drawY);
-    if (isLeft) {
-      leftY += 7;
-    } else {
-      rightY += 7;
-    }
+  EXAMENS.forEach((item) => {
+    drawCheckbox(doc, margin, y - 3.5, boxSize, form.examens[item.key]);
+    doc.setFontSize(9.5);
+    doc.text(item.label, margin + 7, y);
+    y += 6.5;
   });
 
-  const noteY = Math.max(leftY, rightY) + 6;
-  doc.setFontSize(9);
+  y += 3;
+  doc.setFontSize(8.5);
   doc.text(
     "NB: Pour effectuer les analyses de laboratoire, vous devez vous présenter à jeun et avant 10h du matin.",
     margin,
-    noteY,
+    y,
     { maxWidth: pageWidth - margin * 2 }
   );
 
   const arabicNote = await renderArabicBlock(ARABIC_NOTE, 11, pageWidth - margin * 2);
   if (arabicNote.dataUrl) {
-    doc.addImage(
-      arabicNote.dataUrl,
-      "PNG",
-      margin,
-      noteY + 6,
-      arabicNote.widthMm,
-      arabicNote.heightMm
-    );
+    doc.addImage(arabicNote.dataUrl, "PNG", margin, y + 6, arabicNote.widthMm, arabicNote.heightMm);
   }
 
-  const footerY = pageWidth > 0 ? 270 : noteY + 30;
-  doc.setFontSize(10);
-  drawLabelLine(doc, "DATE :", margin, footerY, 40);
-  doc.text(form.date || "", margin + 15, footerY - 0.6);
-  doc.text(
-    "CACHET ET SIGNATURE DU MÉDECIN DU TRAVAIL",
-    pageWidth - margin - 90,
-    footerY
-  );
+  const footerY = pageHeight - 20;
+  doc.setFontSize(9.5);
+  drawLabelLine(doc, "DATE :", margin, footerY, 35);
+  doc.text(form.date || "", margin + 14, footerY - 0.6);
+  doc.text("CACHET ET SIGNATURE DU MÉDECIN DU TRAVAIL", pageWidth - margin - 90, footerY);
+
 
   return doc;
 };
@@ -315,6 +286,7 @@ export default function AnalysesLaboPage() {
           gsm: c.telephone || c.gsm || "",
           entreprise: d.entreprise || "",
           poste_travail: c.poste || "",
+          matricule: c.matricule || "",
         }));
       } catch (e) {
         if (!cancelled) setPrefillError("Impossible de pré-remplir les données.");

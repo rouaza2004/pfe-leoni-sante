@@ -41,13 +41,6 @@ const EXP_BUCKET_COLORS = {
   gt365: "#22c55e",
 };
 
-const CONSUMPTION_CATEGORIES = [
-  "Antalgiques",
-  "Antiseptiques",
-  "Pansements",
-  "Antibiotiques",
-];
-
 function StatCard({ title, value, subtitle, icon, accent }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -65,15 +58,10 @@ function StatCard({ title, value, subtitle, icon, accent }) {
   );
 }
 
-function normalizeCategory(value) {
-  return (value || "").toString().trim().toLowerCase();
-}
-
 export default function DashboardPharmacie() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [items, setItems] = useState([]);
-  const [movements, setMovements] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,15 +71,19 @@ export default function DashboardPharmacie() {
         setLoading(true);
         setErr("");
 
-        const [itemsRes, movementsRes] = await Promise.all([
-          api.get("/medical/stock/items/"),
-          api.get("/medical/stock/movements/"),
-        ]);
-
+        const accessToken = localStorage.getItem("access");
+        const res = await api.get(
+          "/medical/stock/dashboard/",
+          accessToken
+            ? {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              }
+            : undefined
+        );
         if (cancelled) return;
-
-        setItems(Array.isArray(itemsRes.data) ? itemsRes.data : []);
-        setMovements(Array.isArray(movementsRes.data) ? movementsRes.data : []);
+        setDashboard(res.data || null);
       } catch (error) {
         console.error(error);
         if (!cancelled) setErr("Impossible de charger le tableau de bord pharmacie.");
@@ -101,59 +93,26 @@ export default function DashboardPharmacie() {
     };
 
     load();
+    const handleFocus = () => load();
+    const interval = setInterval(load, 60000);
+    window.addEventListener("focus", handleFocus);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(interval);
     };
   }, []);
 
-  const today = useMemo(() => new Date(), []);
-
-  const medicaments = useMemo(() => {
-    return items.filter(
-      (item) =>
-        String(item.type_article || "").toUpperCase() === "MEDICAMENT" &&
-        (item.actif === undefined || item.actif === true)
-    );
-  }, [items]);
-
-  const parseDate = (value) => {
-    if (!value) return null;
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
-
-  const diffDays = (start, end) =>
-    Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-
-  const isExpired = (item) => {
-    const exp = parseDate(item.date_expiration);
-    return (item.quantite || 0) === 0 || (exp && diffDays(today, exp) < 0);
-  };
-
-  const isExpiringSoon = (item) => {
-    const exp = parseDate(item.date_expiration);
-    if (!exp) return false;
-    const days = diffDays(today, exp);
-    return days >= 0 && days <= 90;
-  };
-
-  const isLowStock = (item) => {
-    const qty = item.quantite || 0;
-    const min = item.seuil_critique || 0;
-    return qty > 0 && qty <= min;
-  };
-
   const metrics = useMemo(() => {
-    const total = medicaments.length;
-    const disponibles = medicaments.filter((m) => (m.quantite || 0) > 0).length;
-    const taux = total ? Math.round((disponibles / total) * 100) : 0;
-    const stockAlerts = medicaments.filter(
-      (m) => (m.quantite || 0) === 0 || isLowStock(m)
-    ).length;
-    const expSoon = medicaments.filter((m) => isExpired(m) || isExpiringSoon(m)).length;
-
-    return { total, taux, stockAlerts, expSoon };
-  }, [medicaments]);
+    return (
+      dashboard?.kpis || {
+        total: 0,
+        taux: 0,
+        stockAlerts: 0,
+        expSoon: 0,
+      }
+    );
+  }, [dashboard]);
 
   const kpiCards = useMemo(
     () => [
@@ -190,124 +149,34 @@ export default function DashboardPharmacie() {
   );
 
   const stockRepartition = useMemo(() => {
-    const base = { inStock: 0, expSoon: 0, low: 0, expired: 0 };
-    medicaments.forEach((item) => {
-      if (isExpired(item)) {
-        base.expired += 1;
-        return;
-      }
-      if (isExpiringSoon(item)) {
-        base.expSoon += 1;
-        return;
-      }
-      if (isLowStock(item)) {
-        base.low += 1;
-        return;
-      }
-      base.inStock += 1;
-    });
+    const base = dashboard?.stockRepartition || {};
     return [
-      { name: "En stock", value: base.inStock, color: STOCK_COLORS.inStock },
-      { name: "Expire bientôt", value: base.expSoon, color: STOCK_COLORS.expSoon },
-      { name: "Stock bas", value: base.low, color: STOCK_COLORS.low },
-      { name: "Expiré", value: base.expired, color: STOCK_COLORS.expired },
+      { name: "En stock", value: base.inStock || 0, color: STOCK_COLORS.inStock },
+      { name: "Expire bientôt", value: base.expSoon || 0, color: STOCK_COLORS.expSoon },
+      { name: "Stock bas", value: base.low || 0, color: STOCK_COLORS.low },
+      { name: "Expiré", value: base.expired || 0, color: STOCK_COLORS.expired },
     ];
-  }, [medicaments]);
+  }, [dashboard]);
 
   const expirationBuckets = useMemo(() => {
-    const buckets = {
-      expired: 0,
-      lt30: 0,
-      d30_90: 0,
-      d90_180: 0,
-      d180_365: 0,
-      gt365: 0,
-    };
-
-    medicaments.forEach((item) => {
-      const exp = parseDate(item.date_expiration);
-      if (!exp) return;
-      const days = diffDays(today, exp);
-      if (days < 0) buckets.expired += 1;
-      else if (days <= 30) buckets.lt30 += 1;
-      else if (days <= 90) buckets.d30_90 += 1;
-      else if (days <= 180) buckets.d90_180 += 1;
-      else if (days <= 365) buckets.d180_365 += 1;
-      else buckets.gt365 += 1;
-    });
-
+    const buckets = dashboard?.expirationBuckets || {};
     return [
-      { label: "Expiré", value: buckets.expired, color: EXP_BUCKET_COLORS.expired },
-      { label: "< 30j", value: buckets.lt30, color: EXP_BUCKET_COLORS.lt30 },
-      { label: "30-90j", value: buckets.d30_90, color: EXP_BUCKET_COLORS.d30_90 },
-      { label: "3-6 mois", value: buckets.d90_180, color: EXP_BUCKET_COLORS.d90_180 },
-      { label: "6-12 mois", value: buckets.d180_365, color: EXP_BUCKET_COLORS.d180_365 },
-      { label: "> 12 mois", value: buckets.gt365, color: EXP_BUCKET_COLORS.gt365 },
+      { label: "Expiré", value: buckets.expired || 0, color: EXP_BUCKET_COLORS.expired },
+      { label: "< 30j", value: buckets.lt30 || 0, color: EXP_BUCKET_COLORS.lt30 },
+      { label: "30-90j", value: buckets.d30_90 || 0, color: EXP_BUCKET_COLORS.d30_90 },
+      { label: "3-6 mois", value: buckets.d90_180 || 0, color: EXP_BUCKET_COLORS.d90_180 },
+      { label: "6-12 mois", value: buckets.d180_365 || 0, color: EXP_BUCKET_COLORS.d180_365 },
+      { label: "> 12 mois", value: buckets.gt365 || 0, color: EXP_BUCKET_COLORS.gt365 },
     ];
-  }, [medicaments, today]);
+  }, [dashboard]);
 
   const stockByCategory = useMemo(() => {
-    const map = new Map();
-    medicaments.forEach((item) => {
-      const cat = item.categorie || "Général";
-      const current = map.get(cat) || { categorie: cat, stock: 0, seuil: 0 };
-      current.stock += item.quantite || 0;
-      current.seuil += item.seuil_critique || 0;
-      map.set(cat, current);
-    });
-    return Array.from(map.values())
-      .sort((a, b) => b.stock - a.stock)
-      .slice(0, 8);
-  }, [medicaments]);
+    return Array.isArray(dashboard?.stockByCategory) ? dashboard.stockByCategory : [];
+  }, [dashboard]);
 
   const consumption = useMemo(() => {
-    const now = new Date();
-    const monthKeys = [];
-    const monthLabels = [];
-    for (let i = 5; i >= 0; i -= 1) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-      monthLabels.push(
-        d.toLocaleString("fr-FR", { month: "short" }).replace(".", "")
-      );
-    }
-
-    const itemCategoryMap = new Map();
-    medicaments.forEach((item) => {
-      itemCategoryMap.set(item.id, normalizeCategory(item.categorie));
-    });
-
-    const totals = {};
-    monthKeys.forEach((key) => {
-      totals[key] = {
-        Antalgiques: 0,
-        Antiseptiques: 0,
-        Pansements: 0,
-        Antibiotiques: 0,
-      };
-    });
-
-    movements.forEach((mv) => {
-      if (String(mv.type_mouvement || "").toUpperCase() !== "SORTIE") return;
-      const date = parseDate(mv.created_at);
-      if (!date) return;
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      if (!totals[key]) return;
-
-      const rawCat = itemCategoryMap.get(mv.stock_item) || "";
-      if (rawCat.includes("antalg")) totals[key].Antalgiques += mv.quantite || 0;
-      else if (rawCat.includes("antisept")) totals[key].Antiseptiques += mv.quantite || 0;
-      else if (rawCat.includes("pansement")) totals[key].Pansements += mv.quantite || 0;
-      else if (rawCat.includes("antibiot")) totals[key].Antibiotiques += mv.quantite || 0;
-    });
-
-    const data = monthKeys.map((key, idx) => ({
-      month: monthLabels[idx],
-      ...totals[key],
-    }));
-
-    return { data, categories: CONSUMPTION_CATEGORIES };
-  }, [movements, medicaments]);
+    return dashboard?.consumption || { data: [], categories: [] };
+  }, [dashboard]);
 
   if (loading) {
     return (
@@ -353,8 +222,14 @@ export default function DashboardPharmacie() {
             <BarChart3 className="h-5 w-5 text-slate-600" />
             <h2 className="text-lg font-semibold text-slate-900">Répartition des stocks</h2>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 min-h-[240px] min-w-0">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={220}
+              style={{ minHeight: 220 }}
+            >
               <PieChart>
                 <Pie
                   data={stockRepartition}
@@ -395,8 +270,14 @@ export default function DashboardPharmacie() {
               Tendances de consommation (6 mois)
             </h2>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 min-h-[240px] min-w-0">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={220}
+              style={{ minHeight: 220 }}
+            >
               <LineChart data={consumption.data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 12 }} />
@@ -426,8 +307,14 @@ export default function DashboardPharmacie() {
               Niveaux de stock par catégorie
             </h2>
           </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-72 min-h-[260px] min-w-0">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={220}
+              style={{ minHeight: 220 }}
+            >
               <BarChart data={stockByCategory} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis type="number" tick={{ fill: "#64748b", fontSize: 12 }} />
@@ -452,8 +339,14 @@ export default function DashboardPharmacie() {
               Échéancier des expirations
             </h2>
           </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-72 min-h-[260px] min-w-0">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={220}
+              style={{ minHeight: 220 }}
+            >
               <BarChart data={expirationBuckets}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 12 }} />

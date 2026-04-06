@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+﻿import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -14,8 +14,8 @@ import {
   Activity,
   FlaskConical,
   ShieldCheck,
-  UserRoundSearch,
   Zap,
+  Clock,
 } from "lucide-react";
 
 import { getUserRole, logout as doLogout } from "../auth/auth.js";
@@ -26,11 +26,11 @@ const roleLabel = (role) => {
     case "ADMIN":
       return "Administrateur";
     case "MEDECIN_TRAITANT":
-      return "Médecin Traitant";
+      return "MÃ©decin Traitant";
     case "MEDECIN_TRAVAIL":
-      return "Médecin du Travail";
+      return "MÃ©decin du Travail";
     case "MEDECIN_CONTROLEUR":
-      return "Médecin Contrôleur";
+      return "MÃ©decin ContrÃ´leur";
     case "INFIRMIER":
       return "Infirmier";
     case "RESPONSABLE_RH":
@@ -102,11 +102,6 @@ export default function AppLayout() {
           icon: <Users size={18} />,
         },
         {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
-        },
-        {
           to: "/medecin-traitant/rdv",
           label: "Rendez-vous",
           icon: <Calendar size={18} />,
@@ -168,11 +163,6 @@ export default function AppLayout() {
           label: "Historique",
           icon: <FileText size={18} />,
         },
-        {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
-        },
       ];
     }
 
@@ -180,14 +170,14 @@ export default function AppLayout() {
       return [
         ...common,
         {
+          to: "/pointage",
+          label: "Pointage",
+          icon: <Clock size={18} />,
+        },
+        {
           to: "/infirmier/patients",
           label: "Patients",
           icon: <Users size={18} />,
-        },
-        {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
         },
         {
           type: "submenu",
@@ -218,6 +208,7 @@ export default function AppLayout() {
           isActive: (loc) =>
             [
               "/infirmier/accidents",
+              "/infirmier/enquete-initiale",
               "/bon-chauffeur",
               "/suivi-transferts",
             ].some((path) => loc.pathname.startsWith(path)),
@@ -227,6 +218,12 @@ export default function AppLayout() {
               label: "Déclaration d'accident",
               icon: <FileText size={16} />,
               isActive: (loc) => loc.pathname.startsWith("/infirmier/accidents"),
+            },
+            {
+              to: "/infirmier/enquete-initiale",
+              label: "Enquête initiale",
+              icon: <FileText size={16} />,
+              isActive: (loc) => loc.pathname.startsWith("/infirmier/enquete-initiale"),
             },
             {
               to: "/bon-chauffeur",
@@ -241,11 +238,6 @@ export default function AppLayout() {
               isActive: (loc) => loc.pathname.startsWith("/suivi-transferts"),
             },
           ],
-        },
-        {
-          to: "/infirmier/maladies-professionnelles",
-          label: "Maladies pro.",
-          icon: <FileText size={18} />,
         },
         {
           to: "/infirmier/maladies-professionnelles",
@@ -274,9 +266,9 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
+          to: "/pointage",
+          label: "Pointage",
+          icon: <Clock size={18} />,
         },
       ];
     }
@@ -284,6 +276,11 @@ export default function AppLayout() {
     if (role === "AGENT_HSEE") {
       return [
         ...common,
+        {
+          to: "/pointage",
+          label: "Pointage",
+          icon: <Clock size={18} />,
+        },
         {
           to: "/hsee",
           label: "Supervision",
@@ -298,11 +295,6 @@ export default function AppLayout() {
           to: "/hsee/plan-action",
           label: "Plan d'action",
           icon: <ClipboardList size={18} />,
-        },
-        {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
         },
         {
           type: "submenu",
@@ -333,6 +325,7 @@ export default function AppLayout() {
           isActive: (loc) =>
             [
               "/infirmier/accidents",
+              "/infirmier/enquete-initiale",
               "/bon-chauffeur",
               "/suivi-transferts",
             ].some((path) => loc.pathname.startsWith(path)),
@@ -342,6 +335,12 @@ export default function AppLayout() {
               label: "Déclaration d'accident",
               icon: <FileText size={16} />,
               isActive: (loc) => loc.pathname.startsWith("/infirmier/accidents"),
+            },
+            {
+              to: "/infirmier/enquete-initiale",
+              label: "Enquête initiale",
+              icon: <FileText size={16} />,
+              isActive: (loc) => loc.pathname.startsWith("/infirmier/enquete-initiale"),
             },
             {
               to: "/bon-chauffeur",
@@ -356,11 +355,6 @@ export default function AppLayout() {
               isActive: (loc) => loc.pathname.startsWith("/suivi-transferts"),
             },
           ],
-        },
-        {
-          to: "/infirmier/maladies-professionnelles",
-          label: "Maladies pro.",
-          icon: <FileText size={18} />,
         },
         {
           to: "/infirmier/maladies-professionnelles",
@@ -384,7 +378,7 @@ export default function AppLayout() {
         },
         {
           to: "/medecin-travail/collaborateurs",
-          label: "Dossiers médicaux",
+          label: "Dossiers mÃ©dicaux",
           icon: <FileText size={18} />,
         },
       ];
@@ -394,9 +388,9 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
+          to: "/pointage",
+          label: "Pointage",
+          icon: <Clock size={18} />,
         },
       ];
     }
@@ -528,3 +522,4 @@ export default function AppLayout() {
     </div>
   );
 }
+

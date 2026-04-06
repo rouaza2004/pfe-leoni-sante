@@ -240,11 +240,37 @@ export default function ExamenComplementaireForm() {
     try {
       setSaving(true);
       setErr("");
-      const exam = await ensureExamForPdf();
-      openPdf(exam.id);
+      const payload = {
+        nom_prenom: form.nom_prenom,
+        age: form.age,
+        cin: form.matricule,
+        poste_travail: form.poste_travail,
+        entreprise: form.entreprise,
+        renseignements_cliniques: form.renseignements_cliniques,
+        visiotest: form.visiotest,
+        audiogramme: form.audiogramme,
+        ecg: form.ecg,
+        efr: form.efr,
+      };
+
+      const res = await api.post(
+        `/medical/examens-complementaires/${collaborateurId}/?pdf=1`,
+        payload,
+        { responseType: "blob" }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `examen_complementaire_${collaborateurId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
-      setErr("Impossible de générer le PDF.");
+      setErr("Impossible de g?n?rer le PDF.");
     } finally {
       setSaving(false);
     }

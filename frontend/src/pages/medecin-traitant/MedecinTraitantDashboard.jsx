@@ -112,13 +112,13 @@ export default function MedecinTraitantDashboard() {
           title="Remplir fiche médicale"
           desc="Créer / mettre à jour la fiche médicale"
           icon={<ClipboardList size={20} />}
-          onClick={() => navigate("/medecin-traitant/collaborateurs?action=fiche")}
+          onClick={() => navigate("/medecin-traitant/fiche-medicale")}
         />
         <QuickAction
           title="Créer ordonnance / certificat"
           desc="Générer un document médical"
           icon={<FileText size={20} />}
-          onClick={() => navigate("/medecin-traitant/collaborateurs?action=documents")}
+          onClick={() => navigate("/medecin-traitant/certificat-ordonnance")}
         />
       </div>
 

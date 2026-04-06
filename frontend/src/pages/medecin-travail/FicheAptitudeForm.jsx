@@ -65,6 +65,9 @@ export default function FicheAptitudeForm() {
     qualifications_professionnelles: "",
     date_recrutement: "",
     poste_travail: "",
+    medecin_travail: "",
+    date_examen: "",
+    conclusion: "",
     type_examen: "EMBAUCHE",
     aptitude: "APTE",
     recommandations: "",
@@ -102,6 +105,9 @@ export default function FicheAptitudeForm() {
           qualifications_professionnelles: c.poste || "",
           date_recrutement: d.date_recrutement || "",
           poste_travail: c.poste || "",
+          medecin_travail: "",
+          date_examen: "",
+          conclusion: "",
         }));
       } catch (e) {
         console.error(e);
@@ -138,6 +144,24 @@ export default function FicheAptitudeForm() {
       setErr("");
       setSuccess("");
 
+      const requiredFields = [
+        { key: "entreprise", label: "Entreprise" },
+        { key: "nom_prenom", label: "Nom et prénom" },
+        { key: "type_examen", label: "Type d’examen" },
+        { key: "aptitude", label: "Aptitude" },
+        { key: "date_examen", label: "Date de l’examen" },
+      ];
+
+      const missing = requiredFields
+        .filter((f) => !String(form[f.key] || "").trim())
+        .map((f) => f.label);
+
+      if (missing.length > 0) {
+        setErr(`Champs obligatoires : ${missing.join(", ")}.`);
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         entreprise: form.entreprise,
         adresse_entreprise: form.adresse_entreprise,
@@ -150,6 +174,9 @@ export default function FicheAptitudeForm() {
         qualifications_professionnelles: form.qualifications_professionnelles,
         date_recrutement: form.date_recrutement || null,
         poste_travail: form.poste_travail,
+        medecin_travail: form.medecin_travail,
+        date_examen: form.date_examen || null,
+        conclusion: form.conclusion,
         type_examen: form.type_examen,
         aptitude: form.aptitude,
         recommandations: form.recommandations,
@@ -323,10 +350,10 @@ export default function FicheAptitudeForm() {
 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-5">
-            Décision médicale
+            Examen médical
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <Select
               label="Type d’examen"
               name="type_examen"
@@ -339,6 +366,30 @@ export default function FicheAptitudeForm() {
               <option value="SPONTANE">Spontané</option>
             </Select>
 
+            <Input
+              label="Date de l’examen"
+              type="date"
+              name="date_examen"
+              value={form.date_examen}
+              onChange={handleChange}
+            />
+
+            <Input
+              label="Médecin du travail"
+              name="medecin_travail"
+              value={form.medecin_travail}
+              onChange={handleChange}
+              placeholder="Nom du médecin"
+            />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-5">
+            Conclusion
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <Select
               label="Aptitude"
               name="aptitude"
@@ -353,6 +404,14 @@ export default function FicheAptitudeForm() {
               </option>
               <option value="INAPTE_DEFINITIF">Inapte définitif</option>
             </Select>
+
+            <Input
+              label="Conclusion / Observations"
+              name="conclusion"
+              value={form.conclusion}
+              onChange={handleChange}
+              placeholder="Conclusion médicale"
+            />
           </div>
 
           <div className="mt-5">
