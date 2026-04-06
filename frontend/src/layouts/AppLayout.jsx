@@ -216,9 +216,14 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
+          to: "/rh/nouveaux-operateurs",
+          label: "Nouveaux operateurs",
+          icon: <Users size={18} />,
+        },
+        {
+          to: "/rh/absences-ponctualite",
+          label: "Absences & ponctualité",
+          icon: <BarChart3 size={18} />,
         },
       ];
     }

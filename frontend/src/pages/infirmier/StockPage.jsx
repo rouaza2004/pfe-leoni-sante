@@ -394,13 +394,13 @@ export default function StockPage() {
                 onChange={handleEditChange}
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
               >
-                <option value="MEDICAMENT">MÃ©dicament</option>
+                <option value="MEDICAMENT">Médicament</option>
                 <option value="CONSOMMABLE">Consommable</option>
               </select>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">QuantitÃ©</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Quantité</label>
               <input
                 type="number"
                 min="0"
@@ -426,7 +426,7 @@ export default function StockPage() {
             </div>
 
             <div className="xl:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">UnitÃ©</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Unité</label>
               <input
                 type="text"
                 name="unite"

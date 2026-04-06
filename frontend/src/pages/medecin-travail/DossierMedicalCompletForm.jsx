@@ -2,40 +2,44 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, FileText, Plus, Trash2 } from "lucide-react";
 import { api } from "@/api/api";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
-const Input = ({ label, ...props }) => (
+const controlBaseClassName =
+  "w-full rounded-xl border border-slate-200 bg-white px-4 text-sm leading-6 tracking-normal text-slate-900 [font-kerning:normal] [font-variant-ligatures:none] [text-rendering:optimizeLegibility] antialiased outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-600 disabled:opacity-100";
+
+const Input = ({ label, className = "", ...props }) => (
   <div>
-    <label className="block text-sm font-medium text-slate-700 mb-2">
+    <label className="mb-2 block text-sm font-medium text-slate-700">
       {label}
     </label>
     <input
       {...props}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-slate-200"
+      className={`${controlBaseClassName} h-12 appearance-none py-2.5 align-middle focus:ring-2 focus:ring-slate-200 ${className}`.trim()}
     />
   </div>
 );
 
-const TextArea = ({ label, rows = 4, ...props }) => (
+const TextArea = ({ label, rows = 4, className = "", ...props }) => (
   <div>
-    <label className="block text-sm font-medium text-slate-700 mb-2">
+    <label className="mb-2 block text-sm font-medium text-slate-700">
       {label}
     </label>
     <textarea
       {...props}
       rows={rows}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-slate-200"
+      className={`${controlBaseClassName} min-h-12 resize-y py-2.5 focus:ring-2 focus:ring-slate-200 ${className}`.trim()}
     />
   </div>
 );
 
-const Select = ({ label, children, ...props }) => (
+const Select = ({ label, children, className = "", ...props }) => (
   <div>
-    <label className="block text-sm font-medium text-slate-700 mb-2">
+    <label className="mb-2 block text-sm font-medium text-slate-700">
       {label}
     </label>
     <select
       {...props}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-slate-200 bg-white"
+      className={`${controlBaseClassName} h-12 appearance-none py-2.5 focus:ring-2 focus:ring-slate-200 ${className}`.trim()}
     >
       {children}
     </select>
@@ -166,8 +170,8 @@ export default function DossierMedicalCompletForm({
           api.get(`/medical/dossier/${collaborateurId}/`),
         ]);
 
-        const collabData = collabRes.data || {};
-        const dossierData = dossierRes.data || {};
+        const collabData = fixFrenchTextDeep(collabRes.data || {});
+        const dossierData = fixFrenchTextDeep(dossierRes.data || {});
         const examen = dossierData?.examen_initial || null;
 
         setCollab(collabData);
@@ -267,11 +271,9 @@ export default function DossierMedicalCompletForm({
         });
       } catch (e) {
         console.error(e);
-        if (!cancelled) {
-          setErr("Impossible de charger le dossier médical complet.");
-        }
+        setErr("Impossible de charger le dossier médical complet.");
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
   };
 
@@ -290,8 +292,8 @@ export default function DossierMedicalCompletForm({
 
         if (cancelled) return;
 
-        const collabData = collabRes.data || {};
-        const dossierData = dossierRes.data || {};
+        const collabData = fixFrenchTextDeep(collabRes.data || {});
+        const dossierData = fixFrenchTextDeep(dossierRes.data || {});
         const examen = dossierData?.examen_initial || null;
 
         setCollab(collabData);
@@ -443,7 +445,7 @@ export default function DossierMedicalCompletForm({
       setAutofillMsg("");
       setAutofillLoading(true);
       await api.post(`/medical/dossier/${collaborateurId}/autofill/`);
-      setAutofillMsg("Auto-remplissage terminÃ©.");
+      setAutofillMsg("Auto-remplissage terminé.");
       await reload();
     } catch (e) {
       console.error(e);
@@ -781,7 +783,7 @@ export default function DossierMedicalCompletForm({
                   <h3 className="font-semibold text-slate-900">
                     Vaccination {index + 1}
                   </h3>
-                  {vaccinations.length > 1 && (
+                  {!isReadOnly && vaccinations.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeVaccination(index)}
@@ -836,14 +838,16 @@ export default function DossierMedicalCompletForm({
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={addVaccination}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              <Plus size={16} />
-              Ajouter vaccination
-            </button>
+            {!isReadOnly && (
+              <button
+                type="button"
+                onClick={addVaccination}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              >
+                <Plus size={16} />
+                Ajouter vaccination
+              </button>
+            )}
           </div>
         </Section>
 
@@ -855,7 +859,7 @@ export default function DossierMedicalCompletForm({
                   <h3 className="font-semibold text-slate-900">
                     Poste {index + 1}
                   </h3>
-                  {postes.length > 1 && (
+                  {!isReadOnly && postes.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removePoste(index)}
@@ -901,14 +905,16 @@ export default function DossierMedicalCompletForm({
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={addPoste}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              <Plus size={16} />
-              Ajouter poste
-            </button>
+            {!isReadOnly && (
+              <button
+                type="button"
+                onClick={addPoste}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              >
+                <Plus size={16} />
+                Ajouter poste
+              </button>
+            )}
           </div>
         </Section>
 
@@ -920,7 +926,7 @@ export default function DossierMedicalCompletForm({
                   <h3 className="font-semibold text-slate-900">
                     Examen ultérieur {index + 1}
                   </h3>
-                  {examensUlterieurs.length > 1 && (
+                  {!isReadOnly && examensUlterieurs.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeExamenUlterieur(index)}
@@ -1002,14 +1008,16 @@ export default function DossierMedicalCompletForm({
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={addExamenUlterieur}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              <Plus size={16} />
-              Ajouter examen ultérieur
-            </button>
+            {!isReadOnly && (
+              <button
+                type="button"
+                onClick={addExamenUlterieur}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              >
+                <Plus size={16} />
+                Ajouter examen ultérieur
+              </button>
+            )}
           </div>
         </Section>
 

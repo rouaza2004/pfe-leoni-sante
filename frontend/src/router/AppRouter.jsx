@@ -41,6 +41,8 @@ import StockPage from "../pages/infirmier/StockPage";
 import RDVPage from "../pages/infirmier/RDVPage";
 
 import RHDashboard from "../pages/rh/RHDashboard";
+import AbsencesPonctualiteRH from "../pages/rh/AbsencesPonctualiteRH";
+import NouveauxOperateursRH from "../pages/rh/NouveauxOperateursRH";
 
 import HSEEDashboard from "../pages/hsee/HSEEDashboard";
 import HSEEStatsPage from "../pages/hsee/HSEEStatsPage";
@@ -395,6 +397,24 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
               <RHDashboard />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rh/absences-ponctualite"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
+              <AbsencesPonctualiteRH />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rh/nouveaux-operateurs"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
+              <NouveauxOperateursRH />
             </RoleRoute>
           }
         />

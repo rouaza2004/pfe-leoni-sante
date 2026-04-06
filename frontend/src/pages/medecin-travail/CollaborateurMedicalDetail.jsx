@@ -15,6 +15,7 @@ import {
   Activity,
 } from "lucide-react";
 import { api } from "@/api/api";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
 const ActionCard = ({ title, desc, icon, onClick }) => (
   <button
@@ -170,10 +171,10 @@ export default function CollaborateurMedicalDetail() {
 
         if (cancelled) return;
 
-        setCollab(collabRes.data || null);
-        setDossier(dossierRes.data || null);
+        setCollab(fixFrenchTextDeep(collabRes.data || null));
+        setDossier(fixFrenchTextDeep(dossierRes.data || null));
         setFichesAptitude(
-          Array.isArray(fichesRes.data) ? fichesRes.data : []
+          fixFrenchTextDeep(Array.isArray(fichesRes.data) ? fichesRes.data : [])
         );
       } catch (e) {
         console.error(e);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/api";
 import { Search, User, FilePlus2, FolderOpen } from "lucide-react";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
 const getDossierStatus = (collab, dossier) => {
   const hasCollabInfo =
@@ -33,13 +34,13 @@ export default function CollaborateursMedTravail() {
       setLoading(true);
 
       const res = await api.get("/collaborateurs/");
-      const collabs = Array.isArray(res.data) ? res.data : [];
+      const collabs = fixFrenchTextDeep(Array.isArray(res.data) ? res.data : []);
 
       const enriched = await Promise.all(
         collabs.map(async (c) => {
           try {
             const dossierRes = await api.get(`/medical/dossier/${c.id}/`);
-            const dossier = dossierRes.data || null;
+            const dossier = fixFrenchTextDeep(dossierRes.data || null);
             const dossierComplet = getDossierStatus(c, dossier);
 
             return {

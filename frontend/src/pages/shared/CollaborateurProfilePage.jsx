@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getCollaborateurProfilByMatricule } from "./collaborateurProfile.api";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
 function Section({ title, children }) {
   return (
@@ -41,7 +42,7 @@ export default function CollaborateurProfilePage() {
       setLoading(true);
       setErr("");
       const result = await getCollaborateurProfilByMatricule(matricule.trim());
-      setData(result);
+      setData(fixFrenchTextDeep(result));
     } catch (error) {
       console.error(error);
       setErr("Collaborateur introuvable.");
