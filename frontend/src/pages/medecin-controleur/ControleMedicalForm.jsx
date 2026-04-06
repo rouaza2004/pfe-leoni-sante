@@ -10,7 +10,7 @@ const Input = ({ label, ...props }) => (
     </label>
     <input
       {...props}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-slate-200"
+      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
     />
   </div>
 );
@@ -23,7 +23,7 @@ const TextArea = ({ label, ...props }) => (
     <textarea
       {...props}
       rows={4}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-slate-200"
+      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
     />
   </div>
 );
@@ -35,7 +35,7 @@ const Select = ({ label, children, ...props }) => (
     </label>
     <select
       {...props}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-slate-200"
+      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
     >
       {children}
     </select>
@@ -91,7 +91,7 @@ export default function ControleMedicalForm() {
         ...form,
       });
 
-      navigate("/medecin-controleur/historique");
+      navigate("/medecin-controleur/controle-medical");
     } catch (e) {
       console.error(e);
       setErr("Erreur lors de l'enregistrement du contrôle médical.");
@@ -104,13 +104,13 @@ export default function ControleMedicalForm() {
     <div className="p-6 space-y-6">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-slate-600 hover:text-slate-900"
+        className="flex items-center gap-2 text-sky-700 hover:text-slate-900"
       >
         <ArrowLeft size={18} />
         Retour
       </button>
 
-      <div>
+      <div className="rounded-[26px] border border-slate-200 bg-gradient-to-br from-white via-sky-50/35 to-white p-5 shadow-sm shadow-slate-200/50">
         <h1 className="text-2xl font-bold text-slate-800">Contrôle Médical</h1>
         {collaborateur && (
           <p className="text-slate-500">
@@ -121,7 +121,7 @@ export default function ControleMedicalForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4"
+        className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4 ring-1 ring-sky-100/60"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
@@ -167,12 +167,16 @@ export default function ControleMedicalForm() {
           placeholder="Ex: reprise, prolongation, expertise..."
         />
 
-        {err && <p className="text-sm text-red-600">{err}</p>}
+        {err && (
+          <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {err}
+          </p>
+        )}
 
         <button
           type="submit"
           disabled={saving}
-          className="px-5 py-3 rounded-xl bg-slate-900 text-white flex items-center gap-2"
+          className="px-5 py-3 rounded-xl bg-slate-900 text-white flex items-center gap-2 shadow-sm shadow-sky-900/25 transition hover:bg-slate-800"
         >
           <Save size={18} />
           {saving ? "Enregistrement..." : "Enregistrer"}

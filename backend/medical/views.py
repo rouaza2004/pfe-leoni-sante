@@ -1,6 +1,7 @@
 from pathlib import Path
 from io import BytesIO
 import base64
+import logging
 import os
 import tempfile
 import random
@@ -10,7 +11,7 @@ from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Sum, Count, Case, When, Value, CharField, Q
+from django.db.models import Sum, Count, Case, When, Value, CharField
 from django.db.models.functions import ExtractMonth
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -30,6 +31,7 @@ from bidi.algorithm import get_display
 
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.serializers import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -62,9 +64,6 @@ from .models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
-    BonChauffeur,
-    SuiviTransfertUrgence,
-    PointageMedecin,
 )
 
 from .serializers import (
@@ -86,69 +85,70 @@ from .serializers import (
     FicheAptitudeSerializer,
     DemandeExamenLaboSerializer,
     ExamenComplementaireSerializer,
-    BonChauffeurSerializer,
-    SuiviTransfertUrgenceSerializer,
-    PointageMedecinSerializer,
 )
 
 
-class MedicamentImportAPIView(APIView):
-    """
-    Placeholder view to avoid import errors if the medicament import feature
-    isn't implemented yet. Replace with real import logic when ready.
-    """
+def link_callback(uri, rel):
+    if settings.STATIC_URL and uri.startswith(settings.STATIC_URL):
+        path = finders.find(uri.replace(settings.STATIC_URL, ""))
+        if path:
+            return path
+    if settings.MEDIA_URL and uri.startswith(settings.MEDIA_URL):
+        path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
+        return path
+    return uri
 
-    permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        return Response(
-            {"detail": "Import des médicaments non implémenté."},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
+def require_medecin_travail(request):
+    role = (getattr(request.user, "role", "") or "").strip().upper()
+    if role not in ["MEDECIN_TRAVAIL", "ADMIN"]:
+        raise PermissionDenied(
+            "Seul le médecin du travail peut modifier le dossier médical."
         )
 
 
-
-class DossierByCollaborateurView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, collaborateur_id, *args, **kwargs):
-        collaborateur = get_object_or_404(Collaborateur, pk=collaborateur_id)
-        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
-        serializer = DossierMedicalSerializer(dossier)
-        return Response(serializer.data)
-
-    def patch(self, request, collaborateur_id, *args, **kwargs):
-        collaborateur = get_object_or_404(Collaborateur, pk=collaborateur_id)
-        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
-        serializer = DossierMedicalSerializer(dossier, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+def ensure_temp_dir():
+    temp_dir = Path(settings.BASE_DIR) / "tmp"
+    temp_dir.mkdir(exist_ok=True)
+    tempfile.tempdir = str(temp_dir)
 
 
-class DossierByMatriculeView(APIView):
-    permission_classes = [IsAuthenticated]
+def patch_xhtml2pdf_tempfile():
+    if getattr(xhtml_files, "_patched_tempfile", False):
+        return
 
-    def get(self, request, matricule, *args, **kwargs):
-        collaborateur = get_object_or_404(Collaborateur, matricule=matricule)
-        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
-        serializer = DossierMedicalSerializer(dossier)
-        return Response(serializer.data)
+    def get_named_tmp_file(self):
+        data = self.get_data()
+        tmp_file = tempfile.NamedTemporaryFile(suffix=self.suffix, delete=False)
+        if data:
+            tmp_file.write(data)
+            tmp_file.flush()
+            tmp_file.close()
+            xhtml_files.files_tmp.append(tmp_file)
+        if self.path is None:
+            self.path = tmp_file.name
+        return tmp_file
 
-
-class DossierAutofillView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        created_count = 0
-        for collaborateur in Collaborateur.objects.all():
-            _, created = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
-            if created:
-                created_count += 1
-        return Response({"created": created_count})
+    xhtml_files.BaseFile.get_named_tmp_file = get_named_tmp_file
+    xhtml_files._patched_tempfile = True
 
 
-class DossierAutofillOneView(APIView):
+def shape_arabic(text: str) -> str:
+    reshaped = arabic_reshaper.reshape(text)
+    return get_display(reshaped)
+
+
+def register_arabic_font():
+    try:
+        pdfmetrics.getFont("Amiri")
+        return
+    except Exception:
+        pass
+    font_path = finders.find("fonts/Amiri-Regular.ttf")
+    if font_path:
+        pdfmetrics.registerFont(TTFont("Amiri", font_path))
+
+class FicheAptitudePdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, collaborateur_id, *args, **kwargs):
@@ -1715,6 +1715,303 @@ class DossierMedicalPdfView(APIView):
         response["Content-Disposition"] = f'inline; filename="dossier_medical_{collab.matricule}.pdf"'
         return response
 
+
+
+STATUS_LABELS = {
+    "EN_ATTENTE": "En attente",
+    "VALIDE": "Validés",
+    "REFUSE": "Refusés",
+}
+
+
+def _empty_medecin_controleur_report_payload():
+    return {
+        "total_dossiers": 0,
+        "total_controles": 0,
+        "total_expertises": 0,
+        "taux_validation": 0,
+        "par_statut": {
+            "En attente": 0,
+            "Validés": 0,
+            "Refusés": 0,
+        },
+        "par_type": {
+            "Contrôle médical": 0,
+            "Demande d'expertise": 0,
+        },
+        "par_mois": [],
+        "par_gravite": {
+            "Faible": 0,
+            "Moyenne": 0,
+            "Grave": 0,
+            "Critique": 0,
+        },
+    }
+
+
+def _infer_report_severity(record_type, record):
+    text_parts = []
+
+    if record_type == "controle":
+        text_parts.extend(
+            [
+                getattr(record, "repos_prescrit", "") or "",
+                getattr(record, "avis_medecin_controleur", "") or "",
+            ]
+        )
+    else:
+        text_parts.extend(
+            [
+                getattr(record, "aptitude_poste", "") or "",
+                getattr(record, "autres_missions", "") or "",
+                getattr(record, "pieces_jointes", "") or "",
+                " ".join(getattr(record, "attachment_names", []) or []),
+            ]
+        )
+
+    normalized = " ".join(text_parts).lower()
+
+    if any(keyword in normalized for keyword in ["critique", "urgence", "urgent"]):
+        return "Critique"
+    if any(keyword in normalized for keyword in ["grave", "inapte", "hospital"]):
+        return "Grave"
+    if any(part.strip() for part in text_parts):
+        return "Moyenne"
+    return "Faible"
+
+
+def _build_medecin_controleur_report_payload():
+    try:
+        ensure_medecin_controleur_history_tables()
+        controles = list(ControleMedicalRecord.objects.all())
+        expertises = list(DemandeExpertiseRecord.objects.all())
+    except (OperationalError, ProgrammingError):
+        logger.exception("Impossible de lire l'historique médecin contrôleur pour les statistiques.")
+        payload = _empty_medecin_controleur_report_payload()
+        payload["summary"] = {
+            "total_dossiers": payload["total_dossiers"],
+            "taux_validation": payload["taux_validation"],
+            "total_controles": payload["total_controles"],
+            "total_expertises": payload["total_expertises"],
+        }
+        payload["dossiers_par_type"] = [
+            {"name": "Contrôle médical", "value": 0},
+            {"name": "Demande d'expertise", "value": 0},
+        ]
+        payload["repartition_par_statut"] = [
+            {"name": "En attente", "value": 0, "color": "#F59E0B"},
+            {"name": "Validés", "value": 0, "color": "#2563EB"},
+            {"name": "Refusés", "value": 0, "color": "#E11D48"},
+        ]
+        payload["accidents_par_gravite"] = [
+            {"name": "Faible", "value": 0},
+            {"name": "Moyenne", "value": 0},
+            {"name": "Grave", "value": 0},
+            {"name": "Critique", "value": 0},
+        ]
+        return payload
+
+    total_controles = len(controles)
+    total_expertises = len(expertises)
+    total_dossiers = total_controles + total_expertises
+
+    status_totals = {"En attente": 0, "Validés": 0, "Refusés": 0}
+    for row in ControleMedicalRecord.objects.values("statut").annotate(total=Count("id")):
+        status_totals[STATUS_LABELS.get(row["statut"], "En attente")] += row["total"]
+    for row in DemandeExpertiseRecord.objects.values("statut").annotate(total=Count("id")):
+        status_totals[STATUS_LABELS.get(row["statut"], "En attente")] += row["total"]
+
+    validated_count = status_totals["Validés"]
+    taux_validation = round((validated_count / total_dossiers) * 100) if total_dossiers else 0
+
+    severity_totals = {"Faible": 0, "Moyenne": 0, "Grave": 0, "Critique": 0}
+    for record in controles:
+        severity_totals[_infer_report_severity("controle", record)] += 1
+    for record in expertises:
+        severity_totals[_infer_report_severity("expertise", record)] += 1
+
+    month_labels = {
+        1: "Jan",
+        2: "Fév",
+        3: "Mar",
+        4: "Avr",
+        5: "Mai",
+        6: "Juin",
+        7: "Juil",
+        8: "Août",
+        9: "Sep",
+        10: "Oct",
+        11: "Nov",
+        12: "Déc",
+    }
+    monthly_counts = {}
+
+    controle_rows = (
+        ControleMedicalRecord.objects.annotate(month=ExtractMonth("date"))
+        .values("month")
+        .annotate(total=Count("id"))
+        .order_by("month")
+    )
+    for row in controle_rows:
+        month = row["month"]
+        if month is None:
+            continue
+        label = month_labels.get(month, str(month))
+        monthly_counts.setdefault(label, {"month": label, "controles": 0, "expertises": 0})
+        monthly_counts[label]["controles"] = row["total"]
+
+    expertise_rows = (
+        DemandeExpertiseRecord.objects.annotate(month=ExtractMonth("date"))
+        .values("month")
+        .annotate(total=Count("id"))
+        .order_by("month")
+    )
+    for row in expertise_rows:
+        month = row["month"]
+        if month is None:
+            continue
+        label = month_labels.get(month, str(month))
+        monthly_counts.setdefault(label, {"month": label, "controles": 0, "expertises": 0})
+        monthly_counts[label]["expertises"] = row["total"]
+
+    par_statut = {
+        "En attente": status_totals["En attente"],
+        "Validés": status_totals["Validés"],
+        "Refusés": status_totals["Refusés"],
+    }
+    par_type = {
+        "Contrôle médical": total_controles,
+        "Demande d'expertise": total_expertises,
+    }
+    par_gravite = {
+        "Faible": severity_totals["Faible"],
+        "Moyenne": severity_totals["Moyenne"],
+        "Grave": severity_totals["Grave"],
+        "Critique": severity_totals["Critique"],
+    }
+    par_mois = list(monthly_counts.values())
+
+    return {
+        "total_dossiers": total_dossiers,
+        "total_controles": total_controles,
+        "total_expertises": total_expertises,
+        "taux_validation": taux_validation,
+        "par_statut": par_statut,
+        "par_type": par_type,
+        "par_mois": par_mois,
+        "par_gravite": par_gravite,
+        "summary": {
+            "total_dossiers": total_dossiers,
+            "taux_validation": taux_validation,
+            "total_controles": total_controles,
+            "total_expertises": total_expertises,
+        },
+        "dossiers_par_type": [
+            {"name": "Contrôle médical", "value": total_controles},
+            {"name": "Demande d'expertise", "value": total_expertises},
+        ],
+        "repartition_par_statut": [
+            {"name": "En attente", "value": status_totals["En attente"], "color": "#F59E0B"},
+            {"name": "Validés", "value": status_totals["Validés"], "color": "#2563EB"},
+            {"name": "Refusés", "value": status_totals["Refusés"], "color": "#E11D48"},
+        ],
+        "accidents_par_gravite": [
+            {"name": "Faible", "value": severity_totals["Faible"]},
+            {"name": "Moyenne", "value": severity_totals["Moyenne"]},
+            {"name": "Grave", "value": severity_totals["Grave"]},
+            {"name": "Critique", "value": severity_totals["Critique"]},
+        ],
+    }
+
+
+class ControleMedicalRecordListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        require_medecin_controleur(request)
+        ensure_medecin_controleur_history_tables()
+        queryset = ControleMedicalRecord.objects.all().order_by("-date", "-created_at")
+        return Response(
+            ControleMedicalRecordSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        require_medecin_controleur(request)
+        try:
+            ensure_medecin_controleur_history_tables()
+            serializer = ControleMedicalRecordSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            record = serializer.save(created_by=request.user)
+            return Response(
+                ControleMedicalRecordSerializer(record).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except ValidationError as exc:
+            logger.warning("Validation contrôle médical invalide: %s", exc.detail)
+            return Response(
+                {"detail": exc.detail, "code": "controle_medical_validation_failed"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            logger.exception("Erreur lors de l'enregistrement d'un contrôle médical.")
+            return Response(
+                {"detail": str(exc), "code": "controle_medical_save_failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class DemandeExpertiseRecordListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        require_medecin_controleur(request)
+        ensure_medecin_controleur_history_tables()
+        queryset = DemandeExpertiseRecord.objects.all().order_by("-date", "-created_at")
+        return Response(
+            DemandeExpertiseRecordSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        require_medecin_controleur(request)
+        try:
+            ensure_medecin_controleur_history_tables()
+            serializer = DemandeExpertiseRecordSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            record = serializer.save(created_by=request.user)
+            return Response(
+                DemandeExpertiseRecordSerializer(record).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except ValidationError as exc:
+            logger.warning("Validation demande expertise invalide: %s", exc.detail)
+            return Response(
+                {"detail": exc.detail, "code": "demande_expertise_validation_failed"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            logger.exception("Erreur lors de l'enregistrement d'une demande d'expertise.")
+            return Response(
+                {"detail": str(exc), "code": "demande_expertise_save_failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class MedecinControleurReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        require_medecin_controleur(request)
+        return Response(_build_medecin_controleur_report_payload(), status=status.HTTP_200_OK)
+
+
+class StatistiquesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        require_medecin_controleur(request)
+        return Response(_build_medecin_controleur_report_payload(), status=status.HTTP_200_OK)
 
 class CertificatMedicalPdfView(APIView):
     permission_classes = [IsAuthenticated]

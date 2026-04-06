@@ -19,11 +19,6 @@ from .models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
-    IncidentAvecBon,
-    IncidentSansBon,
-    BonChauffeur,
-    SuiviTransfertUrgence,
-    PointageMedecin,
 )
 
 
@@ -630,3 +625,17 @@ class SuiviTransfertUrgenceSerializer(serializers.ModelSerializer):
         model = SuiviTransfertUrgence
         fields = "__all__"
         read_only_fields = ("created_by", "date", "created_at")
+
+
+class ControleMedicalRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ControleMedicalRecord
+        fields = "__all__"
+        read_only_fields = ("created_by", "created_at", "updated_at")
+
+
+class DemandeExpertiseRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemandeExpertiseRecord
+        fields = "__all__"
+        read_only_fields = ("created_by", "created_at", "updated_at")

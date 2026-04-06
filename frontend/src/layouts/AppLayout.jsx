@@ -154,6 +154,11 @@ export default function AppLayout() {
           icon: <Users size={18} />,
         },
         {
+          to: "/medecin-controleur/controle-medical",
+          label: "Contrôle médical",
+          icon: <FileText size={18} />,
+        },
+        {
           to: "/medecin-controleur/demande-expertise",
           label: "Demande d'expertise",
           icon: <ClipboardList size={18} />,
@@ -162,6 +167,11 @@ export default function AppLayout() {
           to: "/medecin-controleur/historique",
           label: "Historique",
           icon: <FileText size={18} />,
+        },
+        {
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
         },
       ];
     }
@@ -266,9 +276,9 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/pointage",
-          label: "Pointage",
-          icon: <Clock size={18} />,
+          to: "/collaborateur-profile",
+          label: "Profil collaborateur",
+          icon: <UserRoundSearch size={18} />,
         },
       ];
     }

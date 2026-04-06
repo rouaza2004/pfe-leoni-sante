@@ -6,6 +6,10 @@ let isRedirectingToLogin = false;
 
 export const api = axios.create({
   baseURL: BASE_URL,
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json; charset=utf-8",
+  },
 });
 
 api.interceptors.request.use(

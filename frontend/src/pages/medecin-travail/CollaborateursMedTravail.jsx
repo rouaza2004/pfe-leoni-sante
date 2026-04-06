@@ -1,30 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/api";
-import {
-  Search,
-  User,
-  FolderOpen,
-  Mail,
-  BadgeCheck,
-  Briefcase,
-  Building2,
-  CalendarDays,
-  ShieldCheck,
-  Plus,
-  SlidersHorizontal,
-  LayoutGrid,
-  Eye,
-  Pencil,
-  CheckCircle2,
-  Clock3,
-  AlertCircle,
-  X,
-  Upload,
-  PlusCircle,
-  Trash2,
-} from "lucide-react";
-import { isAuthenticated } from "@/auth/auth";
+import { Search, User, FilePlus2, FolderOpen } from "lucide-react";
 
 const getDossierStatus = (collab, dossier) => {
   const hasCollabInfo =
@@ -320,20 +297,15 @@ export default function CollaborateursMedTravail() {
       setLoading(true);
       setErr("");
 
-      const [collabRes, dossiersRes] = await Promise.all([
-        api.get("/collaborateurs/"),
-        api.get("/medical/dossiers/"),
-      ]);
+      const res = await api.get("/collaborateurs/");
+      const collabs = Array.isArray(res.data) ? res.data : [];
 
-      const collabs = Array.isArray(collabRes.data) ? collabRes.data : [];
-      const dossiers = Array.isArray(dossiersRes.data) ? dossiersRes.data : [];
-      const dossierByCollaborateur = new Map(
-        dossiers.map((d) => [d.collaborateur, d])
-      );
-
-      const enriched = collabs.map((c) => {
-        const dossier = dossierByCollaborateur.get(c.id) || null;
-        const dossierComplet = getDossierStatus(c, dossier);
+      const enriched = await Promise.all(
+        collabs.map(async (c) => {
+          try {
+            const dossierRes = await api.get(`/medical/dossier/${c.id}/`);
+            const dossier = dossierRes.data || null;
+            const dossierComplet = getDossierStatus(c, dossier);
 
         return {
           ...c,

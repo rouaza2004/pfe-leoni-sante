@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { api } from "@/api/api";
 import DossierMedical from "../medecin-traitant/DossierMedical";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
 const tabs = [
   { id: "profil", label: "Profil & Administratif" },
@@ -107,7 +108,7 @@ export default function PatientsPage() {
         const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
 
         if (cancelled) return;
-        setCollaborateurs(data);
+        setCollaborateurs(fixFrenchTextDeep(data));
       } catch (e) {
         console.error("COLLAB ERROR =", e?.response?.status, e?.response?.data);
         if (!cancelled) setListErr("Erreur chargement collaborateurs");

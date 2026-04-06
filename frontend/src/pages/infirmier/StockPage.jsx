@@ -1128,449 +1128,366 @@ export default function StockPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-700">Stock & Expiration</p>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-4 text-sm text-slate-600">
-                <div>
-                  <p className="text-xs text-slate-500">Stock actuel</p>
-                  <p className="font-semibold text-slate-800">{detailItem.quantite ?? "--"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Stock min</p>
-                  <p className="font-semibold text-slate-800">{detailItem.seuil_critique ?? "--"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Expiration</p>
-                  <p className="font-semibold text-slate-800">
-                    {formatDate(detailItem.date_expiration)}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 h-2 w-full rounded-full bg-white">
-                <div
-                  className="h-2 rounded-full bg-slate-700"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      Math.round(
-                        (Number(detailItem.quantite || 0) /
-                          Math.max(Number(detailItem.seuil_critique || 1), 1)) *
-                          100
-                      )
-                    )}%`,
-                  }}
-                />
-              </div>
+      {showItemForm && (
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-5 text-lg font-semibold text-slate-900">Nouvel article</h2>
+
+          <form onSubmit={handleItemSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Nom article</label>
+              <input
+                type="text"
+                name="nom"
+                value={newItem.nom}
+                onChange={handleItemChange}
+                required
+                placeholder="Ex: Augmentin 1g"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
             </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
+              <select
+                name="type_article"
+                value={newItem.type_article}
+                onChange={handleItemChange}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              >
+                <option value="MEDICAMENT">Médicament</option>
+                <option value="CONSOMMABLE">Consommable</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Quantité initiale</label>
+              <input
+                type="number"
+                min="0"
+                name="quantite"
+                value={newItem.quantite}
+                onChange={handleItemChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Seuil critique</label>
+              <input
+                type="number"
+                min="0"
+                name="seuil_critique"
+                value={newItem.seuil_critique}
+                onChange={handleItemChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Unité</label>
+              <input
+                type="text"
+                name="unite"
+                value={newItem.unite}
+                onChange={handleItemChange}
+                required
+                placeholder="Ex: boîtes, flacons, paquets..."
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="md:col-span-2 xl:col-span-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setNewItem(emptyItem);
+                  setShowItemForm(false);
+                }}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="submit"
+                disabled={savingItem}
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+              >
+                {savingItem ? "Enregistrement..." : "Ajouter article"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showEditForm && (
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-5 text-lg font-semibold text-slate-900">Modifier article</h2>
+
+          <form onSubmit={handleEditSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Nom article</label>
+              <input
+                type="text"
+                name="nom"
+                value={editItem.nom}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
+              <select
+                name="type_article"
+                value={editItem.type_article}
+                onChange={handleEditChange}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              >
+                <option value="MEDICAMENT">MÃ©dicament</option>
+                <option value="CONSOMMABLE">Consommable</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">QuantitÃ©</label>
+              <input
+                type="number"
+                min="0"
+                name="quantite"
+                value={editItem.quantite}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Seuil critique</label>
+              <input
+                type="number"
+                min="0"
+                name="seuil_critique"
+                value={editItem.seuil_critique}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">UnitÃ©</label>
+              <input
+                type="text"
+                name="unite"
+                value={editItem.unite}
+                onChange={handleEditChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="md:col-span-2 xl:col-span-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditItem({ ...emptyItem, id: null });
+                  setShowEditForm(false);
+                }}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+              >
+                {savingEdit ? "Enregistrement..." : "Enregistrer"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showMoveForm && (
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-5 text-lg font-semibold text-slate-900">Nouveau mouvement</h2>
+
+          <form onSubmit={handleMoveSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Article</label>
+              <select
+                name="stock_item"
+                value={movement.stock_item}
+                onChange={handleMoveChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              >
+                <option value="">Sélectionner</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Type mouvement</label>
+              <select
+                name="type_mouvement"
+                value={movement.type_mouvement}
+                onChange={handleMoveChange}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              >
+                <option value="ENTREE">Entrée</option>
+                <option value="SORTIE">Sortie</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Quantité</label>
+              <input
+                type="number"
+                min="1"
+                name="quantite"
+                value={movement.quantite}
+                onChange={handleMoveChange}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Remarque</label>
+              <input
+                type="text"
+                name="remarque"
+                value={movement.remarque}
+                onChange={handleMoveChange}
+                placeholder="Optionnel"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+              />
+            </div>
+
+            <div className="md:col-span-2 xl:col-span-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMovement(emptyMove);
+                  setShowMoveForm(false);
+                }}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="submit"
+                disabled={savingMove}
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+              >
+                {savingMove ? "Enregistrement..." : "Enregistrer"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Liste du stock</h2>
+            <p className="text-sm text-slate-500">Médicaments et consommables disponibles</p>
+          </div>
+
+          <div className="relative w-full lg:w-96">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Rechercher article..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-slate-900"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-10 text-center text-slate-500">Chargement...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <th className="px-3 py-3 font-medium">Article</th>
+                  <th className="px-3 py-3 font-medium">Type</th>
+                  <th className="px-3 py-3 font-medium">Quantité</th>
+                  <th className="px-3 py-3 font-medium">Unité</th>
+                  <th className="px-3 py-3 font-medium">Seuil</th>
+                  <th className="px-3 py-3 font-medium">État</th>
+                  <th className="px-3 py-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredItems.length > 0 ? (
+                  filteredItems.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-100 last:border-0">
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <Boxes size={16} className="text-slate-500" />
+                          {item.nom}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-slate-700">
+                        {typeLabel[item.type_article] || item.type_article}
+                      </td>
+                      <td className="px-3 py-3 text-slate-700">{item.quantite}</td>
+                      <td className="px-3 py-3 text-slate-700">{item.unite}</td>
+                      <td className="px-3 py-3 text-slate-700">{item.seuil_critique}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${stockBadge(item)}`}>
+                          {item.quantite <= item.seuil_critique ? "Critique" : "Disponible"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditItem(item)}
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item)}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="px-3 py-10 text-center text-slate-500">
+                      Aucun article trouvé.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
-      </ModalShell>
-
-      <ModalShell
-        open={showItemForm}
-        title="Ajouter un médicament"
-        onClose={() => {
-          setShowItemForm(false);
-          setNewItem(emptyItem);
-        }}
-        footer={
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setShowItemForm(false);
-                setNewItem(emptyItem);
-              }}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              form="add-medicament-form"
-              disabled={savingItem}
-              className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
-            >
-              {savingItem ? "Enregistrement..." : "Ajouter"}
-            </button>
-          </div>
-        }
-      >
-        <form id="add-medicament-form" onSubmit={handleItemSubmit} className="grid gap-4 lg:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Nom</label>
-            <input
-              type="text"
-              name="nom"
-              value={newItem.nom}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Dénomination / Libellé
-            </label>
-            <input
-              type="text"
-              name="libelle"
-              value={newItem.libelle}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Forme pharmaceutique
-            </label>
-            <input
-              type="text"
-              name="forme"
-              value={newItem.forme}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Dosage</label>
-            <input
-              type="text"
-              name="dosage"
-              value={newItem.dosage}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Unité</label>
-            <input
-              type="text"
-              name="unite"
-              value={newItem.unite}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Catégorie</label>
-            <input
-              type="text"
-              name="categorie"
-              value={newItem.categorie}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Stock actuel</label>
-            <input
-              type="number"
-              min="0"
-              name="quantite"
-              value={newItem.quantite}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Stock minimal</label>
-            <input
-              type="number"
-              min="0"
-              name="seuil_critique"
-              value={newItem.seuil_critique}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Date d’expiration
-            </label>
-            <input
-              type="date"
-              name="date_expiration"
-              value={newItem.date_expiration}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div className="flex items-center gap-3 pt-6">
-            <input
-              type="checkbox"
-              name="actif"
-              checked={newItem.actif}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-            <label className="text-sm text-slate-700">Actif</label>
-          </div>
-          <div className="lg:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Description / Remarque
-            </label>
-            <textarea
-              name="description"
-              value={newItem.description}
-              onChange={(e) => handleItemChange(e, setNewItem)}
-              rows={3}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-        </form>
-      </ModalShell>
-
-      <ModalShell
-        open={showEditForm}
-        title="Modifier le médicament"
-        onClose={() => {
-          setShowEditForm(false);
-          setEditItem({ ...emptyItem, id: null });
-        }}
-        footer={
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setShowEditForm(false);
-                setEditItem({ ...emptyItem, id: null });
-              }}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              form="edit-medicament-form"
-              disabled={savingEdit}
-              className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
-            >
-              {savingEdit ? "Enregistrement..." : "Enregistrer"}
-            </button>
-          </div>
-        }
-      >
-        <form
-          id="edit-medicament-form"
-          onSubmit={handleEditSubmit}
-          className="grid gap-4 lg:grid-cols-2"
-        >
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Nom</label>
-            <input
-              type="text"
-              name="nom"
-              value={editItem.nom}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Dénomination / Libellé
-            </label>
-            <input
-              type="text"
-              name="libelle"
-              value={editItem.libelle}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Forme pharmaceutique
-            </label>
-            <input
-              type="text"
-              name="forme"
-              value={editItem.forme}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Dosage</label>
-            <input
-              type="text"
-              name="dosage"
-              value={editItem.dosage}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Unité</label>
-            <input
-              type="text"
-              name="unite"
-              value={editItem.unite}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Catégorie</label>
-            <input
-              type="text"
-              name="categorie"
-              value={editItem.categorie}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Stock actuel</label>
-            <input
-              type="number"
-              min="0"
-              name="quantite"
-              value={editItem.quantite}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Stock minimal</label>
-            <input
-              type="number"
-              min="0"
-              name="seuil_critique"
-              value={editItem.seuil_critique}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Date d’expiration
-            </label>
-            <input
-              type="date"
-              name="date_expiration"
-              value={editItem.date_expiration}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div className="flex items-center gap-3 pt-6">
-            <input
-              type="checkbox"
-              name="actif"
-              checked={editItem.actif}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-            <label className="text-sm text-slate-700">Actif</label>
-          </div>
-          <div className="lg:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Description / Remarque
-            </label>
-            <textarea
-              name="description"
-              value={editItem.description}
-              onChange={(e) => handleItemChange(e, setEditItem)}
-              rows={3}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-        </form>
-      </ModalShell>
-
-      <ModalShell
-        open={showMoveForm}
-        title="Nouveau mouvement"
-        onClose={() => {
-          setShowMoveForm(false);
-          setMovement(emptyMove);
-        }}
-        footer={
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setShowMoveForm(false);
-                setMovement(emptyMove);
-              }}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              form="move-stock-form"
-              disabled={savingMove}
-              className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
-            >
-              {savingMove ? "Enregistrement..." : "Enregistrer"}
-            </button>
-          </div>
-        }
-      >
-        <form id="move-stock-form" onSubmit={handleMoveSubmit} className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Médicament</label>
-            <select
-              name="stock_item"
-              value={movement.stock_item}
-              onChange={handleMoveChange}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            >
-              <option value="">Sélectionner</option>
-              {medicamentItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nom}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Type mouvement</label>
-            <select
-              name="type_mouvement"
-              value={movement.type_mouvement}
-              onChange={handleMoveChange}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            >
-              <option value="ENTREE">Entrée</option>
-              <option value="SORTIE">Sortie</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Quantité</label>
-            <input
-              type="number"
-              min="1"
-              name="quantite"
-              value={movement.quantite}
-              onChange={handleMoveChange}
-              required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Remarque</label>
-            <input
-              type="text"
-              name="remarque"
-              value={movement.remarque}
-              onChange={handleMoveChange}
-              placeholder="Optionnel"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
-            />
-          </div>
-        </form>
-      </ModalShell>
+      </div>
     </div>
   );
 }

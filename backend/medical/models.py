@@ -789,6 +789,75 @@ class ExamenComplementaire(models.Model):
 
 
 # =====================================================
+# HISTORIQUE MEDECIN CONTROLEUR
+# =====================================================
+
+class ControleMedicalRecord(models.Model):
+    STATUT_CHOICES = [
+        ("EN_ATTENTE", "En attente"),
+        ("VALIDE", "Valide"),
+        ("REFUSE", "Refuse"),
+    ]
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="controles_medicaux_crees",
+    )
+
+    date = models.DateField()
+    matricule = models.CharField(max_length=120, blank=True, null=True)
+    segment = models.CharField(max_length=120, blank=True, null=True)
+    nom = models.CharField(max_length=120, blank=True, null=True)
+    prenom = models.CharField(max_length=120, blank=True, null=True)
+    repos_prescrit = models.CharField(max_length=255, blank=True, null=True)
+    avis_medecin_controleur = models.TextField(blank=True, null=True)
+    medecin_identifiant = models.CharField(max_length=150, blank=True, null=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="VALIDE")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Controle medical {self.matricule or '-'} - {self.date}"
+
+
+class DemandeExpertiseRecord(models.Model):
+    STATUT_CHOICES = [
+        ("EN_ATTENTE", "En attente"),
+        ("VALIDE", "Valide"),
+        ("REFUSE", "Refuse"),
+    ]
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="demandes_expertise_creees",
+    )
+
+    ville = models.CharField(max_length=120, blank=True, null=True)
+    date = models.DateField()
+    destinataire = models.TextField(blank=True, null=True)
+    nom = models.CharField(max_length=120, blank=True, null=True)
+    prenom = models.CharField(max_length=120, blank=True, null=True)
+    matricule_leoni = models.CharField(max_length=120, blank=True, null=True)
+    pieces_jointes = models.TextField(blank=True, null=True)
+    attachment_names = models.JSONField(default=list, blank=True)
+    aptitude_poste = models.CharField(max_length=255, blank=True, null=True)
+    autres_missions = models.TextField(blank=True, null=True)
+    medecin_identifiant = models.CharField(max_length=150, blank=True, null=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="VALIDE")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Demande expertise {self.matricule_leoni or '-'} - {self.date}"
+
+
+# =====================================================
 # STOCK INFIRMERIE
 # =====================================================
 
