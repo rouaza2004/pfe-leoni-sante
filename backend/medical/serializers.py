@@ -7,6 +7,8 @@ from .models import (
     ExamenUlterieur,
     PosteTravail,
     IncidentInfirmier,
+    IncidentAvecBon,
+    IncidentSansBon,
     AccidentTravail,
     PlanActionHSEE,
     MaladieProfessionnelle,
@@ -19,6 +21,11 @@ from .models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    ControleMedicalRecord,
+    DemandeExpertiseRecord,
+    PointageMedecin,
+    BonChauffeur,
+    SuiviTransfertUrgence,
 )
 
 

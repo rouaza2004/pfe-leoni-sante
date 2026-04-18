@@ -64,6 +64,11 @@ from .models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    ControleMedicalRecord,
+    DemandeExpertiseRecord,
+    PointageMedecin,
+    BonChauffeur,
+    SuiviTransfertUrgence,
 )
 
 from .serializers import (
@@ -85,6 +90,11 @@ from .serializers import (
     FicheAptitudeSerializer,
     DemandeExamenLaboSerializer,
     ExamenComplementaireSerializer,
+    ControleMedicalRecordSerializer,
+    DemandeExpertiseRecordSerializer,
+    PointageMedecinSerializer,
+    BonChauffeurSerializer,
+    SuiviTransfertUrgenceSerializer,
 )
 
 
@@ -199,6 +209,85 @@ class NotImplementedAPIView(APIView):
 
     def delete(self, request, *args, **kwargs):
         return Response({"detail": "Endpoint non impl\u00e9ment\u00e9."}, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+
+class DossierByCollaborateurView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_dossier(self, collaborateur_id):
+        collaborateur = get_object_or_404(Collaborateur, pk=collaborateur_id)
+        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+        return dossier
+
+    def get(self, request, collaborateur_id):
+        dossier = self.get_dossier(collaborateur_id)
+        return Response(DossierMedicalSerializer(dossier).data)
+
+    def patch(self, request, collaborateur_id):
+        dossier = self.get_dossier(collaborateur_id)
+        serializer = DossierMedicalSerializer(dossier, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class DossierByMatriculeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, matricule):
+        collaborateur = get_object_or_404(Collaborateur, matricule=matricule)
+        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+        return Response(DossierMedicalSerializer(dossier).data)
+
+
+class DossierAutofillOneView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, collaborateur_id):
+        collaborateur = get_object_or_404(Collaborateur, pk=collaborateur_id)
+        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+
+        updates = {}
+        if not dossier.poste_travail_actuel and collaborateur.poste:
+            updates["poste_travail_actuel"] = collaborateur.poste
+        if not dossier.profession and collaborateur.poste:
+            updates["profession"] = collaborateur.poste
+        if not dossier.localite and getattr(collaborateur, "site", None):
+            updates["localite"] = collaborateur.site.localite
+        if not dossier.entreprise and getattr(collaborateur, "site", None):
+            updates["entreprise"] = collaborateur.site.nom
+
+        if updates:
+            for field, value in updates.items():
+                setattr(dossier, field, value)
+            dossier.save(update_fields=[*updates.keys()])
+
+        return Response(DossierMedicalSerializer(dossier).data)
+
+
+class DossierAutofillView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        updated = 0
+        for collaborateur in Collaborateur.objects.select_related("site").all():
+            dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+            changes = {}
+            if not dossier.poste_travail_actuel and collaborateur.poste:
+                changes["poste_travail_actuel"] = collaborateur.poste
+            if not dossier.profession and collaborateur.poste:
+                changes["profession"] = collaborateur.poste
+            if not dossier.localite and getattr(collaborateur, "site", None):
+                changes["localite"] = collaborateur.site.localite
+            if not dossier.entreprise and getattr(collaborateur, "site", None):
+                changes["entreprise"] = collaborateur.site.nom
+            if changes:
+                for field, value in changes.items():
+                    setattr(dossier, field, value)
+                dossier.save(update_fields=[*changes.keys()])
+                updated += 1
+
+        return Response({"updated": updated})
 
 
 class ExamenInitialCreateUpdateView(NotImplementedAPIView):
