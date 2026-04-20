@@ -23,11 +23,6 @@ from .models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
-    BonChauffeur,
-    SuiviTransfertUrgence,
-    ControleMedicalRecord,
-    DemandeExpertiseRecord,
-    HSEEGeneratedReport,
 )
 
 
