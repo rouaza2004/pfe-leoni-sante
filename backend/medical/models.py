@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from accounts.models import Collaborateur
 
 
@@ -342,6 +343,20 @@ class AccidentTravail(models.Model):
     cause = models.TextField()
     nature_lesion = models.CharField(max_length=255)
     siege_lesion = models.CharField(max_length=255)
+    agent_materiel = models.CharField(max_length=255, blank=True, null=True)
+    presence_standard = models.CharField(max_length=10, blank=True, null=True)
+    respect_standard = models.CharField(max_length=10, blank=True, null=True)
+    action_immediate = models.TextField(blank=True, null=True)
+    why1 = models.TextField(blank=True, null=True)
+    why2 = models.TextField(blank=True, null=True)
+    why3 = models.TextField(blank=True, null=True)
+    why4 = models.TextField(blank=True, null=True)
+    why5 = models.TextField(blank=True, null=True)
+    ishikawa_methode = models.TextField(blank=True, null=True)
+    ishikawa_main_oeuvre = models.TextField(blank=True, null=True)
+    ishikawa_materiel = models.TextField(blank=True, null=True)
+    ishikawa_milieu = models.TextField(blank=True, null=True)
+    ishikawa_matiere = models.TextField(blank=True, null=True)
 
     segment = models.CharField(max_length=120, blank=True, null=True)
     gravite = models.CharField(
@@ -418,6 +433,72 @@ class AccidentTravail(models.Model):
 
 
 # =====================================================
+# ENQUETE INITIALE ACCIDENT
+# =====================================================
+
+class EnqueteInitialeAccident(models.Model):
+    STATUT_CHOICES = [
+        ("BROUILLON", "Brouillon"),
+        ("ENREGISTRE", "Enregistré"),
+        ("ENVOYE_HSEE", "Envoyé HSEE"),
+    ]
+
+    accident = models.OneToOneField(
+        AccidentTravail,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="enquete_initiale",
+    )
+    dossier = models.ForeignKey(
+        DossierMedical,
+        on_delete=models.CASCADE,
+        related_name="enquetes_initiales_accident",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="enquetes_initiales_accident_creees",
+    )
+    sent_to_hsee_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="enquetes_initiales_accident_envoyees",
+    )
+
+    victime_nom_prenom = models.CharField(max_length=255)
+    victime_matricule = models.CharField(max_length=50)
+    victime_numero_telephone = models.CharField(max_length=30, blank=True, null=True)
+    victime_appartenance = models.CharField(max_length=255, blank=True, null=True)
+    victime_horaire_travail = models.CharField(max_length=255, blank=True, null=True)
+
+    date_accident = models.DateField()
+    heure_accident = models.TimeField()
+    lieu_accident = models.CharField(max_length=255)
+    circonstances_accident = models.TextField()
+    siege_type_lesion = models.CharField(max_length=255, blank=True, null=True)
+    lieu_transport_victime = models.CharField(max_length=255, blank=True, null=True)
+    temoins = models.JSONField(blank=True, default=list)
+
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default="BROUILLON",
+    )
+    sent_to_hsee = models.BooleanField(default=False)
+    sent_to_hsee_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Enquete initiale {self.victime_matricule} - {self.date_accident}"
+
+
+# =====================================================
 # PLAN ACTION HSEE
 # =====================================================
 
@@ -450,6 +531,67 @@ class PlanActionHSEE(models.Model):
 
     def __str__(self):
         return f"{self.zone} - {self.risque}"
+
+
+class HSEEGeneratedReport(models.Model):
+    STATUS_CHOICES = [
+        ("GENERATED", "Genere"),
+        ("SCHEDULED", "Planifie"),
+        ("SENT", "Envoye"),
+    ]
+
+    FORMAT_CHOICES = [
+        ("PDF", "PDF"),
+        ("EXCEL", "Excel"),
+    ]
+
+    template_key = models.CharField(max_length=80)
+    template_name = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
+    reference = models.CharField(max_length=50, unique=True, blank=True)
+    category = models.CharField(max_length=120, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="GENERATED")
+    output_format = models.CharField(max_length=10, choices=FORMAT_CHOICES, default="PDF")
+    period_value = models.CharField(max_length=50, blank=True, null=True)
+    period_label = models.CharField(max_length=120, blank=True, null=True)
+    department = models.CharField(max_length=150, blank=True, null=True)
+    detail_level = models.CharField(max_length=50, blank=True, null=True)
+    sections = models.JSONField(default=list, blank=True)
+    parameters = models.JSONField(default=dict, blank=True)
+    file_path = models.CharField(max_length=500, blank=True, null=True)
+    preview_path = models.CharField(max_length=500, blank=True, null=True)
+    mime_type = models.CharField(max_length=120, blank=True, null=True)
+    file_size_bytes = models.PositiveBigIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hsee_reports_created",
+    )
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hsee_reports_sent",
+    )
+    sent_at = models.DateTimeField(blank=True, null=True)
+    generated_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        creating = self.pk is None
+        super().save(*args, **kwargs)
+
+        if creating and not self.reference:
+            self.reference = f"RPT-{self.generated_at:%Y%m}-{self.pk:04d}"
+            super().save(update_fields=["reference"])
+
+    def __str__(self):
+        return self.reference or self.title
 
 
 # =====================================================

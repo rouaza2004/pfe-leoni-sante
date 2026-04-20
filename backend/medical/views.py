@@ -3,16 +3,19 @@ from io import BytesIO
 import base64
 import logging
 import os
+import re
 import tempfile
 import random
 import unicodedata
 from datetime import date, timedelta
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.staticfiles import finders
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Sum, Count, Case, When, Value, CharField
-from django.db.models.functions import ExtractMonth
+from django.db import transaction
+from django.db.models import Sum, Count, Case, When, Value, CharField, Q, F
+from django.db.models.functions import ExtractMonth, ExtractYear
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 
@@ -44,6 +47,7 @@ except ImportError:  # pragma: no cover
 
 from accounts.models import Collaborateur, Site
 from accounts.serializers import CollaborateurSerializer
+from notifications.models import Notification
 
 from .models import (
     DossierMedical,
@@ -52,6 +56,7 @@ from .models import (
     PosteTravail,
     IncidentInfirmier,
     AccidentTravail,
+    EnqueteInitialeAccident,
     MaladieProfessionnelle,
     Vaccination,
     FicheMedicale,
@@ -61,9 +66,16 @@ from .models import (
     StockMovement,
     IncidentAvecBon,
     IncidentSansBon,
+    PointageMedecin,
+    BonChauffeur,
+    SuiviTransfertUrgence,
+    PlanActionHSEE,
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    ControleMedicalRecord,
+    DemandeExpertiseRecord,
+    HSEEGeneratedReport,
 )
 
 from .serializers import (
@@ -73,6 +85,7 @@ from .serializers import (
     PosteTravailSerializer,
     IncidentInfirmierSerializer,
     AccidentTravailSerializer,
+    EnqueteInitialeAccidentSerializer,
     MaladieProfessionnelleSerializer,
     VaccinationSerializer,
     FicheMedicaleSerializer,
@@ -82,10 +95,47 @@ from .serializers import (
     StockMovementSerializer,
     IncidentAvecBonSerializer,
     IncidentSansBonSerializer,
+    BonChauffeurSerializer,
+    SuiviTransfertUrgenceSerializer,
+    PointageMedecinSerializer,
+    PlanActionHSEESerializer,
+    HSEEEnqueteSerializer,
+    HSEEReportTemplateSerializer,
+    HSEEGeneratedReportSerializer,
+    HSEEReportGenerateSerializer,
     FicheAptitudeSerializer,
     DemandeExamenLaboSerializer,
     ExamenComplementaireSerializer,
+    ControleMedicalRecordSerializer,
+    DemandeExpertiseRecordSerializer,
 )
+
+
+HSEE_CHART_COLORS = [
+    "#2563eb",
+    "#0f766e",
+    "#7c3aed",
+    "#f59e0b",
+    "#ef4444",
+    "#14b8a6",
+    "#8b5cf6",
+    "#0ea5e9",
+]
+
+HSEE_MONTH_LABELS = {
+    1: "Jan",
+    2: "Fev",
+    3: "Mar",
+    4: "Avr",
+    5: "Mai",
+    6: "Jun",
+    7: "Jul",
+    8: "Aou",
+    9: "Sep",
+    10: "Oct",
+    11: "Nov",
+    12: "Dec",
+}
 
 
 def link_callback(uri, rel):
@@ -105,6 +155,302 @@ def require_medecin_travail(request):
         raise PermissionDenied(
             "Seul le médecin du travail peut modifier le dossier médical."
         )
+
+
+def _normalize_hsee_period(value):
+    period = (value or "6m").strip().lower()
+    if period in {"6m", "6_mois", "6mois", "6-mois"}:
+        return "6m"
+    if period in {"12m", "12_mois", "12mois", "12-mois"}:
+        return "12m"
+    if period in {"annual", "annuel", "year", "yearly"}:
+        return "annual"
+    return "6m"
+
+
+def _get_hsee_period_start(period):
+    now = timezone.now().date()
+    if period == "annual":
+        return date(now.year, 1, 1)
+    if period == "12m":
+        return now - timedelta(days=365)
+    return now - timedelta(days=183)
+
+
+def _normalize_hsee_department(value):
+    department = (value or "").strip()
+    if not department or department.lower() in {"all", "tous", "tous les departements"}:
+        return ""
+    return department
+
+
+def _build_hsee_filter_meta(request):
+    period = _normalize_hsee_period(request.query_params.get("period"))
+    department = _normalize_hsee_department(request.query_params.get("department"))
+    return {
+        "period": period,
+        "department": department,
+        "start_date": _get_hsee_period_start(period),
+    }
+
+
+def _hsee_departments():
+    values = set()
+
+    for name in Collaborateur.objects.exclude(departement__isnull=True).exclude(departement__exact="").values_list("departement", flat=True):
+        if name:
+            values.add(name.strip())
+
+    for name in AccidentTravail.objects.filter(enquete_initiale__sent_to_hsee=True).exclude(segment__isnull=True).exclude(segment__exact="").values_list("segment", flat=True):
+        if name:
+            values.add(name.strip())
+
+    for name in AccidentTravail.objects.filter(enquete_initiale__sent_to_hsee=True).exclude(activite_service__isnull=True).exclude(activite_service__exact="").values_list("activite_service", flat=True):
+        if name:
+            values.add(name.strip())
+
+    return sorted(values)
+
+
+def _filter_accidents_queryset(start_date, department=""):
+    queryset = AccidentTravail.objects.filter(
+        enquete_initiale__sent_to_hsee=True,
+        date_accident__gte=start_date,
+    )
+    if department:
+        queryset = queryset.filter(
+            Q(segment__iexact=department)
+            | Q(activite_service__iexact=department)
+            | Q(dossier__collaborateur__departement__iexact=department)
+        )
+    return queryset
+
+
+def _get_accident_hsee_status(accident):
+    enquete = getattr(accident, "enquete_initiale", None)
+    if not enquete:
+        return "Brouillon"
+    if enquete.sent_to_hsee:
+        return "Envoye HSEE"
+    return enquete.get_statut_display()
+
+
+def _filter_incidents_queryset(start_date, department=""):
+    queryset = IncidentInfirmier.objects.filter(date_incident__gte=start_date)
+    if department:
+        queryset = queryset.filter(
+            Q(segment__iexact=department) | Q(dossier__collaborateur__departement__iexact=department)
+        )
+    return queryset
+
+
+def _filter_incidents_avec_bon_queryset(start_date, department=""):
+    queryset = IncidentAvecBon.objects.filter(date_incident__gte=start_date)
+    if department:
+        queryset = queryset.filter(destination__iexact=department)
+    return queryset
+
+
+def _filter_incidents_sans_bon_queryset(start_date, department=""):
+    queryset = IncidentSansBon.objects.filter(created_at__date__gte=start_date)
+    if department:
+        queryset = queryset.filter(Q(segment__iexact=department) | Q(plant__iexact=department))
+    return queryset
+
+
+def _filter_transferts_queryset(start_date, department=""):
+    queryset = SuiviTransfertUrgence.objects.filter(date__gte=start_date)
+    if department:
+        queryset = queryset.filter(Q(plant__iexact=department) | Q(cost_center__iexact=department))
+    return queryset
+
+
+def _filter_visites_queryset(start_date, department=""):
+    queryset = FicheAptitude.objects.filter(
+        Q(date_examen__gte=start_date) | Q(date_examen__isnull=True, date__gte=start_date)
+    )
+    if department:
+        queryset = queryset.filter(collaborateur__departement__iexact=department)
+    return queryset
+
+
+def _filter_maladies_queryset(start_date, department=""):
+    queryset = MaladieProfessionnelle.objects.filter(date_decouverte__gte=start_date)
+    if department:
+        queryset = queryset.filter(
+            Q(dossier__collaborateur__departement__iexact=department)
+            | Q(victime_lieu_travail__iexact=department)
+        )
+    return queryset
+
+
+def _format_hsee_series(queryset, label_key, output_key="name", limit=None):
+    rows = list(queryset[:limit] if limit else queryset)
+    series = []
+    for index, row in enumerate(rows):
+        label = row.get(label_key) or "Non renseigne"
+        series.append(
+            {
+                output_key: label,
+                "value": row.get("value") or 0,
+                "color": HSEE_CHART_COLORS[index % len(HSEE_CHART_COLORS)],
+            }
+        )
+    return series
+
+
+def _month_cursor(start_date, end_date):
+    cursor = date(start_date.year, start_date.month, 1)
+    end_cursor = date(end_date.year, end_date.month, 1)
+    while cursor <= end_cursor:
+        yield cursor
+        if cursor.month == 12:
+            cursor = date(cursor.year + 1, 1, 1)
+        else:
+            cursor = date(cursor.year, cursor.month + 1, 1)
+
+
+def _build_hsee_dashboard_payload(request):
+    filter_meta = _build_hsee_filter_meta(request)
+    start_date = filter_meta["start_date"]
+    department = filter_meta["department"]
+
+    accidents = _filter_accidents_queryset(start_date, department).select_related(
+        "dossier__collaborateur",
+        "enquete_initiale",
+        "enquete_initiale__sent_to_hsee_by",
+    )
+    incidents = _filter_incidents_queryset(start_date, department)
+    incidents_avec_bon = _filter_incidents_avec_bon_queryset(start_date, department)
+    incidents_sans_bon = _filter_incidents_sans_bon_queryset(start_date, department)
+    transferts = _filter_transferts_queryset(start_date, department)
+    visites = _filter_visites_queryset(start_date, department)
+    maladies = _filter_maladies_queryset(start_date, department)
+
+    total_accidents = accidents.count()
+    total_jours_perdus = accidents.aggregate(total=Sum("duree_arret")).get("total") or 0
+    total_incidents = incidents.count() + incidents_avec_bon.count() + incidents_sans_bon.count()
+    total_transferts = transferts.count()
+    total_visites = visites.count()
+    total_maladies = maladies.count()
+    total_heures_reference = max(total_visites, 1) * 8
+
+    accidents_by_department = (
+        accidents.annotate(
+            department_label=Case(
+                When(activite_service__isnull=False, activite_service__gt="", then=F("activite_service")),
+                When(segment__isnull=False, segment__gt="", then=F("segment")),
+                default=Value("Non renseigne"),
+                output_field=CharField(),
+            )
+        )
+        .values("department_label")
+        .annotate(value=Count("id"))
+        .order_by("-value", "department_label")
+    )
+
+    lesion_types = (
+        accidents.exclude(nature_lesion__isnull=True)
+        .exclude(nature_lesion__exact="")
+        .values("nature_lesion")
+        .annotate(value=Count("id"))
+        .order_by("-value", "nature_lesion")
+    )
+
+    injury_types = (
+        accidents.exclude(siege_lesion__isnull=True)
+        .exclude(siege_lesion__exact="")
+        .values("siege_lesion")
+        .annotate(value=Count("id"))
+        .order_by("-value", "siege_lesion")
+    )
+
+    visit_types = (
+        visites.exclude(type_examen__isnull=True)
+        .exclude(type_examen__exact="")
+        .values("type_examen")
+        .annotate(value=Count("id"))
+        .order_by("-value", "type_examen")
+    )
+
+    lost_days_raw = (
+        accidents.annotate(year=ExtractYear("date_accident"), month=ExtractMonth("date_accident"))
+        .values("year", "month")
+        .annotate(value=Sum("duree_arret"))
+        .order_by("year", "month")
+    )
+    current_year = timezone.now().date().year
+    lost_days_map = {
+        (row["year"], row["month"]): row.get("value") or 0
+        for row in lost_days_raw
+        if row.get("year") and row.get("month")
+    }
+    lost_days_series = [
+        {
+            "name": (
+                HSEE_MONTH_LABELS.get(cursor.month, str(cursor.month))
+                if cursor.year == current_year
+                else f"{HSEE_MONTH_LABELS.get(cursor.month, str(cursor.month))} {str(cursor.year)[-2:]}"
+            ),
+            "value": lost_days_map.get((cursor.year, cursor.month), 0),
+        }
+        for cursor in _month_cursor(start_date, timezone.now().date())
+    ]
+
+    recent_accidents = []
+    for accident in accidents.order_by("-date_accident", "-created_at")[:10]:
+        collab = getattr(accident.dossier, "collaborateur", None)
+        employee_name = " ".join(
+            filter(
+                None,
+                [
+                    getattr(collab, "prenom", "") or accident.victime_prenom or "",
+                    getattr(collab, "nom", "") or accident.victime_nom or "",
+                ],
+            )
+        ).strip()
+        recent_accidents.append(
+            {
+                "id": f"AT-{accident.id:03d}",
+                "date": accident.date_accident.strftime("%d/%m/%Y") if accident.date_accident else "",
+                "employee": employee_name or "-",
+                "department": accident.activite_service or accident.segment or getattr(collab, "departement", "") or "-",
+                "nature": accident.nature_lesion or accident.cause or "-",
+                "days": accident.duree_arret or 0,
+                "status": _get_accident_hsee_status(accident),
+            }
+        )
+
+    visit_type_labels = dict(FicheAptitude.TYPE_EXAMEN_CHOICES)
+
+    return {
+        "filters": {
+            "period": filter_meta["period"],
+            "department": department,
+            "departments": _hsee_departments(),
+        },
+        "kpis": {
+            "accidents_travail": total_accidents,
+            "incidents": total_incidents,
+            "taux_frequence_tf": round((total_accidents * 1000000) / total_heures_reference, 2),
+            "taux_gravite_tg": round((total_jours_perdus * 1000) / total_heures_reference, 2),
+            "jours_perdus": total_jours_perdus,
+            "transferts_urgence": total_transferts,
+            "visites_medicales": total_visites,
+            "maladies_professionnelles": total_maladies,
+        },
+        "charts": {
+            "accidents_by_department": _format_hsee_series(accidents_by_department, "department_label", "name"),
+            "lesion_types": _format_hsee_series(lesion_types, "nature_lesion", "name", limit=6),
+            "medical_visit_types": [
+                {"name": visit_type_labels.get(row["type_examen"], row["type_examen"]), "value": row.get("value") or 0}
+                for row in visit_types
+            ],
+            "injury_types": _format_hsee_series(injury_types, "siege_lesion", "name", limit=6),
+            "lost_days_by_month": lost_days_series,
+        },
+        "recent_accidents": recent_accidents,
+    }
 
 
 def ensure_temp_dir():
@@ -148,6 +494,90 @@ def register_arabic_font():
     if font_path:
         pdfmetrics.registerFont(TTFont("Amiri", font_path))
 
+
+def _fmt_pdf_date(value):
+    if not value:
+        return "-"
+    try:
+        return value.strftime("%d/%m/%Y")
+    except Exception:
+        return str(value)
+
+
+def _fmt_pdf_time(value):
+    if not value:
+        return "-"
+    try:
+        return value.strftime("%H:%M")
+    except Exception:
+        return str(value)
+
+
+def _fmt_pdf_datetime(value):
+    if not value:
+        return "-"
+    try:
+        return timezone.localtime(value).strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(value)
+
+
+def _safe_pdf_filename(value):
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", ascii_value).strip("_")
+    return cleaned or "enquete"
+
+
+def generate_enquete_initiale_pdf(enquete):
+    collab = getattr(enquete.dossier, "collaborateur", None)
+    temoins = enquete.temoins if isinstance(enquete.temoins, list) else []
+
+    context = {
+        "enquete": enquete,
+        "collaborateur": collab,
+        "accident": getattr(enquete, "accident", None),
+        "temoins": temoins,
+        "generated_at": _fmt_pdf_datetime(timezone.now()),
+        "created_at": _fmt_pdf_datetime(enquete.created_at),
+        "sent_to_hsee_at": _fmt_pdf_datetime(enquete.sent_to_hsee_at),
+        "date_accident": _fmt_pdf_date(enquete.date_accident),
+        "heure_accident": _fmt_pdf_time(enquete.heure_accident),
+    }
+
+    html_string = render_to_string("medical/enquete_initiale_accident_pdf.html", context)
+    result = BytesIO()
+    ensure_temp_dir()
+    patch_xhtml2pdf_tempfile()
+    pdf = pisa.CreatePDF(
+        src=html_string,
+        dest=result,
+        encoding="utf-8",
+        link_callback=link_callback,
+    )
+
+    if pdf.err:
+        raise ValueError("Erreur generation PDF enquete initiale.")
+
+    return result.getvalue()
+
+
+def save_enquete_initiale_pdf(enquete, pdf_bytes):
+    pdf_dir = Path(settings.BASE_DIR) / "tmp_pdf" / "enquetes-initiales"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+    victim_slug = _safe_pdf_filename(enquete.victime_matricule or enquete.victime_nom_prenom)
+    filename = f"enquete_initiale_{enquete.pk}_{victim_slug}.pdf"
+    file_path = pdf_dir / filename
+    file_path.write_bytes(pdf_bytes)
+    return file_path
+
+
+def get_enquete_initiale_pdf_path(enquete):
+    pdf_dir = Path(settings.BASE_DIR) / "tmp_pdf" / "enquetes-initiales"
+    victim_slug = _safe_pdf_filename(enquete.victime_matricule or enquete.victime_nom_prenom)
+    filename = f"enquete_initiale_{enquete.pk}_{victim_slug}.pdf"
+    return pdf_dir / filename
+
 class FicheAptitudePdfView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -180,6 +610,82 @@ class CollaborateurMedDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = CollaborateurSerializer
     queryset = Collaborateur.objects.all()
+
+
+def apply_dossier_autofill(dossier, collaborateur):
+    updates = []
+
+    if not dossier.entreprise and getattr(collaborateur, "site", None):
+        dossier.entreprise = collaborateur.site.nom
+        updates.append("entreprise")
+
+    if not dossier.localite and getattr(collaborateur, "site", None):
+        dossier.localite = collaborateur.site.localite
+        updates.append("localite")
+
+    if not dossier.profession and getattr(collaborateur, "poste", None):
+        dossier.profession = collaborateur.poste
+        updates.append("profession")
+
+    if not dossier.poste_travail_actuel and getattr(collaborateur, "poste", None):
+        dossier.poste_travail_actuel = collaborateur.poste
+        updates.append("poste_travail_actuel")
+
+    if updates:
+        dossier.save(update_fields=updates)
+
+    return dossier
+
+
+class DossierByCollaborateurView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, collaborateur_id):
+        collaborateur = get_object_or_404(Collaborateur, pk=collaborateur_id)
+        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+        return dossier
+
+    def get(self, request, collaborateur_id, *args, **kwargs):
+        dossier = self.get_object(collaborateur_id)
+        return Response(DossierMedicalSerializer(dossier).data)
+
+    def patch(self, request, collaborateur_id, *args, **kwargs):
+        dossier = self.get_object(collaborateur_id)
+        serializer = DossierMedicalSerializer(dossier, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class DossierByMatriculeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, matricule, *args, **kwargs):
+        collaborateur = get_object_or_404(Collaborateur, matricule=matricule)
+        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+        return Response(DossierMedicalSerializer(dossier).data)
+
+
+class DossierAutofillView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        updated = 0
+        for collaborateur in Collaborateur.objects.select_related("site").all():
+            dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+            apply_dossier_autofill(dossier, collaborateur)
+            updated += 1
+        return Response({"updated": updated})
+
+
+class DossierAutofillOneView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, collaborateur_id, *args, **kwargs):
+        collaborateur = get_object_or_404(Collaborateur.objects.select_related("site"), pk=collaborateur_id)
+        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+        apply_dossier_autofill(dossier, collaborateur)
+        return Response(DossierMedicalSerializer(dossier).data)
 
 
 class NotImplementedAPIView(APIView):
@@ -309,7 +815,12 @@ class SuiviTransfertUrgenceDetailView(generics.RetrieveUpdateDestroyAPIView):
 class AccidentListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AccidentTravailSerializer
-    queryset = AccidentTravail.objects.select_related("dossier__collaborateur").all()
+    queryset = AccidentTravail.objects.select_related(
+        "dossier__collaborateur",
+        "created_by",
+        "enquete_initiale",
+        "enquete_initiale__sent_to_hsee_by",
+    ).all()
 
     def get_queryset(self):
         return self.queryset.order_by("-date_accident", "-created_at")
@@ -323,9 +834,234 @@ class AccidentListCreateView(generics.ListCreateAPIView):
 class AccidentDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AccidentTravailSerializer
-    queryset = AccidentTravail.objects.select_related("dossier__collaborateur").all()
+    queryset = AccidentTravail.objects.select_related(
+        "dossier__collaborateur",
+        "created_by",
+        "enquete_initiale",
+        "enquete_initiale__sent_to_hsee_by",
+    ).all()
 
 
+
+
+def _resolve_enquete_initiale_links(payload):
+    matricule = str(payload.get("victime_matricule", "")).strip()
+    collaborateur = get_object_or_404(Collaborateur, matricule=matricule)
+    dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+
+    accident_queryset = AccidentTravail.objects.filter(dossier=dossier)
+    date_accident = payload.get("date_accident")
+    if date_accident:
+        accident_queryset = accident_queryset.filter(date_accident=date_accident)
+
+    accident = accident_queryset.order_by("-date_accident", "-created_at").first()
+    return dossier, accident
+
+
+class EnqueteInitialeAccidentListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = (
+            EnqueteInitialeAccident.objects.select_related(
+                "accident",
+                "dossier__collaborateur",
+                "created_by",
+                "sent_to_hsee_by",
+            )
+            .order_by("-date_accident", "-created_at")
+        )
+        return Response(EnqueteInitialeAccidentSerializer(queryset, many=True).data)
+
+    def post(self, request, *args, **kwargs):
+        serializer = EnqueteInitialeAccidentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        dossier, accident = _resolve_enquete_initiale_links(serializer.validated_data)
+
+        instance = serializer.save(
+            dossier=dossier,
+            accident=accident,
+            created_by=request.user,
+            statut="ENREGISTRE",
+        )
+
+        return Response(
+            EnqueteInitialeAccidentSerializer(
+                EnqueteInitialeAccident.objects.select_related(
+                    "accident",
+                    "dossier__collaborateur",
+                    "created_by",
+                    "sent_to_hsee_by",
+                ).get(pk=instance.pk)
+            ).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class EnqueteInitialeAccidentDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk):
+        return get_object_or_404(
+            EnqueteInitialeAccident.objects.select_related(
+                "accident",
+                "dossier__collaborateur",
+                "created_by",
+                "sent_to_hsee_by",
+            ),
+            pk=pk,
+        )
+
+    def get(self, request, pk, *args, **kwargs):
+        return Response(EnqueteInitialeAccidentSerializer(self.get_object(pk)).data)
+
+    def patch(self, request, pk, *args, **kwargs):
+        instance = self.get_object(pk)
+        serializer = EnqueteInitialeAccidentSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        dossier, accident = _resolve_enquete_initiale_links(
+            {
+                "victime_matricule": serializer.validated_data.get(
+                    "victime_matricule", instance.victime_matricule
+                ),
+                "date_accident": serializer.validated_data.get(
+                    "date_accident", instance.date_accident
+                ),
+            }
+        )
+
+        saved = serializer.save(
+            dossier=dossier,
+            accident=accident,
+            statut="ENVOYE_HSEE" if instance.sent_to_hsee else "ENREGISTRE",
+        )
+        return Response(EnqueteInitialeAccidentSerializer(saved).data)
+
+
+class EnqueteInitialeAccidentSendToHSEEView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        enquete = get_object_or_404(
+            EnqueteInitialeAccident.objects.select_related(
+                "accident",
+                "dossier__collaborateur",
+                "sent_to_hsee_by",
+            ),
+            pk=pk,
+        )
+
+        if enquete.sent_to_hsee:
+            return Response(EnqueteInitialeAccidentSerializer(enquete).data)
+
+        try:
+            pdf_bytes = generate_enquete_initiale_pdf(enquete)
+            saved_pdf_path = save_enquete_initiale_pdf(enquete, pdf_bytes)
+        except Exception as exc:
+            logger.exception("Erreur generation PDF enquete initiale %s", pk)
+            return Response(
+                {"detail": str(exc) or "Erreur lors de la generation du PDF."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        enquete.sent_to_hsee = True
+        enquete.sent_to_hsee_at = timezone.now()
+        enquete.sent_to_hsee_by = request.user
+        enquete.statut = "ENVOYE_HSEE"
+        enquete.save(
+            update_fields=[
+                "sent_to_hsee",
+                "sent_to_hsee_at",
+                "sent_to_hsee_by",
+                "statut",
+                "updated_at",
+            ]
+        )
+
+        data = EnqueteInitialeAccidentSerializer(enquete).data
+        data["pdf_generated"] = True
+        data["pdf_filename"] = saved_pdf_path.name
+        data["pdf_path"] = str(saved_pdf_path)
+        return Response(data)
+
+
+class EnqueteInitialeAccidentPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        enquete = get_object_or_404(
+            EnqueteInitialeAccident.objects.select_related(
+                "accident",
+                "dossier__collaborateur",
+            ),
+            pk=pk,
+        )
+
+        pdf_path = get_enquete_initiale_pdf_path(enquete)
+        if pdf_path.exists():
+            pdf_bytes = pdf_path.read_bytes()
+        else:
+            pdf_bytes = generate_enquete_initiale_pdf(enquete)
+            pdf_path = save_enquete_initiale_pdf(enquete, pdf_bytes)
+
+        disposition = "attachment" if request.query_params.get("download") == "1" else "inline"
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'{disposition}; filename="{pdf_path.name}"'
+        return response
+
+
+class HSEEEnquetesReceivedListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = (
+            EnqueteInitialeAccident.objects.select_related(
+                "accident",
+                "dossier__collaborateur",
+            )
+            .filter(sent_to_hsee=True)
+            .order_by("-sent_to_hsee_at", "-date_accident", "-created_at")
+        )
+
+        records = []
+        for enquete in queryset:
+            collab = getattr(enquete.dossier, "collaborateur", None)
+            records.append(
+                {
+                    "id": enquete.id,
+                    "date": enquete.date_accident,
+                    "collaborateur": enquete.victime_nom_prenom
+                    or " ".join(
+                        filter(
+                            None,
+                            [
+                                getattr(collab, "nom", ""),
+                                getattr(collab, "prenom", ""),
+                            ],
+                        )
+                    ).strip(),
+                    "matricule": enquete.victime_matricule or getattr(collab, "matricule", ""),
+                    "type_accident": getattr(enquete.accident, "nature_lesion", "")
+                    or getattr(enquete.accident, "cause", "")
+                    or "Accident",
+                    "status": enquete.get_statut_display(),
+                    "sent_to_hsee_at": enquete.sent_to_hsee_at,
+                    "pdf_url": f"/api/medical/enquetes-initiales/{enquete.pk}/pdf/",
+                    "detail": {
+                        "lieu_accident": enquete.lieu_accident,
+                        "heure_accident": enquete.heure_accident,
+                        "circonstances_accident": enquete.circonstances_accident,
+                        "siege_type_lesion": enquete.siege_type_lesion,
+                        "lieu_transport_victime": enquete.lieu_transport_victime,
+                        "victime_appartenance": enquete.victime_appartenance,
+                        "victime_horaire_travail": enquete.victime_horaire_travail,
+                    },
+                }
+            )
+
+        return Response(records)
 
 
 class AccidentStatsView(APIView):
@@ -333,12 +1069,16 @@ class AccidentStatsView(APIView):
 
     def get(self, request):
         today = date.today()
-        qs = AccidentTravail.objects.select_related("dossier__collaborateur")
+        qs = AccidentTravail.objects.select_related(
+            "dossier__collaborateur",
+            "enquete_initiale",
+            "enquete_initiale__sent_to_hsee_by",
+        )
 
         total = qs.count()
         today_count = qs.filter(date_accident=today).count()
         this_month_count = qs.filter(date_accident__year=today.year, date_accident__month=today.month).count()
-        sent_hsee = qs.filter(envoye_hsee=True).count()
+        sent_hsee = qs.filter(enquete_initiale__sent_to_hsee=True).count()
 
         recent = qs.order_by("-date_accident", "-created_at")[:5]
         recent_data = AccidentTravailSerializer(recent, many=True).data
@@ -357,35 +1097,1089 @@ class AccidentStatsView(APIView):
 
 
 class AccidentSendToHSEEView(NotImplementedAPIView):
-    pass
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        return Response(
+            {
+                "detail": "L'envoi HSEE doit desormais etre effectue depuis l'enquete initiale."
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
-class HSEEAccidentsListView(NotImplementedAPIView):
-    pass
+class HSEEAccidentsListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        filter_meta = _build_hsee_filter_meta(request)
+        queryset = (
+            _filter_accidents_queryset(
+                filter_meta["start_date"],
+                filter_meta["department"],
+            )
+            .select_related(
+                "dossier__collaborateur",
+                "enquete_initiale",
+                "enquete_initiale__sent_to_hsee_by",
+            )
+            .order_by("-date_accident", "-created_at")[:10]
+        )
+        return Response(AccidentTravailSerializer(queryset, many=True).data)
 
 
-class HSEEKpisView(NotImplementedAPIView):
-    pass
+class HSEEKpisView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        filter_meta = _build_hsee_filter_meta(request)
+        accidents = _filter_accidents_queryset(filter_meta["start_date"], filter_meta["department"])
+
+        total_accidents = accidents.count()
+        accidents_graves = accidents.filter(gravite="GRAVE").count()
+        enquetes_en_cours = accidents.filter(statut_enquete="EN_COURS").count()
+        zones_risque = (
+            accidents.exclude(segment__isnull=True)
+            .exclude(segment__exact="")
+            .values("segment")
+            .distinct()
+            .count()
+        )
+        jours_perdus = accidents.aggregate(total=Sum("duree_arret")).get("total") or 0
+
+        return Response(
+            {
+                "accidents_declares": total_accidents,
+                "taux_frequence": total_accidents,
+                "taux_gravite": accidents_graves,
+                "jours_perdus": jours_perdus,
+                "accidents_graves": accidents_graves,
+                "enquetes_en_cours": enquetes_en_cours,
+                "zones_risque": zones_risque,
+            }
+        )
 
 
-class HSEETopCausesView(NotImplementedAPIView):
-    pass
+class HSEETopCausesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        filter_meta = _build_hsee_filter_meta(request)
+        queryset = (
+            _filter_accidents_queryset(filter_meta["start_date"], filter_meta["department"])
+            .exclude(cause__isnull=True)
+            .exclude(cause__exact="")
+            .values("cause")
+            .annotate(value=Count("id"))
+            .order_by("-value", "cause")[:5]
+        )
+        data = [
+            {"label": row["cause"], "value": row["value"]}
+            for row in queryset
+        ]
+        return Response(data)
 
 
-class HSEEAccidentsParSegmentView(NotImplementedAPIView):
-    pass
+class HSEEAccidentsParSegmentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        filter_meta = _build_hsee_filter_meta(request)
+        queryset = (
+            _filter_accidents_queryset(filter_meta["start_date"], filter_meta["department"])
+            .exclude(segment__isnull=True)
+            .exclude(segment__exact="")
+            .values("segment")
+            .annotate(value=Count("id"))
+            .order_by("-value", "segment")
+        )
+        return Response(
+            [{"label": row["segment"], "value": row["value"]} for row in queryset]
+        )
 
 
-class HSEEAccidentsParGraviteView(NotImplementedAPIView):
-    pass
+class HSEEAccidentsParGraviteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        filter_meta = _build_hsee_filter_meta(request)
+        queryset = (
+            _filter_accidents_queryset(filter_meta["start_date"], filter_meta["department"])
+            .exclude(gravite__isnull=True)
+            .exclude(gravite__exact="")
+            .values("gravite")
+            .annotate(value=Count("id"))
+            .order_by("-value", "gravite")
+        )
+        data = []
+        for row in queryset:
+            label = dict(AccidentTravail.GRAVITE_CHOICES).get(row["gravite"], row["gravite"])
+            data.append({"label": label, "value": row["value"]})
+        return Response(data)
 
 
-class HSEEAccidentsParMoisView(NotImplementedAPIView):
-    pass
+class HSEEAccidentsParMoisView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        filter_meta = _build_hsee_filter_meta(request)
+        queryset = (
+            _filter_accidents_queryset(filter_meta["start_date"], filter_meta["department"])
+            .annotate(month=ExtractMonth("date_accident"))
+            .values("month")
+            .annotate(value=Count("id"))
+            .order_by("month")
+        )
+        return Response(
+            [{"label": row["month"], "value": row["value"]} for row in queryset]
+        )
 
 
-class HSEEPlanActionView(NotImplementedAPIView):
-    pass
+class HSEEDashboardDataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return Response(_build_hsee_dashboard_payload(request))
+
+
+class HSEEPlanActionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = PlanActionHSEE.objects.order_by("-created_at")[:10]
+        return Response(PlanActionHSEESerializer(queryset, many=True).data)
+
+
+class HSEEEnqueteListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = (
+            EnqueteInitialeAccident.objects.select_related(
+                "accident",
+                "dossier__collaborateur",
+                "created_by",
+                "sent_to_hsee_by",
+            )
+            .filter(sent_to_hsee=True)
+            .order_by("-date_accident", "-created_at")
+        )
+
+        records = []
+        for enquete in queryset:
+            collab = getattr(enquete.dossier, "collaborateur", None)
+            records.append(
+                {
+                    "id": enquete.id,
+                    "dossier": enquete.dossier_id,
+                    "created_at": enquete.created_at,
+                    "updated_at": enquete.updated_at,
+                    "created_by_name": getattr(enquete.created_by, "username", "")
+                    or getattr(enquete.created_by, "email", ""),
+                    "collaborateur_nom": getattr(collab, "nom", ""),
+                    "collaborateur_prenom": getattr(collab, "prenom", ""),
+                    "matricule": enquete.victime_matricule,
+                    "general": {
+                        "victimeNom": enquete.victime_nom_prenom,
+                        "victimeMatricule": enquete.victime_matricule,
+                        "departement": enquete.victime_appartenance or getattr(collab, "departement", ""),
+                        "posteShift": enquete.victime_horaire_travail or "",
+                        "dateIncident": enquete.date_accident,
+                        "heureIncident": enquete.heure_accident,
+                        "lieuIncident": enquete.lieu_accident,
+                        "descriptionIncident": enquete.circonstances_accident or "",
+                    },
+                    "lesion": {
+                        "natureLesion": getattr(enquete.accident, "nature_lesion", "") or "",
+                        "agentMateriel": getattr(enquete.accident, "agent_materiel", "") or "",
+                        "causeIdentifiee": getattr(enquete.accident, "cause", "") or "",
+                        "presenceStandard": getattr(enquete.accident, "presence_standard", "") or "",
+                        "respectStandard": getattr(enquete.accident, "respect_standard", "") or "",
+                        "actionImmediate": getattr(enquete.accident, "action_immediate", "") or "",
+                        "siegeLesion": enquete.siege_type_lesion or getattr(enquete.accident, "siege_lesion", "") or "",
+                    },
+                    "causes": {
+                        "why1": getattr(enquete.accident, "why1", "") or "",
+                        "why2": getattr(enquete.accident, "why2", "") or "",
+                        "why3": getattr(enquete.accident, "why3", "") or "",
+                        "why4": getattr(enquete.accident, "why4", "") or "",
+                        "why5": getattr(enquete.accident, "why5", "") or "",
+                        "methode": getattr(enquete.accident, "ishikawa_methode", "") or "",
+                        "mainDoeuvre": getattr(enquete.accident, "ishikawa_main_oeuvre", "") or "",
+                        "materiel": getattr(enquete.accident, "ishikawa_materiel", "") or "",
+                        "milieu": getattr(enquete.accident, "ishikawa_milieu", "") or "",
+                        "matiere": getattr(enquete.accident, "ishikawa_matiere", "") or "",
+                    },
+                    "actions": [],
+                }
+            )
+
+        return Response(records)
+
+    def post(self, request, *args, **kwargs):
+        serializer = HSEEEnqueteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        general = payload["general"]
+        lesion = payload["lesion"]
+        causes = payload["causes"]
+        actions = payload.get("actions", [])
+
+        matricule = str(general.get("victimeMatricule", "")).strip()
+        collaborateur = get_object_or_404(Collaborateur, matricule=matricule)
+        dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
+
+        victim_full_name = str(general.get("victimeNom", "")).strip()
+        name_parts = victim_full_name.split()
+        victime_prenom = name_parts[0] if name_parts else ""
+        victime_nom = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+
+        statut_map = {
+            "En attente": "PLANIFIE",
+            "En cours": "EN_COURS",
+            "Cloture": "TERMINE",
+            "Clôturé": "TERMINE",
+        }
+
+        with transaction.atomic():
+            accident = AccidentTravail.objects.create(
+                dossier=dossier,
+                created_by=request.user,
+                victime_nom=victime_nom,
+                victime_prenom=victime_prenom,
+                victime_poste_accident=general.get("posteShift", ""),
+                date_accident=general["dateIncident"],
+                heure_accident=general["heureIncident"],
+                lieu_accident=general.get("lieuIncident", ""),
+                circonstances=general.get("descriptionIncident", ""),
+                description_circonstances=general.get("descriptionIncident", ""),
+                activite_service=general.get("departement", ""),
+                cause=lesion["causeIdentifiee"],
+                nature_lesion=lesion["natureLesion"],
+                siege_lesion=lesion["siegeLesion"],
+                agent_materiel=lesion.get("agentMateriel", ""),
+                presence_standard=lesion.get("presenceStandard", ""),
+                respect_standard=lesion.get("respectStandard", ""),
+                action_immediate=lesion.get("actionImmediate", ""),
+                why1=causes.get("why1", ""),
+                why2=causes.get("why2", ""),
+                why3=causes.get("why3", ""),
+                why4=causes.get("why4", ""),
+                why5=causes.get("why5", ""),
+                ishikawa_methode=causes.get("methode", ""),
+                ishikawa_main_oeuvre=causes.get("mainDoeuvre", ""),
+                ishikawa_materiel=causes.get("materiel", ""),
+                ishikawa_milieu=causes.get("milieu", ""),
+                ishikawa_matiere=causes.get("matiere", ""),
+                segment=general.get("departement", ""),
+                envoye_hsee=True,
+                statut_enquete="TERMINEE",
+                statut_declaration="DECLAREE",
+                generated_at=timezone.now(),
+            )
+
+            for action in actions:
+                PlanActionHSEE.objects.create(
+                    accident=accident,
+                    zone=general.get("lieuIncident", "")
+                    or general.get("departement", "")
+                    or "Zone a preciser",
+                    risque=lesion.get("causeIdentifiee", "")
+                    or lesion.get("natureLesion", "")
+                    or "Risque a preciser",
+                    action=action.get("correctiveAction", ""),
+                    responsable=action.get("responsable", ""),
+                    delai=action.get("dateLimite"),
+                    statut=statut_map.get(action.get("statut"), "PLANIFIE"),
+                )
+
+        created = (
+            AccidentTravail.objects.select_related("dossier__collaborateur", "created_by")
+            .prefetch_related("plans_action_hsee")
+            .get(pk=accident.pk)
+        )
+        collab = created.dossier.collaborateur
+
+        return Response(
+            {
+                "id": created.id,
+                "dossier": created.dossier_id,
+                "created_at": created.created_at,
+                "updated_at": created.updated_at,
+                "created_by_name": getattr(created.created_by, "username", "")
+                or getattr(created.created_by, "email", ""),
+                "collaborateur_nom": getattr(collab, "nom", "") or created.victime_nom or "",
+                "collaborateur_prenom": getattr(collab, "prenom", "")
+                or created.victime_prenom
+                or "",
+                "matricule": getattr(collab, "matricule", ""),
+                "general": {
+                    "victimeNom": " ".join(
+                        filter(None, [created.victime_prenom, created.victime_nom])
+                    ).strip(),
+                    "victimeMatricule": getattr(collab, "matricule", ""),
+                    "departement": created.activite_service or created.segment or "",
+                    "posteShift": created.victime_poste_accident or "",
+                    "dateIncident": created.date_accident,
+                    "heureIncident": created.heure_accident,
+                    "lieuIncident": created.lieu_accident,
+                    "descriptionIncident": created.description_circonstances
+                    or created.circonstances
+                    or "",
+                },
+                "lesion": {
+                    "natureLesion": created.nature_lesion,
+                    "agentMateriel": created.agent_materiel or "",
+                    "causeIdentifiee": created.cause,
+                    "presenceStandard": created.presence_standard or "",
+                    "respectStandard": created.respect_standard or "",
+                    "actionImmediate": created.action_immediate or "",
+                    "siegeLesion": created.siege_lesion,
+                },
+                "causes": {
+                    "why1": created.why1 or "",
+                    "why2": created.why2 or "",
+                    "why3": created.why3 or "",
+                    "why4": created.why4 or "",
+                    "why5": created.why5 or "",
+                    "methode": created.ishikawa_methode or "",
+                    "mainDoeuvre": created.ishikawa_main_oeuvre or "",
+                    "materiel": created.ishikawa_materiel or "",
+                    "milieu": created.ishikawa_milieu or "",
+                    "matiere": created.ishikawa_matiere or "",
+                },
+                "actions": [
+                    {
+                        "id": action.id,
+                        "correctiveAction": action.action,
+                        "responsable": action.responsable or "",
+                        "dateLimite": action.delai,
+                        "statut": action.statut,
+                    }
+                    for action in created.plans_action_hsee.all().order_by("created_at")
+                ],
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+HSEE_REPORT_PERIOD_OPTIONS = [
+    {"value": "this_month", "label": "Mois en cours"},
+    {"value": "last_month", "label": "Mois précédent"},
+    {"value": "current_quarter", "label": "Trimestre en cours"},
+    {"value": "current_year", "label": "Année en cours"},
+    {"value": "last_6_months", "label": "6 derniers mois"},
+]
+
+HSEE_REPORT_DETAIL_LEVELS = [
+    {"value": "SYNTHETIC", "label": "Synthétique"},
+    {"value": "STANDARD", "label": "Standard"},
+    {"value": "DETAILED", "label": "Détaillé"},
+]
+
+HSEE_REPORT_TEMPLATES = [
+    {
+        "id": "accidents-monthly",
+        "name": "Rapport Mensuel des Accidents de Travail",
+        "description": "Synthèse des AT/MP du mois avec statistiques et analyses",
+        "category": "Accidents",
+        "icon_key": "accidents",
+        "formats_supported": ["PDF", "EXCEL"],
+        "sections_available": [
+            {"value": "summary", "label": "Résumé exécutif"},
+            {"value": "indicators", "label": "Indicateurs clés"},
+            {"value": "analysis", "label": "Analyses détaillées"},
+            {"value": "recommendations", "label": "Recommandations"},
+        ],
+    },
+    {
+        "id": "medical-visits",
+        "name": "Bilan des Visites Médicales",
+        "description": "Récapitulatif des visites médicales et aptitudes",
+        "category": "Médical",
+        "icon_key": "medical",
+        "formats_supported": ["PDF", "EXCEL"],
+        "sections_available": [
+            {"value": "summary", "label": "Résumé exécutif"},
+            {"value": "visit_types", "label": "Répartition par type"},
+            {"value": "aptitude", "label": "Aptitudes"},
+            {"value": "recommendations", "label": "Recommandations"},
+        ],
+    },
+    {
+        "id": "medical-stock",
+        "name": "État des Stocks Médicaux",
+        "description": "Inventaire complet des médicaments et équipements",
+        "category": "Inventaire",
+        "icon_key": "stock",
+        "formats_supported": ["PDF", "EXCEL"],
+        "sections_available": [
+            {"value": "summary", "label": "Résumé exécutif"},
+            {"value": "critical", "label": "Stocks critiques"},
+            {"value": "expiration", "label": "Péremption"},
+            {"value": "inventory", "label": "Inventaire détaillé"},
+        ],
+    },
+    {
+        "id": "risk-mapping",
+        "name": "Cartographie et Évaluation des Risques",
+        "description": "Analyse des risques professionnels identifiés",
+        "category": "Risques",
+        "icon_key": "risks",
+        "formats_supported": ["PDF", "EXCEL"],
+        "sections_available": [
+            {"value": "summary", "label": "Résumé exécutif"},
+            {"value": "risk_status", "label": "Statut des actions"},
+            {"value": "critical", "label": "Risques critiques"},
+            {"value": "actions", "label": "Plan d'action"},
+        ],
+    },
+    {
+        "id": "hsee-kpis",
+        "name": "Tableau de Bord KPIs HSEE",
+        "description": "Indicateurs de performance consolidés",
+        "category": "KPIs",
+        "icon_key": "kpis",
+        "formats_supported": ["PDF", "EXCEL"],
+        "sections_available": [
+            {"value": "summary", "label": "Résumé exécutif"},
+            {"value": "kpis", "label": "KPIs"},
+            {"value": "trend", "label": "Tendance mensuelle"},
+            {"value": "top_causes", "label": "Top causes"},
+        ],
+    },
+    {
+        "id": "comite-hse",
+        "name": "Rapport Trimestriel COMITÉ HSE",
+        "description": "Rapport complet pour réunion du comité",
+        "category": "Personnalisé",
+        "icon_key": "committee",
+        "formats_supported": ["PDF", "EXCEL"],
+        "sections_available": [
+            {"value": "summary", "label": "Résumé exécutif"},
+            {"value": "accidents", "label": "Synthèse accidents"},
+            {"value": "actions", "label": "Actions HSEE"},
+            {"value": "recommendations", "label": "Recommandations"},
+        ],
+    },
+]
+
+
+def _get_hsee_report_template(template_id):
+    for template in HSEE_REPORT_TEMPLATES:
+        if template["id"] == template_id:
+            return template
+    return None
+
+
+def _current_month_range():
+    today = timezone.localdate()
+    start = date(today.year, today.month, 1)
+    if today.month == 12:
+        next_month = date(today.year + 1, 1, 1)
+    else:
+        next_month = date(today.year, today.month + 1, 1)
+    return start, next_month - timedelta(days=1)
+
+
+def _last_month_range():
+    current_start, _ = _current_month_range()
+    end = current_start - timedelta(days=1)
+    start = date(end.year, end.month, 1)
+    return start, end
+
+
+def _current_quarter_range():
+    today = timezone.localdate()
+    quarter_start_month = ((today.month - 1) // 3) * 3 + 1
+    start = date(today.year, quarter_start_month, 1)
+    if quarter_start_month == 10:
+        next_quarter = date(today.year + 1, 1, 1)
+    else:
+        next_quarter = date(today.year, quarter_start_month + 3, 1)
+    return start, next_quarter - timedelta(days=1)
+
+
+def _current_year_range():
+    today = timezone.localdate()
+    return date(today.year, 1, 1), date(today.year, 12, 31)
+
+
+def _last_6_months_range():
+    end = timezone.localdate()
+    return end - timedelta(days=183), end
+
+
+def _resolve_report_period(period_value):
+    if period_value == "last_month":
+        start, end = _last_month_range()
+        label = "Mois précédent"
+    elif period_value == "current_quarter":
+        start, end = _current_quarter_range()
+        quarter = ((start.month - 1) // 3) + 1
+        label = f"T{quarter} {start.year}"
+    elif period_value == "current_year":
+        start, end = _current_year_range()
+        label = str(start.year)
+    elif period_value == "last_6_months":
+        start, end = _last_6_months_range()
+        label = "6 derniers mois"
+    else:
+        start, end = _current_month_range()
+        label = start.strftime("%B %Y")
+    return {"value": period_value or "this_month", "label": label, "start": start, "end": end}
+
+
+def _apply_department_filter(queryset, department, fields):
+    if not department:
+        return queryset
+    query = Q()
+    for field in fields:
+        query |= Q(**{f"{field}__iexact": department})
+    return queryset.filter(query)
+
+
+def _get_report_departments_options():
+    options = [{"value": "", "label": "Tous les départements"}]
+    options.extend({"value": item, "label": item} for item in _hsee_departments())
+    return options
+
+
+def _safe_report_filename(value):
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", ascii_value).strip("_")
+    return cleaned or "report"
+
+
+def _report_storage_dir():
+    directory = Path(settings.BASE_DIR) / "tmp_pdf" / "hsee-reports"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def _save_report_bytes(reference, extension, content):
+    filename = f"{_safe_report_filename(reference)}.{extension}"
+    path = _report_storage_dir() / filename
+    path.write_bytes(content)
+    return str(path)
+
+
+def _collect_report_dataset(template, period_meta, department):
+    start = period_meta["start"]
+    end = period_meta["end"]
+
+    if template["id"] == "accidents-monthly":
+        queryset = _apply_department_filter(
+            AccidentTravail.objects.filter(
+                enquete_initiale__sent_to_hsee=True,
+                date_accident__gte=start,
+                date_accident__lte=end,
+            ).select_related("dossier__collaborateur"),
+            department,
+            ["segment", "activite_service", "dossier__collaborateur__departement"],
+        ).order_by("-date_accident", "-created_at")
+        rows = [
+            {
+                "Date": _fmt_date(item.date_accident),
+                "Matricule": getattr(item.dossier.collaborateur, "matricule", ""),
+                "Collaborateur": " ".join(
+                    filter(
+                        None,
+                        [
+                            getattr(item.dossier.collaborateur, "prenom", ""),
+                            getattr(item.dossier.collaborateur, "nom", ""),
+                        ],
+                    )
+                ).strip(),
+                "Département": item.activite_service or item.segment or "",
+                "Type": item.nature_lesion or item.cause or "Accident",
+                "Gravité": item.get_gravite_display() if item.gravite else "Faible",
+                "Jours perdus": item.duree_arret or 0,
+            }
+            for item in queryset[:150]
+        ]
+        total = queryset.count()
+        days = queryset.aggregate(total=Sum("duree_arret")).get("total") or 0
+        return {
+            "summary": {
+                "Total accidents": total,
+                "Jours perdus": days,
+                "Période": period_meta["label"],
+                "Département": department or "Tous",
+            },
+            "rows": rows,
+        }
+
+    if template["id"] == "medical-visits":
+        queryset = _apply_department_filter(
+            FicheAptitude.objects.filter(
+                Q(date_examen__gte=start, date_examen__lte=end)
+                | Q(date_examen__isnull=True, date__gte=start, date__lte=end)
+            ).select_related("collaborateur"),
+            department,
+            ["collaborateur__departement"],
+        ).order_by("-date_examen", "-date")
+        rows = [
+            {
+                "Date": _fmt_date(item.date_examen or item.date),
+                "Matricule": getattr(item.collaborateur, "matricule", ""),
+                "Collaborateur": item.nom_prenom
+                or " ".join(filter(None, [getattr(item.collaborateur, "prenom", ""), getattr(item.collaborateur, "nom", "")])).strip(),
+                "Type": item.get_type_examen_display(),
+                "Aptitude": item.get_aptitude_display(),
+                "Département": getattr(item.collaborateur, "departement", "") or "",
+            }
+            for item in queryset[:150]
+        ]
+        return {
+            "summary": {
+                "Total visites": queryset.count(),
+                "Département": department or "Tous",
+                "Période": period_meta["label"],
+            },
+            "rows": rows,
+        }
+
+    if template["id"] == "medical-stock":
+        queryset = StockItem.objects.filter(actif=True).order_by("nom")
+        rows = [
+            {
+                "Article": item.nom,
+                "Type": item.get_type_article_display(),
+                "Catégorie": item.categorie or "",
+                "Quantité": item.quantite,
+                "Seuil critique": item.seuil_critique,
+                "Critique": "Oui" if item.quantite <= item.seuil_critique else "Non",
+                "Expiration": _fmt_date(item.date_expiration),
+            }
+            for item in queryset[:200]
+        ]
+        critical = queryset.filter(quantite__lte=F("seuil_critique")).count()
+        return {
+            "summary": {
+                "Articles actifs": queryset.count(),
+                "Stocks critiques": critical,
+                "Période": period_meta["label"],
+            },
+            "rows": rows,
+        }
+
+    if template["id"] == "risk-mapping":
+        queryset = PlanActionHSEE.objects.select_related("accident").order_by("-created_at")
+        if department:
+            queryset = queryset.filter(
+                Q(zone__iexact=department)
+                | Q(accident__segment__iexact=department)
+                | Q(accident__activite_service__iexact=department)
+            )
+        rows = [
+            {
+                "Zone": item.zone,
+                "Risque": item.risque,
+                "Action": item.action,
+                "Responsable": item.responsable or "",
+                "Délai": _fmt_date(item.delai),
+                "Statut": item.get_statut_display(),
+            }
+            for item in queryset[:150]
+        ]
+        return {
+            "summary": {
+                "Actions HSEE": queryset.count(),
+                "Planifiées": queryset.filter(statut="PLANIFIE").count(),
+                "En cours": queryset.filter(statut="EN_COURS").count(),
+                "Terminées": queryset.filter(statut="TERMINE").count(),
+            },
+            "rows": rows,
+        }
+
+    if template["id"] == "hsee-kpis":
+        accidents = _apply_department_filter(
+            AccidentTravail.objects.filter(
+                enquete_initiale__sent_to_hsee=True,
+                date_accident__gte=start,
+                date_accident__lte=end,
+            ),
+            department,
+            ["segment", "activite_service", "dossier__collaborateur__departement"],
+        )
+        jours_perdus = accidents.aggregate(total=Sum("duree_arret")).get("total") or 0
+        accidents_by_month = (
+            accidents.annotate(month=ExtractMonth("date_accident"), year=ExtractYear("date_accident"))
+            .values("year", "month")
+            .annotate(value=Count("id"))
+            .order_by("year", "month")
+        )
+        rows = [
+            {
+                "Mois": f"{int(item['month']):02d}/{item['year']}",
+                "Accidents": item["value"],
+            }
+            for item in accidents_by_month
+        ]
+        return {
+            "summary": {
+                "Accidents déclarés": accidents.count(),
+                "Accidents graves": accidents.filter(gravite="GRAVE").count(),
+                "Jours perdus": jours_perdus,
+                "Période": period_meta["label"],
+            },
+            "rows": rows,
+        }
+
+    accidents = _apply_department_filter(
+        AccidentTravail.objects.filter(
+            enquete_initiale__sent_to_hsee=True,
+            date_accident__gte=start,
+            date_accident__lte=end,
+        ),
+        department,
+        ["segment", "activite_service", "dossier__collaborateur__departement"],
+    )
+    actions = PlanActionHSEE.objects.select_related("accident").order_by("-created_at")
+    rows = [
+        {
+            "Référence": f"AT-{item.id:04d}",
+            "Date": _fmt_date(item.date_accident),
+            "Type": item.nature_lesion or item.cause or "Accident",
+            "Zone": item.activite_service or item.segment or "",
+            "Statut enquête": item.get_statut_enquete_display(),
+        }
+        for item in accidents[:100]
+    ]
+    return {
+        "summary": {
+            "Accidents": accidents.count(),
+            "Actions HSEE": actions.count(),
+            "Période": period_meta["label"],
+            "Département": department or "Tous",
+        },
+        "rows": rows,
+    }
+
+
+def _build_preview_pdf_bytes(title, reference, dataset, parameters):
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    margin = 20
+    y = height - margin
+
+    def draw_line(text, font="Helvetica", size=10, gap=15):
+        nonlocal y
+        if y < 40:
+            pdf.showPage()
+            y = height - margin
+        pdf.setFont(font, size)
+        pdf.drawString(margin, y, str(text)[:110])
+        y -= gap
+
+    draw_line("Rapport HSEE", "Helvetica-Bold", 18, 24)
+    draw_line(title, "Helvetica-Bold", 14, 20)
+    draw_line(f"Référence: {reference}", gap=14)
+    draw_line(f"Période: {parameters.get('period_label', '')}", gap=14)
+    draw_line(f"Département: {parameters.get('department') or 'Tous les départements'}", gap=14)
+    draw_line(f"Niveau de détail: {parameters.get('detail_level') or 'Standard'}", gap=20)
+
+    draw_line("Résumé", "Helvetica-Bold", 12, 18)
+    for key, value in dataset.get("summary", {}).items():
+        draw_line(f"- {key}: {value}")
+
+    y -= 6
+    draw_line("Données", "Helvetica-Bold", 12, 18)
+    rows = dataset.get("rows", [])
+    if not rows:
+        draw_line("Aucune donnée disponible.")
+    else:
+        headers = list(rows[0].keys())
+        draw_line(" | ".join(headers), "Helvetica-Bold", 9, 14)
+        for row in rows[:60]:
+            draw_line(" | ".join(str(row.get(header, "")) for header in headers), size=8, gap=12)
+
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def _build_excel_report_bytes(dataset):
+    if openpyxl is None:
+        raise ValidationError({"detail": "Le support Excel n'est pas disponible sur le serveur."})
+
+    workbook = openpyxl.Workbook()
+    summary_sheet = workbook.active
+    summary_sheet.title = "Résumé"
+    summary_sheet.append(["Indicateur", "Valeur"])
+    for key, value in dataset.get("summary", {}).items():
+        summary_sheet.append([key, value])
+
+    rows_sheet = workbook.create_sheet("Données")
+    rows = dataset.get("rows", [])
+    if rows:
+        headers = list(rows[0].keys())
+        rows_sheet.append(headers)
+        for row in rows:
+            rows_sheet.append([row.get(header, "") for header in headers])
+    else:
+        rows_sheet.append(["Aucune donnée disponible"])
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def _build_report_binary(template, dataset, parameters, reference):
+    preview_bytes = _build_preview_pdf_bytes(template["name"], reference, dataset, parameters)
+    if parameters["format"] == "EXCEL":
+        main_bytes = _build_excel_report_bytes(dataset)
+        mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        extension = "xlsx"
+    else:
+        main_bytes = preview_bytes
+        mime_type = "application/pdf"
+        extension = "pdf"
+    return {
+        "main_bytes": main_bytes,
+        "preview_bytes": preview_bytes,
+        "mime_type": mime_type,
+        "extension": extension,
+    }
+
+
+def _build_hsee_report_stats():
+    today = timezone.localdate()
+    generated_queryset = HSEEGeneratedReport.objects.all()
+    return {
+        "total_generated": generated_queryset.count(),
+        "total_scheduled": generated_queryset.filter(status="SCHEDULED").count(),
+        "total_this_month": generated_queryset.filter(
+            generated_at__year=today.year,
+            generated_at__month=today.month,
+        ).count(),
+        "total_templates": len([item for item in HSEE_REPORT_TEMPLATES if item.get("active", True)]),
+    }
+
+
+def _serialize_hsee_templates():
+    departments = _get_report_departments_options()
+    payload = []
+    for template in HSEE_REPORT_TEMPLATES:
+        item = dict(template)
+        item["active"] = template.get("active", True)
+        item["detail_levels"] = HSEE_REPORT_DETAIL_LEVELS
+        item["periods"] = HSEE_REPORT_PERIOD_OPTIONS
+        item["departments"] = departments
+        payload.append(item)
+    return payload
+
+
+def _build_generated_report_payload(validated_data, request_user):
+    template = _get_hsee_report_template(validated_data["template_id"])
+    if not template:
+        raise ValidationError({"template_id": "Modèle de rapport introuvable."})
+
+    period_meta = _resolve_report_period(validated_data["period"])
+    department = (validated_data.get("department") or "").strip()
+    detail_level = validated_data.get("detail_level") or "STANDARD"
+    sections = validated_data.get("sections") or [
+        item["value"] for item in template.get("sections_available", [])[:3]
+    ]
+
+    parameters = {
+        "period": period_meta["value"],
+        "period_label": period_meta["label"],
+        "department": department,
+        "detail_level": detail_level,
+        "sections": sections,
+        "format": validated_data["format"],
+        "generated_by": validated_data.get("generated_by")
+        or (request_user.get_full_name() or request_user.username),
+    }
+    dataset = _collect_report_dataset(template, period_meta, department)
+    return template, period_meta, parameters, dataset
+
+
+class HSEEReportsDashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return Response(_build_hsee_report_stats())
+
+
+class HSEEReportTemplatesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        payload = _serialize_hsee_templates()
+        serializer = HSEEReportTemplateSerializer(payload, many=True)
+        return Response(serializer.data)
+
+
+class HSEEReportTemplateDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, template_id, *args, **kwargs):
+        template = _get_hsee_report_template(template_id)
+        if not template:
+            return Response({"detail": "Modèle introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        payload = dict(template)
+        payload["active"] = template.get("active", True)
+        payload["detail_levels"] = HSEE_REPORT_DETAIL_LEVELS
+        payload["periods"] = HSEE_REPORT_PERIOD_OPTIONS
+        payload["departments"] = _get_report_departments_options()
+        serializer = HSEEReportTemplateSerializer(payload)
+        return Response(serializer.data)
+
+
+class HSEEGeneratedReportsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        search = (request.query_params.get("search") or "").strip()
+        queryset = HSEEGeneratedReport.objects.select_related("created_by", "sent_by").order_by(
+            "-generated_at", "-created_at"
+        )
+        if search:
+            queryset = queryset.filter(
+                Q(reference__icontains=search)
+                | Q(title__icontains=search)
+                | Q(category__icontains=search)
+                | Q(template_name__icontains=search)
+            )
+        return Response(HSEEGeneratedReportSerializer(queryset, many=True).data)
+
+
+class HSEEGenerateReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = HSEEReportGenerateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        template, period_meta, parameters, dataset = _build_generated_report_payload(
+            serializer.validated_data,
+            request.user,
+        )
+
+        report = HSEEGeneratedReport.objects.create(
+            template_key=template["id"],
+            template_name=template["name"],
+            title=f"{template['name']} - {period_meta['label']}",
+            category=template.get("category", ""),
+            description=template.get("description", ""),
+            output_format=serializer.validated_data["format"],
+            period_value=period_meta["value"],
+            period_label=period_meta["label"],
+            department=parameters["department"],
+            detail_level=parameters["detail_level"],
+            sections=parameters["sections"],
+            parameters=parameters,
+            created_by=request.user,
+            status="GENERATED",
+        )
+
+        binary = _build_report_binary(template, dataset, parameters, report.reference or f"RPT-{report.pk}")
+        report.file_path = _save_report_bytes(report.reference, binary["extension"], binary["main_bytes"])
+        report.preview_path = _save_report_bytes(f"{report.reference}_preview", "pdf", binary["preview_bytes"])
+        report.mime_type = binary["mime_type"]
+        report.file_size_bytes = len(binary["main_bytes"])
+
+        if serializer.validated_data.get("send_email_after_generation"):
+            report.status = "SENT"
+            report.sent_at = timezone.now()
+            report.sent_by = request.user
+            recipients = get_user_model().objects.filter(role="AGENT_HSEE")
+            for recipient in recipients:
+                Notification.objects.create(
+                    user=recipient,
+                    title="Nouveau rapport HSEE",
+                    message=f"Le rapport {report.reference} est disponible.",
+                )
+
+        report.save(
+            update_fields=[
+                "file_path",
+                "preview_path",
+                "mime_type",
+                "file_size_bytes",
+                "status",
+                "sent_at",
+                "sent_by",
+                "updated_at",
+            ]
+        )
+
+        return Response(HSEEGeneratedReportSerializer(report).data, status=status.HTTP_201_CREATED)
+
+
+class HSEEPreviewReportPayloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = HSEEReportGenerateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        template, period_meta, parameters, dataset = _build_generated_report_payload(
+            serializer.validated_data,
+            request.user,
+        )
+        preview_bytes = _build_preview_pdf_bytes(
+            template["name"],
+            "PREVIEW",
+            dataset,
+            parameters,
+        )
+        response = HttpResponse(preview_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = 'inline; filename="preview_rapport_hsee.pdf"'
+        return response
+
+
+class HSEEGeneratedReportPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        report = get_object_or_404(HSEEGeneratedReport, pk=pk)
+        path = Path(report.preview_path or "")
+        if not path.exists():
+            return Response({"detail": "Prévisualisation introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        response = HttpResponse(path.read_bytes(), content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{_safe_report_filename(report.reference)}_preview.pdf"'
+        return response
+
+
+class HSEEGeneratedReportDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        report = get_object_or_404(HSEEGeneratedReport, pk=pk)
+        path = Path(report.file_path or "")
+        if not path.exists():
+            return Response({"detail": "Fichier introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        extension = path.suffix or ".pdf"
+        response = HttpResponse(path.read_bytes(), content_type=report.mime_type or "application/octet-stream")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{_safe_report_filename(report.reference)}{extension}"'
+        )
+        return response
+
+
+class HSEEGeneratedReportSendView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        report = get_object_or_404(HSEEGeneratedReport, pk=pk)
+        recipients = get_user_model().objects.filter(role="AGENT_HSEE")
+        for recipient in recipients:
+            Notification.objects.create(
+                user=recipient,
+                title="Rapport HSEE envoyé",
+                message=f"Le rapport {report.reference} a été partagé par {request.user.username}.",
+            )
+        report.status = "SENT"
+        report.sent_at = timezone.now()
+        report.sent_by = request.user
+        report.save(update_fields=["status", "sent_at", "sent_by", "updated_at"])
+        return Response(HSEEGeneratedReportSerializer(report).data)
 
 
 class MaladieCreateView(generics.ListCreateAPIView):
@@ -2121,6 +3915,18 @@ def _fmt_time(value):
     return value.strftime("%H:%M") if value else ""
 
 
+def _fmt_datetime_as_date(value):
+    return _fmt_date(value.date()) if value else ""
+
+
+def _declaration_status_label(value):
+    return {
+        "BROUILLON": "Brouillon",
+        "DECLAREE": "Declaree",
+        "GENEREE": "Generee",
+    }.get(value, value or "")
+
+
 class AccidentTravailPdfView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2158,6 +3964,14 @@ class AccidentTravailPdfView(APIView):
             "heure_arret": _fmt_time(accident.heure_arret),
             "rapport_police_date": _fmt_date(accident.rapport_police_date),
             "signature_date": _fmt_date(accident.signature_date),
+            "statut_declaration_display": _declaration_status_label(
+                getattr(accident, "statut_declaration", "")
+            ),
+            "date_generation": _fmt_datetime_as_date(
+                getattr(accident, "generated_at", None)
+                or getattr(accident, "printed_at", None)
+                or getattr(accident, "created_at", None)
+            ),
         }
 
         html_string = render_to_string("medical/accident_travail_pdf.html", context)
@@ -2215,9 +4029,19 @@ class MaladieProfessionnellePdfView(APIView):
             "victime_adresse": maladie.victime_adresse or getattr(collab, "adresse", ""),
             "date_decouverte": _fmt_date(maladie.date_decouverte),
             "date_constat": _fmt_date(maladie.date_constat),
+            "date_debut_exposition": _fmt_date(maladie.date_debut_exposition),
+            "date_fin_exposition": _fmt_date(maladie.date_fin_exposition),
             "date_arret_exposition": _fmt_date(maladie.date_arret_exposition),
             "date_arret": _fmt_date(maladie.date_arret),
             "signature_date": _fmt_date(maladie.signature_date),
+            "statut_declaration_display": _declaration_status_label(
+                getattr(maladie, "statut_declaration", "")
+            ),
+            "date_generation": _fmt_datetime_as_date(
+                getattr(maladie, "generated_at", None)
+                or getattr(maladie, "printed_at", None)
+                or getattr(maladie, "created_at", None)
+            ),
         }
 
         html_string = render_to_string("medical/maladie_professionnelle_pdf.html", context)

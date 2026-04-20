@@ -6,8 +6,6 @@ import {
   CalendarDays,
   ArrowUpRight,
   BellRing,
-  ClipboardPlus,
-  Search,
   Package,
   ShieldAlert,
   CheckCircle2,
@@ -16,11 +14,12 @@ import {
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/api";
 
-const StatCard = ({ title, value, subtitle, icon, alert = false, iconClass = "" }) => (
+const StatCard = ({ title, value, subtitle, icon, alert = false, iconClass = "", onClick }) => (
   <div
+    onClick={onClick}
     className={`rounded-2xl border bg-white p-4 shadow-sm transition hover:shadow-md ${
       alert ? "border-red-200" : "border-slate-200"
-    }`}
+    } ${onClick ? "cursor-pointer" : ""}`}
   >
     <div className="flex items-start justify-between">
       <div>
@@ -203,7 +202,7 @@ export default function InfirmierDashboard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div>
           <p className="text-sm font-medium text-slate-500">Espace Infirmier</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
@@ -212,32 +211,6 @@ export default function InfirmierDashboard() {
           <p className="mt-2 text-sm text-slate-500">
             Suivi des patients, soins infirmiers, accidents, stock et rendez-vous.
           </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => navigate("/infirmier/patients")}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
-          >
-            <Search size={16} />
-            Accueil patient
-          </button>
-
-          <button
-            onClick={() => navigate("/infirmier/incidents")}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            <ClipboardPlus size={16} />
-            Déclarer incident
-          </button>
-
-          <button
-            onClick={() => navigate("/infirmier/accidents")}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            <ShieldAlert size={16} />
-            Accidents de travail
-          </button>
         </div>
       </div>
 
@@ -275,6 +248,7 @@ export default function InfirmierDashboard() {
           subtitle="Accidents transmis"
           icon={<CheckCircle2 size={22} className="text-blue-600" />}
           iconClass="bg-blue-50 text-blue-600"
+          onClick={() => navigate("/infirmier/enquete-initiale?filter=sent")}
         />
         <StatCard
           title="Stock critique"

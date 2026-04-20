@@ -316,7 +316,13 @@ export default function RapportPage() {
           icon={<FileText size={20} />}
         >
           <div className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={220}
+              style={{ minWidth: 0, minHeight: 220 }}
+            >
               <BarChart data={reportData.dossiers_par_type} barCategoryGap={28}>
                 <CartesianGrid vertical={false} stroke="#E2E8F0" strokeDasharray="3 3" />
                 <XAxis
@@ -345,7 +351,13 @@ export default function RapportPage() {
         >
           <div className="flex h-[320px] flex-col items-center justify-center gap-4 lg:flex-row">
             <div className="h-[220px] w-full max-w-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth={0}
+                minHeight={220}
+                style={{ minWidth: 0, minHeight: 220 }}
+              >
                 <PieChart>
                   <Pie
                     data={statusLegend}
@@ -393,7 +405,13 @@ export default function RapportPage() {
         icon={<ShieldAlert size={20} />}
       >
         <div className="h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            minWidth={0}
+            minHeight={220}
+            style={{ minWidth: 0, minHeight: 220 }}
+          >
             <BarChart data={reportData.accidents_par_gravite} barCategoryGap={34}>
               <CartesianGrid vertical={false} stroke="#E2E8F0" strokeDasharray="3 3" />
               <XAxis

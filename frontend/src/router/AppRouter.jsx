@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
 import LoginPage from "../pages/shared/LoginPage";
 import Dashboard from "../pages/shared/Dashboard";
+import CollaborateurProfilePage from "../pages/shared/CollaborateurProfilePage";
 import FicheAptitudeForm from "../pages/medecin-travail/FicheAptitudeForm";
 import AnalysesLaboPage from "../pages/medecin-travail/AnalysesLaboPage";
 import ExamenComplementaireForm from "../pages/medecin-travail/ExamenComplementaireForm";
@@ -39,6 +40,8 @@ import IncidentsHubPage from "../pages/infirmier/IncidentsHubPage";
 import AccidentsPage from "../pages/infirmier/AccidentsPage";
 import EnqueteInitialePage from "../pages/infirmier/EnqueteInitialePage";
 import MaladiesProfessionnellesPage from "../pages/infirmier/MaladiesProfessionnellesPage";
+import SuiviMPPage from "../pages/infirmier/SuiviMPPage";
+import SuiviDeclarationsCNAMPage from "../pages/infirmier/SuiviDeclarationsCNAMPage";
 import StockPage from "../pages/infirmier/StockPage";
 import RDVPage from "../pages/infirmier/RDVPage";
 import DashboardPharmacie from "../pages/infirmier/DashboardPharmacie";
@@ -46,10 +49,18 @@ import BonChauffeurPage from "../pages/infirmier/BonChauffeurPage";
 import SuiviTransfertsPage from "../pages/infirmier/SuiviTransfertsPage";
 
 import RHDashboard from "../pages/rh/RHDashboard";
+import AbsencesPonctualiteRH from "../pages/rh/AbsencesPonctualiteRH";
+import NouveauxOperateursRH from "../pages/rh/NouveauxOperateursRH";
+import PointageMedecinsPage from "../pages/rh/PointageMedecinsPage";
 
 import HSEEDashboard from "../pages/hsee/HSEEDashboard";
 import HSEEStatsPage from "../pages/hsee/HSEEStatsPage";
 import HSEEPlanActionPage from "../pages/hsee/HSEEPlanActionPage";
+import HSEERiskMapPage from "../pages/hsee/HSEERiskMapPage";
+import HSEEEnqueteHistoryPage from "../pages/hsee/HSEEEnqueteHistoryPage";
+import HSEEEnqueteWizardPage from "../pages/hsee/HSEEEnqueteWizardPage";
+import HSEEReceivedInvestigationsPage from "../pages/hsee/HSEEReceivedInvestigationsPage";
+import HSEEReportsPage from "../pages/hsee/HSEEReportsPage";
 
 import ProtectedRoute from "../auth/ProtectedRoute";
 import RoleRoute from "../auth/RoleRoute";
@@ -361,6 +372,15 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/infirmier/pointage-medecins"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <PointageMedecinsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/infirmier/patients"
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
@@ -425,9 +445,32 @@ export default function AppRouter() {
 
         <Route
           path="/infirmier/maladies-professionnelles"
+          element={<Navigate to="/infirmier/mp/declaration" replace />}
+        />
+
+        <Route
+          path="/infirmier/mp/declaration"
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
               <MaladiesProfessionnellesPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/mp/suivi"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <SuiviMPPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/cnam/suivi"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE"]}>
+              <SuiviDeclarationsCNAMPage />
             </RoleRoute>
           }
         />
@@ -469,6 +512,44 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/rh/absences-ponctualite"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
+              <AbsencesPonctualiteRH />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rh/nouveaux-operateurs"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
+              <NouveauxOperateursRH />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rh/pointage-medecins"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "AGENT_HSEE"]}>
+              <PointageMedecinsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/pointage"
+          element={
+            <RoleRoute
+              allowedRoles={["ADMIN", "INFIRMIER", "RESPONSABLE_RH", "AGENT_HSEE"]}
+            >
+              <PointageMedecinsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/hsee"
           element={
             <RoleRoute allowedRoles={["AGENT_HSEE"]}>
@@ -482,6 +563,69 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["AGENT_HSEE"]}>
               <HSEEStatsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hsee/enquete-at"
+          element={
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <HSEEEnqueteWizardPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hsee/visites-medicales"
+          element={
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <RDVPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hsee/inventaire-medical"
+          element={
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <StockPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hsee/cartographie-risques"
+          element={
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <HSEERiskMapPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hsee/rapports"
+          element={
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <HSEEReportsPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hsee/historique-enquetes"
+          element={
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <HSEEEnqueteHistoryPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hsee/enquetes-recues"
+          element={
+            <RoleRoute allowedRoles={["AGENT_HSEE"]}>
+              <HSEEReceivedInvestigationsPage />
             </RoleRoute>
           }
         />

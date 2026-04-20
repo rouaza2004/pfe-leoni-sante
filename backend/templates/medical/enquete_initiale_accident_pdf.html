@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @page {
+        size: A4;
+        margin: 1.4cm;
+      }
+
+      body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 10px;
+        color: #0f172a;
+      }
+
+      .header {
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 10px;
+        margin-bottom: 16px;
+      }
+
+      .header-title {
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      .header-subtitle {
+        margin-top: 4px;
+        font-size: 10px;
+        color: #475569;
+      }
+
+      .meta {
+        margin-top: 8px;
+        font-size: 9px;
+        color: #334155;
+      }
+
+      .section {
+        margin-bottom: 14px;
+        border: 1px solid #cbd5e1;
+      }
+
+      .section-title {
+        background: #e2e8f0;
+        padding: 7px 10px;
+        font-size: 11px;
+        font-weight: bold;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .fields td {
+        border-top: 1px solid #e2e8f0;
+        padding: 7px 10px;
+        vertical-align: top;
+      }
+
+      .fields td.label {
+        width: 32%;
+        font-weight: bold;
+        background: #f8fafc;
+      }
+
+      .witness-table th,
+      .witness-table td {
+        border-top: 1px solid #e2e8f0;
+        padding: 7px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .witness-table th {
+        background: #f8fafc;
+        font-weight: bold;
+      }
+
+      .muted {
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-title">Enquete initiale d'accident</div>
+      <div class="header-subtitle">Transmission HSEE</div>
+      <div class="meta">
+        Societe : LEONI
+        <br />
+        Genere le : {{ generated_at }}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Statut</div>
+      <table class="fields">
+        <tr>
+          <td class="label">Statut</td>
+          <td>{{ enquete.get_statut_display }}</td>
+        </tr>
+        <tr>
+          <td class="label">Cree le</td>
+          <td>{{ created_at }}</td>
+        </tr>
+        <tr>
+          <td class="label">Envoye a HSEE le</td>
+          <td>{{ sent_to_hsee_at }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Victime</div>
+      <table class="fields">
+        <tr>
+          <td class="label">Nom et prenom</td>
+          <td>{{ enquete.victime_nom_prenom|default:"-" }}</td>
+        </tr>
+        <tr>
+          <td class="label">Matricule</td>
+          <td>{{ enquete.victime_matricule|default:"-" }}</td>
+        </tr>
+        <tr>
+          <td class="label">Telephone</td>
+          <td>{{ enquete.victime_numero_telephone|default:"-" }}</td>
+        </tr>
+        <tr>
+          <td class="label">Appartenance</td>
+          <td>{{ enquete.victime_appartenance|default:collaborateur.departement|default:"-" }}</td>
+        </tr>
+        <tr>
+          <td class="label">Horaire de travail</td>
+          <td>{{ enquete.victime_horaire_travail|default:"-" }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Accident</div>
+      <table class="fields">
+        <tr>
+          <td class="label">Date accident</td>
+          <td>{{ date_accident }}</td>
+        </tr>
+        <tr>
+          <td class="label">Heure accident</td>
+          <td>{{ heure_accident }}</td>
+        </tr>
+        <tr>
+          <td class="label">Lieu accident</td>
+          <td>{{ enquete.lieu_accident|default:"-" }}</td>
+        </tr>
+        <tr>
+          <td class="label">Circonstances accident</td>
+          <td>{{ enquete.circonstances_accident|linebreaksbr|default:"-" }}</td>
+        </tr>
+        <tr>
+          <td class="label">Siege et type de lesion</td>
+          <td>{{ enquete.siege_type_lesion|default:"-" }}</td>
+        </tr>
+        <tr>
+          <td class="label">Lieu transport victime</td>
+          <td>{{ enquete.lieu_transport_victime|default:"-" }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Informations liees</div>
+      <table class="fields">
+        <tr>
+          <td class="label">Accident du travail associe</td>
+          <td>
+            {% if accident %}
+              #{{ accident.id }}{% if accident.nature_lesion %} - {{ accident.nature_lesion }}{% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td class="label">Collaborateur dossier</td>
+          <td>
+            {% if collaborateur %}
+              {{ collaborateur.nom }} {{ collaborateur.prenom }}{% if collaborateur.matricule %} - {{ collaborateur.matricule }}{% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Temoins</div>
+      {% if temoins %}
+        <table class="witness-table">
+          <thead>
+            <tr>
+              <th>Nom et prenom</th>
+              <th>Matricule</th>
+              <th>CIN</th>
+              <th>Telephone</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for temoin in temoins %}
+              <tr>
+                <td>{{ temoin.nomPrenom|default:"-" }}</td>
+                <td>{{ temoin.matricule|default:"-" }}</td>
+                <td>{{ temoin.cin|default:"-" }}</td>
+                <td>{{ temoin.numeroTelephone|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <table class="fields">
+          <tr>
+            <td class="label">Temoins</td>
+            <td class="muted">Aucun temoin renseigne</td>
+          </tr>
+        </table>
+      {% endif %}
+    </div>
+  </body>
+</html>

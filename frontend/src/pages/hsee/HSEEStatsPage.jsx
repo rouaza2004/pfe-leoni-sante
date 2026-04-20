@@ -19,6 +19,7 @@ import {
   Cell,
 } from "recharts";
 import { api } from "@/api/api";
+import HSEEPageHeader from "@/components/hsee/HSEEPageHeader";
 
 const COLORS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6"];
 
@@ -112,11 +113,11 @@ export default function HSEEStatsPage() {
 
   return (
     <div className="bg-slate-50">
-      <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-bold text-slate-900">Statistiques HSEE</h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Analyse des accidents par segment, par gravité et par évolution mensuelle.
-        </p>
+      <div className="mb-6">
+        <HSEEPageHeader
+          title="Statistiques HSEE"
+          subtitle="Analyse des accidents par segment, par gravité et par évolution mensuelle."
+        />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -153,8 +154,14 @@ export default function HSEEStatsPage() {
             </div>
           </div>
 
-          <div className="h-80 min-h-[280px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
+          <div className="h-80 min-h-[280px] min-w-0">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={240}
+              style={{ minWidth: 0, minHeight: 240 }}
+            >
               <BarChart data={segments}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="segment" />
@@ -187,8 +194,14 @@ export default function HSEEStatsPage() {
             </div>
           </div>
 
-          <div className="h-80 min-h-[280px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
+          <div className="h-80 min-h-[280px] min-w-0">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={240}
+              style={{ minWidth: 0, minHeight: 240 }}
+            >
               <PieChart>
                 <Pie
                   data={gravites}
@@ -231,8 +244,14 @@ export default function HSEEStatsPage() {
           </div>
         </div>
 
-        <div className="h-80 min-h-[280px]">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
+        <div className="h-80 min-h-[280px] min-w-0">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            minWidth={0}
+            minHeight={240}
+            style={{ minWidth: 0, minHeight: 240 }}
+          >
             <BarChart data={mois}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="mois" />

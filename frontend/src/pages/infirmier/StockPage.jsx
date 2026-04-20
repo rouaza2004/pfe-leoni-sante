@@ -40,6 +40,10 @@ const emptyItem = {
 
 const EXPIRY_SOON_DAYS = 30;
 const PAGE_SIZE = 10;
+const typeLabel = {
+  MEDICAMENT: "Médicament",
+  CONSOMMABLE: "Consommable",
+};
 
 const formatDate = (value) => {
   if (!value) return "--";
@@ -97,6 +101,13 @@ const statusClass = (item) => {
   const expiry = getExpiryStatus(item);
   if (expiry === "expired") return "bg-red-100 text-red-700";
   if (expiry === "soon") return "bg-amber-100 text-amber-700";
+  const stock = getStockStatus(item);
+  if (stock === "rupture") return "bg-rose-100 text-rose-700";
+  if (stock === "low") return "bg-amber-100 text-amber-700";
+  return "bg-emerald-100 text-emerald-700";
+};
+
+const stockBadge = (item) => {
   const stock = getStockStatus(item);
   if (stock === "rupture") return "bg-rose-100 text-rose-700";
   if (stock === "low") return "bg-amber-100 text-amber-700";
@@ -294,6 +305,8 @@ export default function StockPage() {
     }));
   };
 
+  const handleEditChange = (e) => handleItemChange(e, setEditItem);
+
   const handleMoveSubmit = async (e) => {
     e.preventDefault();
 
@@ -424,18 +437,6 @@ export default function StockPage() {
   const openDetail = (item) => {
     setDetailItem(item);
     setShowDetail(true);
-  };
-
-  const handleToggleActive = async (item, event) => {
-    event?.stopPropagation?.();
-    try {
-      setErr("");
-      await api.patch(`/medical/stock/items/${item.id}/`, { actif: !item.actif });
-      await loadItems();
-    } catch (e) {
-      console.error(e);
-      setErr(e?.response?.data?.detail || "Erreur mise à jour statut.");
-    }
   };
 
   const medicamentItems = useMemo(
@@ -1127,6 +1128,9 @@ export default function StockPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+      </ModalShell>
 
       {showItemForm && (
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">

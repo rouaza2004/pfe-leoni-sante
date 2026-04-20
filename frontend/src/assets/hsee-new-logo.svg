@@ -1,0 +1,13 @@
+<svg width="260" height="122" viewBox="0 0 260 122" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M35 90C18 77 10 56 15 36C20 16 39 3 61 4C48 7 36 16 30 31C22 50 27 70 42 85C56 98 76 104 95 101C74 108 50 104 35 90Z" fill="#62B32B"/>
+  <path d="M56 103C35 94 19 78 13 57C7 36 11 17 28 5C18 17 17 35 22 51C29 72 45 89 66 98C83 106 103 107 119 103C100 112 76 113 56 103Z" fill="#3E5FBE"/>
+  <path d="M34 24L25 17L28 28L18 32L29 33L31 43L36 33L47 35L39 28L45 18L34 24Z" fill="#62B32B"/>
+  <path d="M77 24C84.732 24 91 18.627 91 12C91 5.373 84.732 0 77 0C69.268 0 63 5.373 63 12C63 18.627 69.268 24 77 24Z" fill="#283593"/>
+  <path d="M53 27C68 31 86 31 106 27C97 37 80 42 62 40C58 40 55 35 53 27Z" fill="#3E5FBE"/>
+  <text x="146" y="73" text-anchor="middle" fill="#F57C00" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" letter-spacing="1">
+    HSEE
+  </text>
+  <text x="168" y="83" text-anchor="middle" fill="#6B7280" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700">
+    HEALTH, SAFETY, ENVIRONMENT, ENERGY
+  </text>
+</svg>

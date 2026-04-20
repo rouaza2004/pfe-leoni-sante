@@ -8,6 +8,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { api } from "@/api/api";
+import HSEEPageHeader from "@/components/hsee/HSEEPageHeader";
 
 function formatPlanStatut(statut) {
   if (statut === "PLANIFIE") return "Planifié";
@@ -117,11 +118,11 @@ export default function HSEEPlanActionPage() {
 
   return (
     <div className="bg-slate-50">
-      <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-bold text-slate-900">Plan d'action HSEE</h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Suivi des mesures préventives, des zones à risque et de l’avancement des actions.
-        </p>
+      <div className="mb-6">
+        <HSEEPageHeader
+          title="Plan d'action HSEE"
+          subtitle="Suivi des mesures préventives, des zones à risque et de l’avancement des actions."
+        />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">

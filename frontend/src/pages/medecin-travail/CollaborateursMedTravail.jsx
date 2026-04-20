@@ -1,7 +1,31 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/api";
-import { Search, User, FilePlus2, FolderOpen } from "lucide-react";
+import { isAuthenticated } from "@/auth/auth";
+import {
+  AlertCircle,
+  BadgeCheck,
+  Briefcase,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  FilePlus2,
+  FolderOpen,
+  LayoutGrid,
+  Mail,
+  Pencil,
+  Plus,
+  PlusCircle,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+  User,
+  X,
+} from "lucide-react";
 
 const getDossierStatus = (collab, dossier) => {
   const hasCollabInfo =
@@ -307,12 +331,21 @@ export default function CollaborateursMedTravail() {
             const dossier = dossierRes.data || null;
             const dossierComplet = getDossierStatus(c, dossier);
 
-        return {
-          ...c,
-          dossier_medical_data: dossier,
-          dossier_complet: dossierComplet,
-        };
-      });
+            return {
+              ...c,
+              dossier_medical_data: dossier,
+              dossier_complet: dossierComplet,
+            };
+          } catch (dossierError) {
+            console.error("DOSSIER LOAD ERROR =", c?.id, dossierError);
+            return {
+              ...c,
+              dossier_medical_data: null,
+              dossier_complet: false,
+            };
+          }
+        })
+      );
 
       setCollaborateurs(enriched);
     } catch (error) {
@@ -347,17 +380,6 @@ export default function CollaborateursMedTravail() {
       setSelectedId(collaborateurs[0].id);
     }
   }, [collaborateurs, selectedId]);
-
-  useEffect(() => {
-    if (!showCreateModal) return;
-    const handleKey = (e) => {
-      if (e.key === "Escape") {
-        handleCloseModal();
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [showCreateModal]);
 
   useEffect(() => {
     if (showCreateModal) {
@@ -475,7 +497,7 @@ export default function CollaborateursMedTravail() {
     setShowCreateModal(true);
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     if (isDirty && !saving) {
       const confirmClose = window.confirm(
         "Des modifications non enregistrées existent. Fermer quand même ?"
@@ -483,7 +505,18 @@ export default function CollaborateursMedTravail() {
       if (!confirmClose) return;
     }
     setShowCreateModal(false);
-  };
+  }, [isDirty, saving]);
+
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [showCreateModal, handleCloseModal]);
 
   const handleSelectCollaborateur = (collabId) => {
     const collab = collaborateurs.find((c) => String(c.id) === String(collabId));

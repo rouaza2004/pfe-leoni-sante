@@ -134,6 +134,33 @@ const fallbackDocuments = [
   },
 ];
 
+const featureCards = [
+  {
+    title: "Absences & Ponctualité",
+    description:
+      "Suivre les retards, absences et congés maladie par collaborateur et département.",
+    route: "/rh/absences-ponctualite",
+    icon: <Clock3 size={16} />,
+    tone: "warning",
+  },
+  {
+    title: "Nouveaux opérateurs",
+    description:
+      "Importer les nouveaux entrants et préparer les visites d'embauche.",
+    route: "/rh/nouveaux-operateurs",
+    icon: <Upload size={16} />,
+    tone: "success",
+  },
+  {
+    title: "Pointage médecins",
+    description:
+      "Consulter le pointage, les heures et le récapitulatif annuel des médecins.",
+    route: "/rh/pointage-medecins",
+    icon: <Stethoscope size={16} />,
+    tone: "info",
+  },
+];
+
 const summaryCards = [
   {
     title: "Rendez-vous à venir",
@@ -479,7 +506,7 @@ export default function RHDashboard() {
       title: "Import nouveaux opérateurs",
       description: "Préparer le suivi médical des nouveaux entrants.",
       icon: <Upload size={16} />,
-      onClick: () => navigate("/rh"),
+      onClick: () => navigate("/rh/nouveaux-operateurs"),
       tone: "info",
     },
   ];
@@ -700,6 +727,32 @@ export default function RHDashboard() {
           </div>
         </PanelCard>
       </div>
+
+      <PanelCard
+        title="Modules RH"
+        subtitle="Accès direct aux fonctionnalités RH déjà disponibles dans l'application"
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {featureCards.map((card) => (
+            <button
+              key={card.title}
+              type="button"
+              onClick={() => navigate(card.route)}
+              className="rounded-[22px] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <div
+                className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
+                  (accentClasses[card.tone] || accentClasses.info).icon
+                }`}
+              >
+                {card.icon}
+              </div>
+              <p className="mt-3 text-sm font-semibold text-slate-900">{card.title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{card.description}</p>
+            </button>
+          ))}
+        </div>
+      </PanelCard>
 
       <PanelCard
         title="Accès rapide"

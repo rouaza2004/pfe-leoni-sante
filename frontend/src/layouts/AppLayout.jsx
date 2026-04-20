@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Zap,
   Clock,
+  UserRoundSearch,
 } from "lucide-react";
 
 import { getUserRole, logout as doLogout } from "../auth/auth.js";
@@ -48,6 +49,8 @@ export default function AppLayout() {
   const role = getUserRole();
   const [incidentsOpen, setIncidentsOpen] = useState(false);
   const [accidentsOpen, setAccidentsOpen] = useState(false);
+  const [mpOpen, setMpOpen] = useState(false);
+  const [cnamOpen, setCnamOpen] = useState(false);
   const incidentType = new URLSearchParams(location.search).get("type") || "with_bon";
 
   useEffect(() => {
@@ -63,6 +66,21 @@ export default function AppLayout() {
       location.pathname.startsWith("/suivi-transferts")
     ) {
       setAccidentsOpen(true);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (
+      location.pathname.startsWith("/infirmier/mp/") ||
+      location.pathname.startsWith("/infirmier/maladies-professionnelles")
+    ) {
+      setMpOpen(true);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/infirmier/cnam/")) {
+      setCnamOpen(true);
     }
   }, [location.pathname]);
 
@@ -88,7 +106,8 @@ export default function AppLayout() {
   }, [role]);
 
   const navItems = useMemo(() => {
-    const dashboardLabel = role === "MEDECIN_CONTROLEUR" ? "Tableau de bord" : "Dashboard";
+    const dashboardLabel =
+      role === "MEDECIN_CONTROLEUR" ? "Tableau de bord" : "Dashboard";
     const common = [
       { to: homePath, label: dashboardLabel, icon: <LayoutDashboard size={18} /> },
     ];
@@ -180,8 +199,8 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/pointage",
-          label: "Pointage",
+          to: "/infirmier/pointage-medecins",
+          label: "Pointage médecins",
           icon: <Clock size={18} />,
         },
         {
@@ -250,9 +269,44 @@ export default function AppLayout() {
           ],
         },
         {
-          to: "/infirmier/maladies-professionnelles",
-          label: "Maladies pro.",
+          type: "submenu",
+          submenuKey: "mp",
+          label: "Maladie professionnelle",
           icon: <FileText size={18} />,
+          basePath: "/infirmier/mp",
+          isActive: (loc) =>
+            loc.pathname.startsWith("/infirmier/mp/") ||
+            loc.pathname.startsWith("/infirmier/maladies-professionnelles"),
+          children: [
+            {
+              to: "/infirmier/mp/declaration",
+              label: "Déclaration MP",
+              icon: <FileText size={16} />,
+              isActive: (loc) => loc.pathname === "/infirmier/mp/declaration",
+            },
+            {
+              to: "/infirmier/mp/suivi",
+              label: "Suivi MP",
+              icon: <ClipboardList size={16} />,
+              isActive: (loc) => loc.pathname === "/infirmier/mp/suivi",
+            },
+          ],
+        },
+        {
+          type: "submenu",
+          submenuKey: "cnam",
+          label: "CNAM",
+          icon: <ClipboardList size={18} />,
+          basePath: "/infirmier/cnam",
+          isActive: (loc) => loc.pathname.startsWith("/infirmier/cnam/"),
+          children: [
+            {
+              to: "/infirmier/cnam/suivi",
+              label: "Suivi des déclarations CNAM",
+              icon: <FileText size={16} />,
+              isActive: (loc) => loc.pathname === "/infirmier/cnam/suivi",
+            },
+          ],
         },
         {
           to: "/infirmier/stock",
@@ -276,6 +330,21 @@ export default function AppLayout() {
       return [
         ...common,
         {
+          to: "/rh/absences-ponctualite",
+          label: "Absences & Ponctualité",
+          icon: <Calendar size={18} />,
+        },
+        {
+          to: "/rh/nouveaux-operateurs",
+          label: "Nouveaux opérateurs",
+          icon: <Users size={18} />,
+        },
+        {
+          to: "/rh/pointage-medecins",
+          label: "Pointage médecins",
+          icon: <Clock size={18} />,
+        },
+        {
           to: "/collaborateur-profile",
           label: "Profil collaborateur",
           icon: <UserRoundSearch size={18} />,
@@ -287,109 +356,44 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/pointage",
-          label: "Pointage",
-          icon: <Clock size={18} />,
-        },
-        {
-          to: "/hsee",
-          label: "Supervision",
-          icon: <ShieldAlert size={18} />,
-        },
-        {
           to: "/hsee/statistiques",
-          label: "Statistiques",
+          label: "Analyses & KPIs",
           icon: <BarChart3 size={18} />,
         },
         {
-          to: "/hsee/plan-action",
-          label: "Plan d'action",
+          to: "/hsee/enquete-at",
+          label: "Enquête AT",
           icon: <ClipboardList size={18} />,
         },
         {
-          type: "submenu",
-          submenuKey: "incidents",
-          label: "Incidents",
-          icon: <Bell size={18} />,
-          basePath: "/infirmier/incidents",
-          children: [
-            {
-              to: "/infirmier/incidents?type=with_bon",
-              label: "Incidents + Bon",
-              icon: <FileText size={16} />,
-              type: "with_bon",
-            },
-            {
-              to: "/infirmier/incidents?type=without_bon",
-              label: "Incidents sans Bon",
-              icon: <Zap size={16} />,
-              type: "without_bon",
-            },
-          ],
-        },
-        {
-          type: "submenu",
-          submenuKey: "accidents",
-          label: "Accidents",
-          icon: <ShieldAlert size={18} />,
-          isActive: (loc) =>
-            [
-              "/infirmier/accidents",
-              "/infirmier/enquete-initiale",
-              "/bon-chauffeur",
-              "/suivi-transferts",
-            ].some((path) => loc.pathname.startsWith(path)),
-          children: [
-            {
-              to: "/infirmier/accidents",
-              label: "Déclaration d'accident",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/infirmier/accidents"),
-            },
-            {
-              to: "/infirmier/enquete-initiale",
-              label: "Enquête initiale",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/infirmier/enquete-initiale"),
-            },
-            {
-              to: "/bon-chauffeur",
-              label: "Bon Chauffeur",
-              icon: <ClipboardList size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/bon-chauffeur"),
-            },
-            {
-              to: "/suivi-transferts",
-              label: "Suivi des transferts",
-              icon: <Activity size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/suivi-transferts"),
-            },
-          ],
-        },
-        {
-          to: "/infirmier/maladies-professionnelles",
-          label: "Maladies pro.",
-          icon: <FileText size={18} />,
-        },
-        {
-          to: "/infirmier/stock",
-          label: "Stock",
-          icon: <Boxes size={18} />,
-        },
-        {
-          to: "/infirmier/rdv",
-          label: "Rendez-vous",
+          to: "/hsee/visites-medicales",
+          label: "Visites Médicales",
           icon: <Calendar size={18} />,
         },
         {
-          to: "/medecin-travail/fiches-aptitude",
-          label: "Fiches aptitude",
-          icon: <ShieldCheck size={18} />,
+          to: "/hsee/inventaire-medical",
+          label: "Inventaire Médical",
+          icon: <Boxes size={18} />,
         },
         {
-          to: "/medecin-travail/collaborateurs",
-          label: "Dossiers mÃ©dicaux",
+          to: "/hsee/cartographie-risques",
+          label: "Cartographie Risques",
+          icon: <ShieldAlert size={18} />,
+        },
+        {
+          to: "/hsee/rapports",
+          label: "Rapports",
           icon: <FileText size={18} />,
+        },
+        {
+          to: "/hsee/historique-enquetes",
+          label: "Historique Enquêtes",
+          icon: <Activity size={18} />,
+        },
+        {
+          to: "/hsee/enquetes-recues",
+          label: "Enquêtes reçues",
+          icon: <UserRoundSearch size={18} />,
         },
       ];
     }
@@ -437,8 +441,26 @@ export default function AppLayout() {
                 : location.pathname.startsWith(it.basePath || "");
               const isAccidents = it.submenuKey === "accidents";
               const isIncidents = it.submenuKey === "incidents";
-              const isOpen = isAccidents ? accidentsOpen : incidentsOpen;
-              const setOpen = isAccidents ? setAccidentsOpen : setIncidentsOpen;
+              const isMp = it.submenuKey === "mp";
+              const isCnam = it.submenuKey === "cnam";
+              const isOpen = isAccidents
+                ? accidentsOpen
+                : isIncidents
+                ? incidentsOpen
+                : isMp
+                ? mpOpen
+                : isCnam
+                ? cnamOpen
+                : false;
+              const setOpen = isAccidents
+                ? setAccidentsOpen
+                : isIncidents
+                ? setIncidentsOpen
+                : isMp
+                ? setMpOpen
+                : isCnam
+                ? setCnamOpen
+                : () => {};
               return (
                 <div key={`${it.label}-${index}`} className="space-y-1">
                   <button

@@ -47,18 +47,22 @@ export default function RDVPage() {
       setLoading(true);
       setErr("");
 
-      const [rdvRes, collabRes] = await Promise.all([
+      const [rdvRes, collabRes, medRes] = await Promise.all([
         api.get("/appointments/rdv/"),
-        api.get("/collaborateurs/"),
+        api.get("/medical/collaborateurs/"),
+        api.get("/medecins/"),
       ]);
 
       setRdvs(Array.isArray(rdvRes.data) ? rdvRes.data : []);
       setCollaborateurs(Array.isArray(collabRes.data) ? collabRes.data : []);
-      const medRes = await api.get("/medecins/");
       setMedecins(Array.isArray(medRes.data) ? medRes.data : []);
     } catch (e) {
       console.error(e);
-      setErr("Erreur chargement rendez-vous.");
+      if (e?.response?.status === 403) {
+        setErr("Accès refusé à certaines données nécessaires aux rendez-vous.");
+      } else {
+        setErr("Erreur chargement rendez-vous.");
+      }
     } finally {
       setLoading(false);
     }

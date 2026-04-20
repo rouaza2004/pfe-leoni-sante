@@ -52,7 +52,7 @@ const emptyTravail = { entreprise: "", nature_travail: "", materiaux: "", date_d
 
 const selectOptions = {
   sexe: [
-    { value: "", label: "" },
+    { value: "", label: "—" },
     { value: "HOMME", label: "Homme" },
     { value: "FEMME", label: "Femme" },
   ],
@@ -331,7 +331,7 @@ export default function MaladiesProfessionnellesPage() {
               {selectedProfile?.collaborateur && (
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
                   <p className="font-medium text-slate-900">
-                    {selectedProfile.collaborateur.prenom} {" "}
+                    {selectedProfile.collaborateur.prenom}{" "}
                     {selectedProfile.collaborateur.nom}
                   </p>
                 </div>
