@@ -1,7 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/api";
 import { isAuthenticated } from "@/auth/auth";
+import ExamenComplementaireForm from "./ExamenComplementaireForm";
 import {
   AlertCircle,
   BadgeCheck,
@@ -42,10 +43,45 @@ const getDossierStatus = (collab, dossier) => {
 
 const tabs = [
   { id: "profil", label: "Profil & Administratif" },
-  { id: "dossier", label: "Dossier Médical" },
-  { id: "rdv", label: "Rendez-vous" },
+  { id: "dossier-medical", label: "Dossier Médical" },
+  { id: "rendez-vous", label: "Rendez-vous" },
   { id: "analyses", label: "Analyses" },
+  { id: "examen-complementaire", label: "Examens complémentaires" },
 ];
+
+const TARGET_ALIASES = {
+  profil: "profil",
+  dossier: "dossier-medical",
+  "dossier-medical": "dossier-medical",
+  rdv: "rendez-vous",
+  "rendez-vous": "rendez-vous",
+  analyses: "analyses",
+  "demande-analyse": "analyses",
+  "examen-complementaire": "examen-complementaire",
+};
+
+const buildTargetPath = (target, collabId) => {
+  const normalizedTarget = TARGET_ALIASES[target] || target || "profil";
+  const collaborateurParam = collabId ? `?collaborateurId=${collabId}` : "";
+
+  switch (normalizedTarget) {
+    case "dossier-medical":
+      return `/medecin-travail/dossiers-medicaux${collaborateurParam}`;
+    case "rendez-vous":
+      return "/medecin-travail/rdv";
+    case "analyses":
+      return collabId
+        ? `/medecin-travail/analyses-labo?collaborateurId=${collabId}`
+        : "/medecin-travail/analyses-labo";
+    case "examen-complementaire":
+      return `/medecin-travail/examens-complementaires${collaborateurParam}`;
+    case "profil":
+    default:
+      return collabId
+        ? `/medecin-travail/collaborateurs?target=profil&collaborateurId=${collabId}`
+        : "/medecin-travail/collaborateurs";
+  }
+};
 
 const createTabs = [
   { id: "tab1", label: "Dossier médical" },
@@ -149,13 +185,15 @@ const buildExamenUlterieurConclusion = (row) => {
   return parts.join(" | ");
 };
 
-export default function CollaborateursMedTravail() {
+export default function CollaborateursMedTravail({
+  forcedTarget = null,
+  pageTitle = "Accueil Collaborateur",
+  pageDescription = "Sélectionnez un collaborateur pour afficher ses détails.",
+}) {
   const [collaborateurs, setCollaborateurs] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [selectedId, setSelectedId] = useState(null);
-  const [activeTab, setActiveTab] = useState("profil");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createTab, setCreateTab] = useState("tab1");
   const [saving, setSaving] = useState(false);
@@ -164,17 +202,15 @@ export default function CollaborateursMedTravail() {
   const [successMsg, setSuccessMsg] = useState("");
 
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const redirectedRef = useRef(false);
   const formInitialRef = useRef(null);
   const firstFieldRef = useRef(null);
 
-  const target = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get("target") || "dossier";
-  }, [location.search]);
-
-  const isDossiersPage = target === "dossier";
+  const rawTarget = searchParams.get("target");
+  const activeTarget = forcedTarget || TARGET_ALIASES[rawTarget] || "profil";
+  const selectedCollaborateurId = Number(searchParams.get("collaborateurId") || "");
+  const isWorkspaceMode = Boolean(forcedTarget) || searchParams.has("target");
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -301,20 +337,17 @@ export default function CollaborateursMedTravail() {
   });
   const [examensUlterieurs, setExamensUlterieurs] = useState([emptyExamenUlterieur()]);
 
-  const resolveTargetRoute = (collabId) => {
-    switch (target) {
-      case "demande-analyse":
-        return `/medecin-travail/analyses-labo?collaborateurId=${collabId}`;
-      case "examen-complementaire":
-        return `/medecin-travail/collaborateurs/${collabId}/examen-complementaire`;
-      case "fiche-aptitude":
-        return `/medecin-travail/collaborateurs/${collabId}/fiche-aptitude`;
-      case "examens-initial":
-      case "dossier":
-      default:
-        return `/medecin-travail/collaborateurs/${collabId}/dossier`;
-    }
-  };
+  const updateWorkspaceParams = useCallback(
+    (nextTarget, collabId) => {
+      navigate(buildTargetPath(nextTarget, collabId));
+    },
+    [navigate]
+  );
+
+  const resolveTargetRoute = useCallback(
+    (collabId, nextTarget = activeTarget) => buildTargetPath(nextTarget, collabId),
+    [activeTarget]
+  );
 
   const fetchCollaborateurs = useCallback(async () => {
     try {
@@ -376,10 +409,28 @@ export default function CollaborateursMedTravail() {
   }, [fetchCollaborateurs, navigate]);
 
   useEffect(() => {
-    if (!selectedId && collaborateurs.length > 0) {
-      setSelectedId(collaborateurs[0].id);
+    if (forcedTarget || !rawTarget) return;
+
+    if (activeTarget === "dossier-medical" || activeTarget === "examen-complementaire") {
+      navigate(buildTargetPath(activeTarget, selectedCollaborateurId || null), {
+        replace: true,
+      });
     }
-  }, [collaborateurs, selectedId]);
+  }, [activeTarget, forcedTarget, navigate, rawTarget, selectedCollaborateurId]);
+
+  useEffect(() => {
+    if (!isWorkspaceMode || selectedCollaborateurId || collaborateurs.length === 0) {
+      return;
+    }
+
+    updateWorkspaceParams(activeTarget, collaborateurs[0].id);
+  }, [
+    activeTarget,
+    collaborateurs,
+    isWorkspaceMode,
+    selectedCollaborateurId,
+    updateWorkspaceParams,
+  ]);
 
   useEffect(() => {
     if (showCreateModal) {
@@ -401,9 +452,9 @@ export default function CollaborateursMedTravail() {
   }, [collaborateurs, search]);
 
   const selected = useMemo(() => {
-    if (!selectedId) return null;
-    return collaborateurs.find((c) => c.id === selectedId) || null;
-  }, [collaborateurs, selectedId]);
+    if (!selectedCollaborateurId) return null;
+    return collaborateurs.find((c) => c.id === selectedCollaborateurId) || null;
+  }, [collaborateurs, selectedCollaborateurId]);
 
   const stats = useMemo(() => {
     const dossiersOnly = collaborateurs.filter((c) => c.dossier_medical_data);
@@ -850,13 +901,13 @@ export default function CollaborateursMedTravail() {
     );
   }
 
-  if (!isDossiersPage) {
+  if (isWorkspaceMode) {
     return (
       <div className="space-y-6 p-6">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h1 className="text-2xl font-bold text-slate-900">Accueil Collaborateur</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{pageTitle}</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Sélectionnez un collaborateur pour afficher ses détails.
+            {pageDescription}
           </p>
         </div>
 
@@ -875,7 +926,7 @@ export default function CollaborateursMedTravail() {
 
             <div className="mt-4 max-h-[560px] space-y-2 overflow-auto pr-1">
               {filtered.map((c) => {
-                const isSelected = c.id === selectedId;
+                const isSelected = c.id === selectedCollaborateurId;
                 const segmentLabel =
                   c.segment_nom || c.segment?.nom || c.segment || "--";
                 const posteLabel = c.poste || c.poste_nom || "--";
@@ -884,7 +935,7 @@ export default function CollaborateursMedTravail() {
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setSelectedId(c.id)}
+                    onClick={() => updateWorkspaceParams(activeTarget, c.id)}
                     className={`w-full rounded-2xl border p-3 text-left transition ${
                       isSelected
                         ? "border-slate-900 bg-slate-50"
@@ -960,9 +1011,9 @@ export default function CollaborateursMedTravail() {
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => updateWorkspaceParams(tab.id, selected?.id)}
                       className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                        activeTab === tab.id
+                        activeTarget === tab.id
                           ? "bg-slate-900 text-white"
                           : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
@@ -974,7 +1025,7 @@ export default function CollaborateursMedTravail() {
               </div>
             )}
 
-            {selected && activeTab === "profil" && (
+            {selected && activeTarget === "profil" && (
               <div className="grid gap-4 lg:grid-cols-2">
                 <InfoCard title="Informations Générales">
                   <div className="flex items-center gap-2">
@@ -1048,7 +1099,7 @@ export default function CollaborateursMedTravail() {
               </div>
             )}
 
-            {selected && activeTab === "dossier" && (
+            {selected && activeTarget === "dossier-medical" && (
               <div className="grid gap-4 lg:grid-cols-2">
                 <InfoCard title="Dossier médical">
                   <div>
@@ -1094,12 +1145,19 @@ export default function CollaborateursMedTravail() {
               </div>
             )}
 
-            {selected && activeTab === "rdv" && (
+            {selected && activeTarget === "rendez-vous" && (
               <EmptyState text="Les rendez-vous sont disponibles dans le module dédié." />
             )}
 
-            {selected && activeTab === "analyses" && (
+            {selected && activeTarget === "analyses" && (
               <EmptyState text="Les analyses sont disponibles dans le module dédié." />
+            )}
+
+            {selected && activeTarget === "examen-complementaire" && (
+              <ExamenComplementaireForm
+                collaborateurId={selected.id}
+                embedded
+              />
             )}
           </div>
         </div>
@@ -1256,9 +1314,7 @@ export default function CollaborateursMedTravail() {
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            navigate(`/medecin-travail/collaborateurs/${c.id}`)
-                          }
+                          onClick={() => navigate(resolveTargetRoute(c.id, "profil"))}
                           className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition hover:scale-[1.02] hover:bg-slate-100"
                         >
                           <Eye className="h-4 w-4" />
@@ -1266,11 +1322,23 @@ export default function CollaborateursMedTravail() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => navigate(resolveTargetRoute(c.id))}
+                          onClick={() =>
+                            navigate(resolveTargetRoute(c.id, "dossier-medical"))
+                          }
                           className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:scale-[1.02] hover:border-slate-400 hover:bg-slate-50"
                         >
                           <Pencil className="h-4 w-4" />
                           Modifier
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(resolveTargetRoute(c.id, "examen-complementaire"))
+                          }
+                          className="inline-flex items-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 transition hover:scale-[1.02] hover:bg-sky-100"
+                        >
+                          <FilePlus2 className="h-4 w-4" />
+                          Examens complementaires
                         </button>
                       </div>
                     </td>

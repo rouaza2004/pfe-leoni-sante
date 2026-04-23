@@ -19,10 +19,15 @@ from .models import (
     CertificatMedical,
     StockItem,
     StockMovement,
+    BonChauffeur,
+    SuiviTransfertUrgence,
     PointageMedecin,
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    HSEEGeneratedReport,
+    ControleMedicalRecord,
+    DemandeExpertiseRecord,
 )
 
 

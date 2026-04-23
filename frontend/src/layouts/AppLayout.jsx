@@ -137,7 +137,7 @@ export default function AppLayout() {
           icon: <Users size={18} />,
         },
         {
-          to: "/medecin-travail/collaborateurs?target=dossier",
+          to: "/medecin-travail/dossiers-medicaux",
           label: "Dossiers m\u00E9dicaux",
           icon: <FileText size={18} />,
         },
@@ -147,7 +147,7 @@ export default function AppLayout() {
           icon: <Calendar size={18} />,
         },
         {
-          to: "/medecin-travail/collaborateurs?target=examen-complementaire",
+          to: "/medecin-travail/examens-complementaires",
           label: "Examens compl\u00E9mentaires",
           icon: <Activity size={18} />,
         },

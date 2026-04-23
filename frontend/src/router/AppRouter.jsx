@@ -228,6 +228,32 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/medecin-travail/dossiers-medicaux"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
+              <CollaborateursMedTravail
+                forcedTarget="dossier-medical"
+                pageTitle="Dossiers médicaux"
+                pageDescription="Sélectionnez un collaborateur pour consulter son dossier médical."
+              />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-travail/examens-complementaires"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
+              <CollaborateursMedTravail
+                forcedTarget="examen-complementaire"
+                pageTitle="Examens complémentaires"
+                pageDescription="Sélectionnez un collaborateur pour préparer la demande d'examens complémentaires."
+              />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/medecin-travail/rdv"
           element={
             <RoleRoute allowedRoles={["MEDECIN_TRAVAIL", "AGENT_HSEE"]}>
