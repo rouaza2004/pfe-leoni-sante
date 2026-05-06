@@ -10,6 +10,7 @@ import {
 
 const sampleRows = [
   {
+    id: "NEW-2401",
     matricule: "NEW-2401",
     nom: "Ben Salem",
     prenom: "Sonia",
@@ -20,6 +21,7 @@ const sampleRows = [
     statutTone: "success",
   },
   {
+    id: "NEW-2402",
     matricule: "NEW-2402",
     nom: "Trabelsi",
     prenom: "Karim",
@@ -30,6 +32,7 @@ const sampleRows = [
     statutTone: "warning",
   },
   {
+    id: "NEW-2403",
     matricule: "NEW-2403",
     nom: "Gharbi",
     prenom: "Meriem",
@@ -45,6 +48,8 @@ const pillClasses = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-700",
   warning: "border-amber-200 bg-amber-50 text-amber-700",
 };
+
+const SENT_STORAGE_KEY = "rh_nouveaux_operateurs_sent_to_infirmiere";
 
 function formatDateLabel(value) {
   if (!value) return "--";
@@ -69,11 +74,49 @@ function StatusPill({ label, tone }) {
   );
 }
 
+function getSentOperateurIds() {
+  try {
+    const raw = window.localStorage.getItem(SENT_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setSentOperateurIds(ids) {
+  window.localStorage.setItem(SENT_STORAGE_KEY, JSON.stringify(ids));
+}
+
+async function envoyerOperateurInfirmiere(operateurId) {
+  if (!operateurId) {
+    throw new Error("Opérateur introuvable.");
+  }
+
+  const sentIds = getSentOperateurIds();
+  if (!sentIds.includes(operateurId)) {
+    setSentOperateurIds([...sentIds, operateurId]);
+  }
+
+  return { success: true, operateurId };
+}
+
 export default function NouveauxOperateursRH() {
   const inputRef = useRef(null);
   const [selectedFileName, setSelectedFileName] = useState("");
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const [sendingId, setSendingId] = useState("");
+  const [sendingAll, setSendingAll] = useState(false);
+  const [sentIds, setSentIds] = useState(() => getSentOperateurIds());
 
-  const importedRows = useMemo(() => sampleRows, []);
+  const importedRows = useMemo(
+    () =>
+      sampleRows.map((row) => ({
+        ...row,
+        sentToInfirmiere: sentIds.includes(row.id),
+      })),
+    [sentIds]
+  );
 
   const handleBrowseClick = () => {
     inputRef.current?.click();
@@ -82,6 +125,64 @@ export default function NouveauxOperateursRH() {
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
     setSelectedFileName(file?.name || "");
+  };
+
+  const handleSendToInfirmiere = async (row) => {
+    try {
+      setSendingId(row.id);
+      setFeedback({ type: "", message: "" });
+      await envoyerOperateurInfirmiere(row.id);
+      const nextIds = [...new Set([...sentIds, row.id])];
+      setSentIds(nextIds);
+      setFeedback({
+        type: "success",
+        message: "Envoyé à l’infirmière avec succès",
+      });
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error?.message || "Erreur lors de l’envoi à l’infirmière.",
+      });
+    } finally {
+      setSendingId("");
+    }
+  };
+
+  const rowsToSend = useMemo(
+    () =>
+      importedRows.filter((row) => row.statut === "Valide" && !row.sentToInfirmiere),
+    [importedRows]
+  );
+
+  const handleSendAllToInfirmiere = async () => {
+    if (rowsToSend.length === 0) {
+      setFeedback({
+        type: "success",
+        message: "Tous les opérateurs validés sont déjà envoyés à l’infirmière.",
+      });
+      return;
+    }
+
+    try {
+      setSendingAll(true);
+      setFeedback({ type: "", message: "" });
+
+      await Promise.all(rowsToSend.map((row) => envoyerOperateurInfirmiere(row.id)));
+
+      const nextIds = [...new Set([...sentIds, ...rowsToSend.map((row) => row.id)])];
+      setSentIds(nextIds);
+      setFeedback({
+        type: "success",
+        message: "Envoyé à l’infirmière avec succès",
+      });
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error?.message || "Erreur lors de l’envoi à l’infirmière.",
+      });
+    } finally {
+      setSendingAll(false);
+    }
   };
 
   return (
@@ -158,6 +259,18 @@ export default function NouveauxOperateursRH() {
         </div>
       </section>
 
+      {feedback.message ? (
+        <div
+          className={`rounded-[22px] border px-4 py-3 text-sm ${
+            feedback.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-rose-200 bg-rose-50 text-rose-700"
+          }`}
+        >
+          {feedback.message}
+        </div>
+      ) : null}
+
       <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
         <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -183,6 +296,17 @@ export default function NouveauxOperateursRH() {
             >
               <ShieldCheck size={15} />
               Valider tout
+            </button>
+            <button
+              type="button"
+              onClick={handleSendAllToInfirmiere}
+              disabled={sendingAll || rowsToSend.length === 0}
+              className="inline-flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-3.5 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <ShieldCheck size={15} />
+              {sendingAll
+                ? "Envoi..."
+                : "Envoyer les nouveaux opérateurs à l’infirmière"}
             </button>
           </div>
         </div>
@@ -220,12 +344,23 @@ export default function NouveauxOperateursRH() {
                       <StatusPill label={row.statut} tone={row.statutTone} />
                     </td>
                     <td className="px-4 py-3.5 text-sm">
-                      <button
-                        type="button"
-                        className="font-medium text-sky-700 transition hover:text-sky-800"
-                      >
-                        Affecter visite
-                      </button>
+                      {row.sentToInfirmiere ? (
+                        <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                          Déjà envoyé
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSendToInfirmiere(row)}
+                          disabled={sendingId === row.id}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <ShieldCheck size={14} />
+                          {sendingId === row.id
+                            ? "Envoi..."
+                            : "Envoyer à l’infirmière"}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

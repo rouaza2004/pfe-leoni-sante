@@ -1,8 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Download, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../../api/api";
 import { getUsername } from "../../auth/auth";
 import { downloadDemandeExpertisePdf } from "../../utils/generateDemandeExpertisePdf";
 
@@ -38,7 +37,6 @@ export default function DemandeExpertisePdfPage() {
   const sessionDoctorName = getUsername();
   const fallbackDoctorName = "Dr. ____________";
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
-  const lastSavedSignatureRef = useRef("");
   const [selectedFiles, setSelectedFiles] = useState([]);
 
   const [form, setForm] = useState({
@@ -69,55 +67,17 @@ export default function DemandeExpertisePdfPage() {
   };
 
   const handleGeneratePdf = async () => {
-    const attachmentNames = selectedFiles.map((file) => file.name);
-    const payload = {
-      ville: form.ville.trim(),
-      date: form.date,
-      destinataire: form.destinataire.trim(),
-      nom: form.nom.trim(),
-      prenom: form.prenom.trim(),
-      matricule_leoni: form.matriculeLeoni.trim(),
-      pieces_jointes: form.piecesJointes.trim(),
-      attachment_names: attachmentNames,
-      aptitude_poste: form.aptitudePoste.trim(),
-      autres_missions: form.autresMissions.trim(),
-      medecin_identifiant: doctorDisplay,
-      statut: "VALIDE",
-    };
-    const payloadSignature = JSON.stringify(payload);
-
     try {
       setIsSaving(true);
-
-      if (lastSavedSignatureRef.current !== payloadSignature) {
-        await api.post("/medical/medecin-controleur/expertises/", payload);
-        lastSavedSignatureRef.current = payloadSignature;
-      }
 
       downloadDemandeExpertisePdf({
         ...form,
         medecinControleur: doctorDisplay,
-        attachmentNames,
+        attachmentNames: selectedFiles.map((file) => file.name),
       });
     } catch (error) {
-      console.error("Erreur enregistrement demande d'expertise", {
-        endpoint: "/api/medical/medecin-controleur/expertises/",
-        method: "POST",
-        payload,
-        status: error?.response?.status,
-        data: error?.response?.data,
-        message: error?.message,
-      });
-
-      const backendDetail =
-        error?.response?.data?.detail ||
-        error?.response?.data?.code ||
-        error?.message ||
-        "Erreur inconnue";
-
-      window.alert(
-        `Impossible d'enregistrer cette demande d'expertise pour le rapport.\n${backendDetail}`
-      );
+      console.error("Erreur generation demande expertise PDF", error);
+      window.alert("Impossible de generer le PDF de la demande d'expertise.");
     } finally {
       setIsSaving(false);
     }
@@ -136,10 +96,10 @@ export default function DemandeExpertisePdfPage() {
 
       <section className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-sky-50/35 to-white p-6 shadow-sm shadow-slate-200/50">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Demande d&apos;Expertise Médicale
+          Demande d&apos;Expertise MÃ©dicale
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          Remplissez le formulaire puis téléchargez directement la lettre officielle en PDF.
+          Remplissez le formulaire puis tÃ©lÃ©chargez directement la lettre officielle en PDF.
         </p>
       </section>
 
@@ -147,7 +107,7 @@ export default function DemandeExpertisePdfPage() {
         <div className="space-y-6">
           <SectionCard
             title="Informations de courrier"
-            subtitle="Renseignements affichés dans l’en-tête du document"
+            subtitle="Renseignements affichÃ©s dans lâ€™en-tÃªte du document"
             icon={<FileText size={18} />}
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -172,8 +132,8 @@ export default function DemandeExpertisePdfPage() {
               </Field>
 
               <Field
-                label="Médecin contrôleur"
-                hint="Identifiant repris automatiquement depuis la session connectée."
+                label="MÃ©decin contrÃ´leur"
+                hint="Identifiant repris automatiquement depuis la session connectÃ©e."
               >
                 <input
                   type="text"
@@ -201,8 +161,8 @@ export default function DemandeExpertisePdfPage() {
           </SectionCard>
 
           <SectionCard
-            title="Collaborateur concerné"
-            subtitle="Informations du salarié à afficher dans le courrier"
+            title="Collaborateur concernÃ©"
+            subtitle="Informations du salariÃ© Ã  afficher dans le courrier"
             icon={<FileText size={18} />}
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -216,7 +176,7 @@ export default function DemandeExpertisePdfPage() {
                 />
               </Field>
 
-              <Field label="Prénom">
+              <Field label="PrÃ©nom">
                 <input
                   type="text"
                   name="prenom"
@@ -239,14 +199,14 @@ export default function DemandeExpertisePdfPage() {
           </SectionCard>
 
           <SectionCard
-            title="Missions et pièces jointes"
-            subtitle="Contenu reproduit dans le PDF généré"
+            title="Missions et piÃ¨ces jointes"
+            subtitle="Contenu reproduit dans le PDF gÃ©nÃ©rÃ©"
             icon={<FileText size={18} />}
           >
             <div className="space-y-4">
               <Field
-                label="Pièces jointes"
-                hint="Choisissez un ou plusieurs fichiers. Les noms sélectionnés seront repris dans le PDF."
+                label="PiÃ¨ces jointes"
+                hint="Choisissez un ou plusieurs fichiers. Les noms sÃ©lectionnÃ©s seront repris dans le PDF."
               >
                 <input
                   type="file"
@@ -264,7 +224,7 @@ export default function DemandeExpertisePdfPage() {
                   rows={2}
                   value={form.piecesJointes}
                   onChange={handleChange}
-                  placeholder="Note optionnelle sur les pièces jointes"
+                  placeholder="Note optionnelle sur les piÃ¨ces jointes"
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 />
               </Field>
@@ -296,8 +256,8 @@ export default function DemandeExpertisePdfPage() {
           <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
             <h2 className="text-base font-semibold text-slate-900">Signature automatique</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Le nom du médecin contrôleur est repris automatiquement depuis la session active et
-              ajouté en bas du PDF.
+              Le nom du mÃ©decin contrÃ´leur est repris automatiquement depuis la session active et
+              ajoutÃ© en bas du PDF.
             </p>
             <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/50 px-4 py-3 text-sm text-slate-700">
               {doctorDisplay}
@@ -312,7 +272,7 @@ export default function DemandeExpertisePdfPage() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-sm shadow-sky-900/25 transition hover:bg-slate-800"
             >
               <Download size={16} />
-              {isSaving ? "Enregistrement..." : "Générer le PDF"}
+              {isSaving ? "Enregistrement..." : "GÃ©nÃ©rer le PDF"}
             </button>
           </section>
         </aside>
@@ -320,5 +280,3 @@ export default function DemandeExpertisePdfPage() {
     </div>
   );
 }
-
-

@@ -305,8 +305,6 @@ export default function StockPage() {
     }));
   };
 
-  const handleEditChange = (e) => handleItemChange(e, setEditItem);
-
   const handleMoveSubmit = async (e) => {
     e.preventDefault();
 
@@ -1450,13 +1448,13 @@ export default function StockPage() {
                         </div>
                       </td>
                       <td className="px-3 py-3 text-slate-700">
-                        {typeLabel[item.type_article] || item.type_article}
+                        {item.type_article === "MEDICAMENT" ? "Médicament" : "Consommable"}
                       </td>
                       <td className="px-3 py-3 text-slate-700">{item.quantite}</td>
                       <td className="px-3 py-3 text-slate-700">{item.unite}</td>
                       <td className="px-3 py-3 text-slate-700">{item.seuil_critique}</td>
                       <td className="px-3 py-3">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${stockBadge(item)}`}>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(item)}`}>
                           {item.quantite <= item.seuil_critique ? "Critique" : "Disponible"}
                         </span>
                       </td>

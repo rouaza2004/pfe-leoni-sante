@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import {
   ResponsiveContainer,
@@ -90,13 +90,6 @@ const formatDateInput = (date) => {
   return d.toISOString().slice(0, 10);
 };
 
-const DASHBOARD_FILTERS = {
-  view: "day",
-  date: formatDateInput(new Date()),
-  medecin: "",
-  statut: "",
-};
-
 const parseTime = (value) => {
   if (!value) return null;
   const [h, m] = value.split(":").map((v) => Number(v));
@@ -111,6 +104,124 @@ const formatDuration = (minutes) => {
   return `${h}h${String(m).padStart(2, "0")}`;
 };
 
+const monthLabels = [
+  "Janvier",
+  "Février",
+  "Mars",
+  "Avril",
+  "Mai",
+  "Juin",
+  "Juillet",
+  "Août",
+  "Septembre",
+  "Octobre",
+  "Novembre",
+  "Décembre",
+];
+
+const getPointageYear = (dateValue) => {
+  const year = Number(String(dateValue || "").slice(0, 4));
+  return Number.isFinite(year) ? year : null;
+};
+
+const getPointageMonth = (dateValue) => {
+  const month = Number(String(dateValue || "").slice(5, 7));
+  return Number.isFinite(month) && month >= 1 && month <= 12 ? month - 1 : null;
+};
+
+const getDurationMinutes = (item) => {
+  const start = parseTime(item.heure_arrivee);
+  const end = parseTime(item.heure_depart);
+  if (start === null || end === null || end < start) return 0;
+  return end - start;
+};
+
+const roundHours = (minutes) => Math.round((minutes / 60) * 10) / 10;
+
+const normalizeString = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+
+const normalizeStatut = (value) => {
+  const statut = normalizeString(value);
+  if (["PRESENT", "PRESENCE", "PRESENTE"].includes(statut)) return "PRESENT";
+  if (["ABSENT", "ABSENCE"].includes(statut)) return "ABSENT";
+  if (["CONGE", "CONGES"].includes(statut)) return "CONGE";
+  if (statut === "MISSION") return "MISSION";
+  return statut || "PRESENT";
+};
+
+const isPresentStatus = (value) => normalizeStatut(value) === "PRESENT";
+const isAbsentStatus = (value) => normalizeStatut(value) === "ABSENT";
+const isCongeStatus = (value) => normalizeStatut(value) === "CONGE";
+const isMissionStatus = (value) => normalizeStatut(value) === "MISSION";
+
+const getMedecinId = (item) =>
+  item.medecin_id ?? item.medecinId ?? item.medecin?.id ?? item.medecin ?? "";
+
+const getMedecinName = (item) =>
+  item.medecin_nom || item.medecin_name || item.medecin?.full_name || item.medecin?.username || "Médecin";
+
+const createTempId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return `tmp-${crypto.randomUUID()}`;
+  }
+  return `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const getPointageArrayFromResponse = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.results)) return payload.data.results;
+  if (Array.isArray(payload?.data?.pointages)) return payload.data.pointages;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.pointages)) return payload.pointages;
+  return null;
+};
+
+const getPointageObjectFromResponse = (payload) => {
+  if (!payload || Array.isArray(payload)) return null;
+  if (payload.data && !Array.isArray(payload.data) && typeof payload.data === "object") {
+    return payload.data;
+  }
+  if (payload.pointage && typeof payload.pointage === "object") return payload.pointage;
+  if (typeof payload === "object") return payload;
+  return null;
+};
+
+const normalizePointage = (item, index = 0) => {
+  const backendId = item?.id ?? item?.pk ?? item?.uuid ?? item?._id ?? item?.pointage_id;
+  const id = backendId ?? createTempId();
+  return {
+    ...(item || {}),
+    id,
+    statut: normalizeStatut(item?.statut),
+    __rowKey: String(backendId ?? `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`),
+  };
+};
+
+const normalizePointageList = (items) => {
+  const usedKeys = new Set();
+  return (Array.isArray(items) ? items : []).map((item, index) => {
+    const normalized = normalizePointage(item, index);
+    let key = String(normalized.id);
+    if (usedKeys.has(key)) key = `${key}-${index}-${createTempId()}`;
+    usedKeys.add(key);
+    return { ...normalized, __rowKey: key };
+  });
+};
+
+const mergePointageIntoList = (list, pointage) => {
+  const normalized = normalizePointage(pointage);
+  const normalizedId = String(normalized.id);
+  const existingIndex = list.findIndex((item) => String(item.id) === normalizedId);
+  if (existingIndex === -1) return [normalized, ...list];
+  return list.map((item, index) => (index === existingIndex ? { ...item, ...normalized } : item));
+};
+
 export default function PointageMedecinsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,8 +229,6 @@ export default function PointageMedecinsPage() {
   const [success, setSuccess] = useState("");
   const [medecins, setMedecins] = useState([]);
   const [pointages, setPointages] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryFilters, setSummaryFilters] = useState({
     year: new Date().getFullYear(),
     medecin: "",
@@ -143,14 +252,9 @@ export default function PointageMedecinsPage() {
   };
 
   const loadPointages = async () => {
-    const params = new URLSearchParams();
-    if (DASHBOARD_FILTERS.date) params.set("date", DASHBOARD_FILTERS.date);
-    if (DASHBOARD_FILTERS.view) params.set("view", DASHBOARD_FILTERS.view);
-    if (DASHBOARD_FILTERS.medecin) params.set("medecin", DASHBOARD_FILTERS.medecin);
-    if (DASHBOARD_FILTERS.statut) params.set("statut", DASHBOARD_FILTERS.statut);
     const accessToken = localStorage.getItem("access");
     const res = await api.get(
-      `/medical/pointage-medecins/?${params.toString()}`,
+      "/medical/pointage-medecins/",
       accessToken
         ? {
             headers: {
@@ -159,26 +263,8 @@ export default function PointageMedecinsPage() {
           }
         : undefined
     );
-    setPointages(Array.isArray(res.data) ? res.data : []);
+    setPointages(normalizePointageList(getPointageArrayFromResponse(res.data)));
   };
-
-  const loadAnnualSummary = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (summaryFilters.year) params.set("year", summaryFilters.year);
-    if (summaryFilters.medecin) params.set("medecin", summaryFilters.medecin);
-    const accessToken = localStorage.getItem("access");
-    const res = await api.get(
-      `/medical/pointage-medecins/summary/?${params.toString()}`,
-      accessToken
-        ? {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        : undefined
-    );
-    setSummary(res.data || null);
-  }, [summaryFilters.medecin, summaryFilters.year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,38 +285,95 @@ export default function PointageMedecinsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const run = async () => {
-      try {
-        setSummaryLoading(true);
-        await loadAnnualSummary();
-      } catch {
-        setErr("Impossible de charger le récapitulatif annuel.");
-      } finally {
-        setSummaryLoading(false);
-      }
-    };
-    run();
-  }, [loadAnnualSummary]);
-
   const stats = useMemo(() => {
     const total = pointages.length;
-    const present = pointages.filter((p) => p.statut === "PRESENT").length;
-    const absent = pointages.filter((p) => p.statut === "ABSENT").length;
-    const conge = pointages.filter((p) => p.statut === "CONGE").length;
-    const mission = pointages.filter((p) => p.statut === "MISSION").length;
-    const totalMinutes = pointages.reduce((acc, item) => {
-      const start = parseTime(item.heure_arrivee);
-      const end = parseTime(item.heure_depart);
-      if (start === null || end === null || end < start) return acc;
-      return acc + (end - start);
-    }, 0);
-    const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
+    const present = pointages.filter((p) => isPresentStatus(p.statut)).length;
+    const absent = pointages.filter((p) => isAbsentStatus(p.statut)).length;
+    const conge = pointages.filter((p) => isCongeStatus(p.statut)).length;
+    const mission = pointages.filter((p) => isMissionStatus(p.statut)).length;
+    const totalMinutes = pointages.reduce((acc, item) => acc + getDurationMinutes(item), 0);
+    const totalHours = roundHours(totalMinutes);
     return { total, present, absent, conge, mission, totalHours };
   }, [pointages]);
 
+  const summary = useMemo(() => {
+    const selectedYear = Number(summaryFilters.year);
+    const selectedMedecin = String(summaryFilters.medecin || "");
+    const monthlySummary = monthLabels.map((label, index) => ({
+      month: index + 1,
+      label,
+      presents: 0,
+      absents: 0,
+      conges: 0,
+      missions: 0,
+      totalMinutes: 0,
+      totalHeures: 0,
+      tauxPresence: 0,
+    }));
+    const doctorPresenceMap = new Map();
+
+    const annualPointages = pointages.filter((item) => {
+      if (getPointageYear(item.date) !== selectedYear) return false;
+      if (!selectedMedecin) return true;
+      return String(getMedecinId(item)) === selectedMedecin;
+    });
+
+    annualPointages.forEach((item) => {
+      const monthIndex = getPointageMonth(item.date);
+      if (monthIndex === null) return;
+
+      const row = monthlySummary[monthIndex];
+      if (isPresentStatus(item.statut)) row.presents += 1;
+      if (isAbsentStatus(item.statut)) row.absents += 1;
+      if (isCongeStatus(item.statut)) row.conges += 1;
+      if (isMissionStatus(item.statut)) row.missions += 1;
+      row.totalMinutes += getDurationMinutes(item);
+
+      if (isPresentStatus(item.statut)) {
+        const medecinId = String(getMedecinId(item) || getMedecinName(item));
+        const current = doctorPresenceMap.get(medecinId) || {
+          medecinId,
+          nom: getMedecinName(item),
+          presents: 0,
+        };
+        current.presents += 1;
+        doctorPresenceMap.set(medecinId, current);
+      }
+    });
+
+    monthlySummary.forEach((row) => {
+      const totalStatuses = row.presents + row.absents + row.conges + row.missions;
+      row.totalHeures = roundHours(row.totalMinutes);
+      row.tauxPresence = totalStatuses > 0 ? Math.round((row.presents / totalStatuses) * 100) : 0;
+      delete row.totalMinutes;
+    });
+
+    const totalPointages = annualPointages.length;
+    const totalPresents = annualPointages.filter((p) => isPresentStatus(p.statut)).length;
+    const totalAbsents = annualPointages.filter((p) => isAbsentStatus(p.statut)).length;
+    const totalConges = annualPointages.filter((p) => isCongeStatus(p.statut)).length;
+    const totalMissions = annualPointages.filter((p) => isMissionStatus(p.statut)).length;
+    const totalMinutes = annualPointages.reduce((acc, item) => acc + getDurationMinutes(item), 0);
+    const tauxPresence = totalPointages > 0 ? Math.round((totalPresents / totalPointages) * 100) : 0;
+
+    return {
+      year: selectedYear,
+      totalPointages,
+      totalPresents,
+      totalAbsents,
+      totalConges,
+      totalMissions,
+      totalHeures: roundHours(totalMinutes),
+      tauxPresence,
+      monthlySummary,
+      topDoctors: Array.from(doctorPresenceMap.values())
+        .sort((a, b) => b.presents - a.presents)
+        .slice(0, 5),
+    };
+  }, [pointages, summaryFilters.medecin, summaryFilters.year]);
+
   const annualMonthly = useMemo(() => {
-    return Array.isArray(summary?.monthlySummary) ? summary.monthlySummary : [];
+    return Array.isArray(summary.monthlySummary) ? summary.monthlySummary : [];
   }, [summary]);
 
   const annualPresenceData = useMemo(
@@ -265,8 +408,13 @@ export default function PointageMedecinsPage() {
 
   const yearOptions = useMemo(() => {
     const current = new Date().getFullYear();
-    return Array.from({ length: 6 }, (_, idx) => current - idx);
-  }, []);
+    const years = new Set(Array.from({ length: 6 }, (_, idx) => current - idx));
+    pointages.forEach((item) => {
+      const year = getPointageYear(item.date);
+      if (year) years.add(year);
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [pointages]);
 
   const badgeClass = (statut) => {
     switch (statut) {
@@ -296,11 +444,11 @@ export default function PointageMedecinsPage() {
   const openEdit = (row) => {
     setForm({
       id: row.id,
-      medecin: row.medecin,
+      medecin: getMedecinId(row),
       date: row.date || "",
       heure_arrivee: row.heure_arrivee || "",
       heure_depart: row.heure_depart || "",
-      statut: row.statut || "PRESENT",
+      statut: normalizeStatut(row.statut),
       note: row.note || "",
     });
     setShowForm(true);
@@ -340,15 +488,32 @@ export default function PointageMedecinsPage() {
         statut: form.statut,
         note: form.note || "",
       };
-      if (form.id) {
-        await api.patch(`/medical/pointage-medecins/${form.id}/`, payload);
+      const response = form.id
+        ? await api.patch(`/medical/pointage-medecins/${form.id}/`, payload)
+        : await api.post("/medical/pointage-medecins/", payload);
+      const returnedList = getPointageArrayFromResponse(response.data);
+      if (returnedList) {
+        setPointages(normalizePointageList(returnedList));
       } else {
-        await api.post("/medical/pointage-medecins/", payload);
+        const selectedMedecin = medecins.find((med) => String(med.id) === String(form.medecin));
+        const returnedPointage = getPointageObjectFromResponse(response.data) || {};
+        const savedPointage = {
+          ...payload,
+          ...returnedPointage,
+          medecin: payload.medecin,
+          medecin_nom:
+            returnedPointage.medecin_nom ||
+            returnedPointage.medecin_name ||
+            selectedMedecin?.full_name ||
+            selectedMedecin?.username ||
+            "MÃ©decin",
+          id: form.id || returnedPointage.id || returnedPointage.pk || createTempId(),
+        };
+        setPointages((prev) => mergePointageIntoList(prev, savedPointage));
       }
       setShowForm(false);
       setForm({ ...emptyForm, date: formatDateInput(new Date()) });
       setSuccess("Pointage enregistré.");
-      await loadPointages();
     } catch (error) {
       setErr(error?.response?.data?.detail || "Erreur lors de l'enregistrement.");
     } finally {
@@ -360,8 +525,13 @@ export default function PointageMedecinsPage() {
     const ok = window.confirm(`Supprimer le pointage de ${row.medecin_nom || "ce médecin"} ?`);
     if (!ok) return;
     try {
-      await api.delete(`/medical/pointage-medecins/${row.id}/`);
-      await loadPointages();
+      const response = await api.delete(`/medical/pointage-medecins/${row.id}/`);
+      const returnedList = getPointageArrayFromResponse(response.data);
+      if (returnedList) {
+        setPointages(normalizePointageList(returnedList));
+      } else {
+        setPointages((prev) => prev.filter((item) => String(item.id) !== String(row.id)));
+      }
     } catch {
       setErr("Erreur lors de la suppression.");
     }
@@ -654,11 +824,6 @@ export default function PointageMedecinsPage() {
           </div>
         </div>
 
-        {summaryLoading ? (
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5 text-sm text-slate-500">
-            Chargement du récapitulatif annuel...
-          </div>
-        ) : (
           <>
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
               <StatCard
@@ -838,7 +1003,6 @@ export default function PointageMedecinsPage() {
               </div>
             </div>
           </>
-        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
@@ -904,7 +1068,7 @@ export default function PointageMedecinsPage() {
                 );
                 return (
                   <tr
-                    key={row.id}
+                    key={row.__rowKey || row.id}
                     className="text-slate-700 transition hover:bg-slate-50"
                   >
                     <td className="px-4 py-3 font-medium text-slate-900">

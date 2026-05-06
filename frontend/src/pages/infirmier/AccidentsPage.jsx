@@ -10,14 +10,18 @@ import {
 import { api } from "@/api/api";
 import { getCollaborateurProfilByMatricule } from "../shared/collaborateurProfile.api";
 
+const defaultEmployeurValues = {
+  employeur_cnss: "1234567-89",
+  employeur_nom: "LEONI Wiring Systems Tunisia",
+  employeur_adresse: "Zone Industrielle Messadine, Sousse",
+  employeur_code_postal: "4013",
+  employeur_telephone: "73 000 000",
+  employeur_activite: "Fabrication de faisceaux de câbles automobiles",
+};
+
 const emptyForm = {
   matricule: "",
-  employeur_cnss: "",
-  employeur_nom: "",
-  employeur_adresse: "",
-  employeur_code_postal: "",
-  employeur_telephone: "",
-  employeur_activite: "",
+  ...defaultEmployeurValues,
   victime_cnss: "",
   victime_nom: "",
   victime_prenom: "",
@@ -117,11 +121,23 @@ const selectOptions = {
   ],
 };
 
+const normalizeSexe = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (["H", "HOMME", "M", "MASCULIN", "MALE"].includes(normalized)) return "HOMME";
+  if (["F", "FEMME", "FEMININ", "FÉMININ", "FEMALE"].includes(normalized)) {
+    return "FEMME";
+  }
+  return "";
+};
+
 export default function AccidentsPage() {
   const [accidents, setAccidents] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [matriculeSearch, setMatriculeSearch] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -169,35 +185,82 @@ export default function AccidentsPage() {
     }
   };
 
-  const handleMatriculeSearch = async () => {
-    if (!form.matricule.trim()) return;
+  const handleSearchCollaborateur = async () => {
+    const matricule = matriculeSearch.trim();
+    if (!matricule) {
+      setSearchError("Veuillez entrer une matricule.");
+      return;
+    }
+
     try {
-      setErr("");
-      const profile = await getCollaborateurProfilByMatricule(form.matricule.trim());
+      setSearchLoading(true);
+      setSearchError("");
+
+      const profile = await getCollaborateurProfilByMatricule(matricule);
+      const collab = profile?.collaborateur || profile || {};
+
+      if (!collab?.matricule) {
+        setSelectedProfile(null);
+        setSearchError("Aucun collaborateur trouvé avec cette matricule.");
+        return;
+      }
+
       setSelectedProfile(profile);
 
-      const collab = profile?.collaborateur || {};
       const dossier = profile?.dossier_medical || {};
+      const site = collab.site && typeof collab.site === "object" ? collab.site : {};
+      const siteName = typeof collab.site === "string" ? collab.site : site.nom;
+      const lieuTravail =
+        collab.lieu_travail_habituel ||
+        collab.lieu_travail ||
+        siteName ||
+        collab.departement ||
+        "";
 
       setForm((prev) => ({
         ...prev,
-        victime_nom: prev.victime_nom || collab.nom || "",
-        victime_prenom: prev.victime_prenom || collab.prenom || "",
-        victime_cin: prev.victime_cin || collab.cin || "",
-        victime_date_naissance:
-          prev.victime_date_naissance || collab.date_naissance || "",
-        victime_adresse: prev.victime_adresse || collab.adresse || "",
-        employeur_nom: prev.employeur_nom || dossier.entreprise || collab.site?.nom || "",
-        employeur_adresse:
-          prev.employeur_adresse || dossier.localite || collab.site?.localite || "",
+        matricule,
+        victime_cnss: collab.cnss || collab.numero_cnss || dossier.numero_cnss || "",
+        victime_nom: collab.nom || collab.last_name || "",
+        victime_prenom: collab.prenom || collab.first_name || "",
+        victime_nom_naissance: collab.nom_naissance || collab.nom || "",
+        victime_prenom_pere: collab.nom_pere || collab.prenom_pere || "",
+        victime_nationalite: collab.nationalite || "Tunisienne",
+        victime_sexe: normalizeSexe(collab.sexe || collab.genre),
+        victime_date_naissance: collab.date_naissance || "",
+        victime_lieu_naissance:
+          collab.lieu_naissance || dossier.lieu_naissance || "",
+        victime_cin: collab.cin || collab.numero_cin || "",
+        victime_adresse: collab.adresse || dossier.adresse || "",
+        victime_code_postal: collab.code_postal || dossier.code_postal || "",
+        victime_date_embauche:
+          collab.date_embauche ||
+          collab.date_recrutement ||
+          dossier.date_recrutement ||
+          "",
+        victime_specialite: collab.specialite || dossier.specialite || "",
+        victime_situation:
+          collab.situation || collab.situation_familiale || dossier.situation || "",
+        victime_profession: collab.profession || dossier.profession || "",
         victime_poste_accident:
-          prev.victime_poste_accident || collab.poste || collab.poste_nom || "",
-        segment: prev.segment || collab.segment_nom || collab.segment?.nom || "",
+          collab.poste_occupe ||
+          collab.poste ||
+          collab.poste_nom ||
+          dossier.poste_travail_actuel ||
+          "",
+        victime_lieu_travail: lieuTravail,
+        segment: collab.segment_nom || collab.segment?.nom || prev.segment,
       }));
     } catch (e) {
       console.error(e);
       setSelectedProfile(null);
-      setErr("Matricule introuvable.");
+      if (e?.response?.status === 404) {
+        setSearchError("Aucun collaborateur trouvé avec cette matricule.");
+      } else {
+        setSearchError("Erreur lors de la recherche du collaborateur.");
+      }
+    } finally {
+      setSearchLoading(false);
     }
   };
 
@@ -208,6 +271,8 @@ export default function AccidentsPage() {
 
   const resetForm = () => {
     setForm(emptyForm);
+    setMatriculeSearch("");
+    setSearchError("");
     setSelectedProfile(null);
     setEditingId(null);
     setShowForm(false);
@@ -330,6 +395,8 @@ export default function AccidentsPage() {
   const handleEdit = (item) => {
     setEditingId(item.id);
     setSelectedAccident(item);
+    setMatriculeSearch(item.matricule || "");
+    setSearchError("");
     setForm({
       ...emptyForm,
       ...item,
@@ -405,22 +472,37 @@ export default function AccidentsPage() {
                 <InputField
                   label="Matricule collaborateur"
                   name="matricule"
-                  value={form.matricule}
-                  onChange={handleChange}
+                  value={matriculeSearch}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setMatriculeSearch(value);
+                    setSearchError("");
+                    setForm((prev) => ({ ...prev, matricule: value }));
+                  }}
                   placeholder="Entrer la matricule"
                   required
                 />
                 <div className="flex items-end">
                   <button
                     type="button"
-                    onClick={handleMatriculeSearch}
+                    onClick={handleSearchCollaborateur}
+                    disabled={searchLoading}
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    <Search size={16} />
-                    Rechercher
+                    {searchLoading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Search size={16} />
+                    )}
+                    {searchLoading ? "Recherche..." : "Rechercher"}
                   </button>
                 </div>
               </div>
+              {searchError && (
+                <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {searchError}
+                </div>
+              )}
               {selectedProfile?.collaborateur && (
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
                   <p className="font-medium text-slate-900">

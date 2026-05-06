@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, FileText, Pill, Plus, Printer, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getUserRole, getUsername } from "@/auth/auth";
@@ -9,6 +9,14 @@ import {
 
 const STORAGE_KEY = "medecin-traitant-certificat-ordonnance-draft";
 
+const createMedication = () => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  nomMedicament: "",
+  posologie: "",
+  duree: "",
+  remarque: "",
+});
+
 const emptyMedication = {
   nomMedicament: "",
   posologie: "",
@@ -16,19 +24,24 @@ const emptyMedication = {
   remarque: "",
 };
 
-const emptyForm = {
-  type: "certificat",
+const emptyCommonData = {
   nomPrenom: "",
   matricule: "",
   dateNaissance: "",
   dateConsultation: new Date().toISOString().slice(0, 10),
   lieuConsultation: "Menzel Hayet",
   diagnostic: "",
+};
+
+const emptyCertificatData = {
   nbJoursRepos: "",
   dateDebutRepos: "",
   dateFinRepos: "",
   commentaireComplications: "",
-  medicaments: [{ ...emptyMedication }],
+};
+
+const emptyOrdonnanceData = {
+  medicaments: [createMedication()],
 };
 
 const specialityByRole = {
@@ -50,6 +63,18 @@ const tryParseStorage = (key) => {
   } catch {
     return null;
   }
+};
+
+const normalizeMedications = (items) => {
+  if (!Array.isArray(items) || items.length === 0) return [createMedication()];
+
+  return items.map((item) => ({
+    id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    nomMedicament: item.nomMedicament || item.medicament || "",
+    posologie: item.posologie || "",
+    duree: item.duree || "",
+    remarque: item.remarque || "",
+  }));
 };
 
 const formatDateLabel = (value) => {
@@ -165,65 +190,119 @@ export default function CertificatOrdonnancePage() {
 
   const prefilledPatient = location.state?.patient || null;
 
-  const [form, setForm] = useState(() => ({
-    ...emptyForm,
-    ...initialDraft,
+  const [documentType, setDocumentType] = useState(
+    initialDraft?.type === "ordonnance" ? "ordonnance" : "certificat"
+  );
+  const [commonData, setCommonData] = useState(() => ({
+    ...emptyCommonData,
     nomPrenom:
       prefilledPatient?.nomPrenom ||
       initialDraft?.nomPrenom ||
-      emptyForm.nomPrenom,
+      emptyCommonData.nomPrenom,
     matricule:
       prefilledPatient?.matricule ||
       initialDraft?.matricule ||
-      emptyForm.matricule,
+      emptyCommonData.matricule,
     dateNaissance:
       prefilledPatient?.dateNaissance ||
       initialDraft?.dateNaissance ||
-      emptyForm.dateNaissance,
-    medicaments:
-      initialDraft?.medicaments?.length > 0
-        ? initialDraft.medicaments
-        : emptyForm.medicaments,
+      emptyCommonData.dateNaissance,
+    dateConsultation: initialDraft?.dateConsultation || emptyCommonData.dateConsultation,
+    lieuConsultation: initialDraft?.lieuConsultation || emptyCommonData.lieuConsultation,
+    diagnostic: initialDraft?.diagnostic || emptyCommonData.diagnostic,
+  }));
+  const [certificatData, setCertificatData] = useState(() => ({
+    ...emptyCertificatData,
+    nbJoursRepos: initialDraft?.nbJoursRepos || emptyCertificatData.nbJoursRepos,
+    dateDebutRepos: initialDraft?.dateDebutRepos || emptyCertificatData.dateDebutRepos,
+    dateFinRepos: initialDraft?.dateFinRepos || emptyCertificatData.dateFinRepos,
+    commentaireComplications:
+      initialDraft?.commentaireComplications ||
+      emptyCertificatData.commentaireComplications,
+  }));
+  const [ordonnanceData, setOrdonnanceData] = useState(() => ({
+    medicaments: normalizeMedications(initialDraft?.medicaments),
   }));
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("");
   const [savedAt, setSavedAt] = useState(() => initialDraft?.savedAt || "");
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const updateField = (name, value) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setMessage(null);
+      setMessageType(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+  const showMessage = (type, value) => {
+    setMessageType(type);
+    setMessage(value);
+  };
+
+  const clearFeedback = () => {
+    setMessage(null);
+    setMessageType(null);
     setStatus("");
   };
 
+  const updateCommonField = (name, value) => {
+    setCommonData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+    clearFeedback();
+  };
+
+  const updateCertificatField = (name, value) => {
+    setCertificatData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+    clearFeedback();
+  };
+
   const updateMedication = (index, name, value) => {
-    setForm((prev) => ({
+    setOrdonnanceData((prev) => ({
       ...prev,
       medicaments: prev.medicaments.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [name]: value } : item
       ),
     }));
     setErrors((prev) => ({ ...prev, medicaments: "" }));
-    setStatus("");
+    clearFeedback();
   };
 
   const addMedicationRow = () => {
-    setForm((prev) => ({
+    setOrdonnanceData((prev) => ({
       ...prev,
-      medicaments: [...prev.medicaments, { ...emptyMedication }],
+      medicaments: [...prev.medicaments, createMedication()],
     }));
+    clearFeedback();
   };
 
   const removeMedicationRow = (index) => {
-    setForm((prev) => ({
+    setOrdonnanceData((prev) => ({
       ...prev,
       medicaments:
         prev.medicaments.length === 1
-          ? [{ ...emptyMedication }]
+          ? [createMedication()]
           : prev.medicaments.filter((_, itemIndex) => itemIndex !== index),
     }));
+    clearFeedback();
   };
 
+  const buildCurrentForm = () => ({
+    type: documentType,
+    ...commonData,
+    ...certificatData,
+    medicaments: ordonnanceData.medicaments,
+  });
+
   const validate = () => {
+    const form = buildCurrentForm();
     const nextErrors = {};
 
     if (!form.nomPrenom.trim()) nextErrors.nomPrenom = "Nom du patient requis.";
@@ -231,26 +310,35 @@ export default function CertificatOrdonnancePage() {
       nextErrors.dateConsultation = "Date de consultation requise.";
     }
 
-    if (form.type === "certificat") {
+    if (documentType === "certificat") {
       if (!String(form.nbJoursRepos).trim()) {
         nextErrors.nbJoursRepos = "Nombre de jours requis.";
+      } else if (
+        !Number.isFinite(Number(form.nbJoursRepos)) ||
+        Number(form.nbJoursRepos) <= 0
+      ) {
+        nextErrors.nbJoursRepos = "Le nombre de jours doit être supérieur à 0.";
       }
       if (!form.dateDebutRepos) {
         nextErrors.dateDebutRepos = "Date de début requise.";
       }
     }
 
-    if (form.type === "ordonnance") {
-      const hasMedication = form.medicaments.some(
+    if (documentType === "ordonnance") {
+      const hasMedicationName = ordonnanceData.medicaments.some((item) =>
+        item.nomMedicament.trim()
+      );
+      const hasIncompleteMedication = ordonnanceData.medicaments.some(
         (item) =>
-          item.nomMedicament.trim() ||
-          item.posologie.trim() ||
-          item.duree.trim() ||
-          item.remarque.trim()
+          (item.posologie.trim() || item.duree.trim() || item.remarque.trim()) &&
+          !item.nomMedicament.trim()
       );
 
-      if (!hasMedication) {
+      if (!hasMedicationName) {
         nextErrors.medicaments = "Ajoutez au moins un médicament.";
+      } else if (hasIncompleteMedication) {
+        nextErrors.medicaments =
+          "Chaque ligne renseignée doit contenir le nom du médicament.";
       }
     }
 
@@ -259,7 +347,8 @@ export default function CertificatOrdonnancePage() {
   };
 
   const buildPrintHtml = () => {
-    const medicaments = form.medicaments.filter(
+    const form = buildCurrentForm();
+    const medicaments = ordonnanceData.medicaments.filter(
       (item) =>
         item.nomMedicament.trim() ||
         item.posologie.trim() ||
@@ -267,7 +356,7 @@ export default function CertificatOrdonnancePage() {
         item.remarque.trim()
     );
 
-    return form.type === "certificat"
+    return documentType === "certificat"
       ? buildCertificatPrintHtml({ doctor, form })
       : buildOrdonnancePrintHtml({
           doctor,
@@ -277,11 +366,24 @@ export default function CertificatOrdonnancePage() {
   };
 
   const openPrintableDocument = ({ autoPrint }) => {
-    if (!validate()) return;
+    setMessage(null);
+    setMessageType(null);
+
+    if (!validate()) {
+      showMessage(
+        "error",
+        "Veuillez compléter les champs obligatoires avant de générer le document."
+      );
+      return;
+    }
 
     const popup = window.open("", "_blank", "width=900,height=1200");
     if (!popup) {
       setStatus("Autorisez les popups pour générer le document imprimable.");
+      showMessage(
+        "error",
+        "Autorisez les popups pour générer le document imprimable."
+      );
       return;
     }
 
@@ -304,31 +406,71 @@ export default function CertificatOrdonnancePage() {
     );
   };
 
-  const handleSave = () => {
-    const payload = {
-      ...form,
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    setSavedAt(payload.savedAt);
-    setStatus("Brouillon enregistré localement.");
+  const handleSave = async () => {
+    if (saving) return;
+
+    try {
+      setSaving(true);
+      setMessage(null);
+      setMessageType(null);
+      setStatus("");
+
+      if (!validate()) {
+        showMessage(
+          "error",
+          "Veuillez compléter les champs obligatoires avant d'enregistrer."
+        );
+        return;
+      }
+
+      const payload = {
+        ...buildCurrentForm(),
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      setSavedAt(payload.savedAt);
+      setStatus("Brouillon enregistré localement.");
+      showMessage(
+        "success",
+        documentType === "certificat"
+          ? "Certificat médical enregistré avec succès."
+          : "Ordonnance enregistrée avec succès."
+      );
+    } catch (error) {
+      console.error(error);
+      showMessage(
+        "error",
+        "Une erreur est survenue pendant l'enregistrement. Veuillez réessayer."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
-    setForm({
-      ...emptyForm,
+    setDocumentType("certificat");
+    setCommonData({
+      ...emptyCommonData,
       nomPrenom: prefilledPatient?.nomPrenom || "",
       matricule: prefilledPatient?.matricule || "",
       dateNaissance: prefilledPatient?.dateNaissance || "",
     });
+    setCertificatData({ ...emptyCertificatData });
+    setOrdonnanceData({ medicaments: [createMedication()] });
     setErrors({});
+    setMessage(null);
+    setMessageType(null);
     setSavedAt("");
     setStatus("Formulaire réinitialisé.");
     localStorage.removeItem(STORAGE_KEY);
   };
 
   const documentTypeLabel =
-    form.type === "certificat" ? "Certificat médical" : "Ordonnance";
+    documentType === "certificat" ? "Certificat médical" : "Ordonnance";
+  const alertClassName =
+    messageType === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-red-200 bg-red-50 text-red-700";
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -370,10 +512,11 @@ export default function CertificatOrdonnancePage() {
           <button
             type="button"
             onClick={handleSave}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Save size={16} />
-            Enregistrer
+            {saving ? "Enregistrement..." : "Enregistrer"}
           </button>
         </div>
       </div>
@@ -393,9 +536,13 @@ export default function CertificatOrdonnancePage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => updateField("type", "certificat")}
+              onClick={() => {
+                setDocumentType("certificat");
+                setErrors({});
+                clearFeedback();
+              }}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                form.type === "certificat"
+                documentType === "certificat"
                   ? "bg-slate-900 text-white"
                   : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
               }`}
@@ -404,9 +551,13 @@ export default function CertificatOrdonnancePage() {
             </button>
             <button
               type="button"
-              onClick={() => updateField("type", "ordonnance")}
+              onClick={() => {
+                setDocumentType("ordonnance");
+                setErrors({});
+                clearFeedback();
+              }}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                form.type === "ordonnance"
+                documentType === "ordonnance"
                   ? "bg-slate-900 text-white"
                   : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
               }`}
@@ -415,6 +566,15 @@ export default function CertificatOrdonnancePage() {
             </button>
           </div>
         </div>
+
+        {message ? (
+          <div
+            className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-medium ${alertClassName}`}
+            role="alert"
+          >
+            {message}
+          </div>
+        ) : null}
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
           <div className="space-y-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/40">
@@ -428,8 +588,8 @@ export default function CertificatOrdonnancePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Nom et prénom" required>
                 <Input
-                  value={form.nomPrenom}
-                  onChange={(event) => updateField("nomPrenom", event.target.value)}
+                  value={commonData.nomPrenom}
+                  onChange={(event) => updateCommonField("nomPrenom", event.target.value)}
                   placeholder="Nom complet du patient"
                 />
                 {errors.nomPrenom ? (
@@ -439,8 +599,8 @@ export default function CertificatOrdonnancePage() {
 
               <Field label="Matricule">
                 <Input
-                  value={form.matricule}
-                  onChange={(event) => updateField("matricule", event.target.value)}
+                  value={commonData.matricule}
+                  onChange={(event) => updateCommonField("matricule", event.target.value)}
                   placeholder="Matricule patient"
                 />
               </Field>
@@ -448,16 +608,18 @@ export default function CertificatOrdonnancePage() {
               <Field label="Date de naissance">
                 <Input
                   type="date"
-                  value={form.dateNaissance}
-                  onChange={(event) => updateField("dateNaissance", event.target.value)}
+                  value={commonData.dateNaissance}
+                  onChange={(event) => updateCommonField("dateNaissance", event.target.value)}
                 />
               </Field>
 
               <Field label="Date de consultation" required>
                 <Input
                   type="date"
-                  value={form.dateConsultation}
-                  onChange={(event) => updateField("dateConsultation", event.target.value)}
+                  value={commonData.dateConsultation}
+                  onChange={(event) =>
+                    updateCommonField("dateConsultation", event.target.value)
+                  }
                 />
                 {errors.dateConsultation ? (
                   <p className="mt-1 text-xs text-red-600">{errors.dateConsultation}</p>
@@ -466,16 +628,18 @@ export default function CertificatOrdonnancePage() {
 
               <Field label="Lieu de consultation">
                 <Input
-                  value={form.lieuConsultation}
-                  onChange={(event) => updateField("lieuConsultation", event.target.value)}
+                  value={commonData.lieuConsultation}
+                  onChange={(event) =>
+                    updateCommonField("lieuConsultation", event.target.value)
+                  }
                 />
               </Field>
 
               <Field label="Diagnostic / observation" hint="Imprimé dans le document">
                 <Textarea
                   rows={5}
-                  value={form.diagnostic}
-                  onChange={(event) => updateField("diagnostic", event.target.value)}
+                  value={commonData.diagnostic}
+                  onChange={(event) => updateCommonField("diagnostic", event.target.value)}
                   placeholder="Observation clinique, diagnostic ou motif..."
                 />
               </Field>
@@ -503,13 +667,13 @@ export default function CertificatOrdonnancePage() {
             <div className="rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200">
               <p className="text-xs font-medium text-slate-500">Date affichée</p>
               <p className="mt-1 text-sm font-semibold text-slate-900">
-                {formatDateLabel(form.dateConsultation)}
+                {formatDateLabel(commonData.dateConsultation)}
               </p>
             </div>
           </div>
         </div>
 
-        {form.type === "certificat" ? (
+        {documentType === "certificat" ? (
           <div className="mt-6 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/40">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">Section certificat</h2>
@@ -523,8 +687,10 @@ export default function CertificatOrdonnancePage() {
                 <Input
                   type="number"
                   min="1"
-                  value={form.nbJoursRepos}
-                  onChange={(event) => updateField("nbJoursRepos", event.target.value)}
+                  value={certificatData.nbJoursRepos}
+                  onChange={(event) =>
+                    updateCertificatField("nbJoursRepos", event.target.value)
+                  }
                   placeholder="Ex. 3"
                 />
                 {errors.nbJoursRepos ? (
@@ -535,8 +701,10 @@ export default function CertificatOrdonnancePage() {
               <Field label="Date début repos" required>
                 <Input
                   type="date"
-                  value={form.dateDebutRepos}
-                  onChange={(event) => updateField("dateDebutRepos", event.target.value)}
+                  value={certificatData.dateDebutRepos}
+                  onChange={(event) =>
+                    updateCertificatField("dateDebutRepos", event.target.value)
+                  }
                 />
                 {errors.dateDebutRepos ? (
                   <p className="mt-1 text-xs text-red-600">{errors.dateDebutRepos}</p>
@@ -546,17 +714,19 @@ export default function CertificatOrdonnancePage() {
               <Field label="Date fin repos">
                 <Input
                   type="date"
-                  value={form.dateFinRepos}
-                  onChange={(event) => updateField("dateFinRepos", event.target.value)}
+                  value={certificatData.dateFinRepos}
+                  onChange={(event) =>
+                    updateCertificatField("dateFinRepos", event.target.value)
+                  }
                 />
               </Field>
 
               <Field label="Commentaire complications">
                 <Textarea
                   rows={5}
-                  value={form.commentaireComplications}
+                  value={certificatData.commentaireComplications}
                   onChange={(event) =>
-                    updateField("commentaireComplications", event.target.value)
+                    updateCertificatField("commentaireComplications", event.target.value)
                   }
                   placeholder="Commentaire complémentaire si nécessaire..."
                 />
@@ -588,9 +758,9 @@ export default function CertificatOrdonnancePage() {
             ) : null}
 
             <div className="mt-4 space-y-3">
-              {form.medicaments.map((item, index) => (
+              {ordonnanceData.medicaments.map((item, index) => (
                 <div
-                  key={`${index}-${item.nomMedicament}`}
+                  key={item.id}
                   className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4"
                 >
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_160px_auto]">

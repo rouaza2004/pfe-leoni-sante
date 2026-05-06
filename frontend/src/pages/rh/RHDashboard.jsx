@@ -134,33 +134,6 @@ const fallbackDocuments = [
   },
 ];
 
-const featureCards = [
-  {
-    title: "Absences & Ponctualité",
-    description:
-      "Suivre les retards, absences et congés maladie par collaborateur et département.",
-    route: "/rh/absences-ponctualite",
-    icon: <Clock3 size={16} />,
-    tone: "warning",
-  },
-  {
-    title: "Nouveaux opérateurs",
-    description:
-      "Importer les nouveaux entrants et préparer les visites d'embauche.",
-    route: "/rh/nouveaux-operateurs",
-    icon: <Upload size={16} />,
-    tone: "success",
-  },
-  {
-    title: "Pointage médecins",
-    description:
-      "Consulter le pointage, les heures et le récapitulatif annuel des médecins.",
-    route: "/rh/pointage-medecins",
-    icon: <Stethoscope size={16} />,
-    tone: "info",
-  },
-];
-
 const summaryCards = [
   {
     title: "Rendez-vous à venir",
@@ -511,6 +484,47 @@ export default function RHDashboard() {
     },
   ];
 
+  const rhModules = [
+    {
+      id: "absences-ponctualite",
+      title: "Absences & ponctualité",
+      description: "Suivre les absences, congés maladie et indicateurs de ponctualité.",
+      icon: <FolderClock size={16} />,
+      route: "/rh/absences-ponctualite",
+      cta: "Ouvrir",
+      tone: "warning",
+    },
+    {
+      id: "nouveaux-operateurs",
+      title: "Nouveaux opérateurs",
+      description: "Importer les nouveaux entrants et préparer leur suivi médical.",
+      icon: <Upload size={16} />,
+      route: "/rh/nouveaux-operateurs",
+      cta: "Importer",
+      tone: "info",
+    },
+    {
+      id: "pointage-medecins",
+      title: "Pointage médecins",
+      description: "Consulter les présences, absences et pointages des médecins.",
+      icon: <Clock3 size={16} />,
+      route: "/rh/pointage-medecins",
+      cta: "Consulter",
+      tone: "success",
+    },
+    {
+      id: "rapports-rh",
+      title: "Rapports RH",
+      description: "Accéder aux rapports RH liés au suivi médical des collaborateurs.",
+      icon: <FileText size={16} />,
+      route: "/rh/rapports",
+      cta: "Voir les rapports",
+      tone: "secondary",
+    },
+  ];
+
+  const featureCards = rhModules;
+
   return (
     <div className="space-y-5">
       <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
@@ -569,6 +583,38 @@ export default function RHDashboard() {
           ))}
         </div>
       </section>
+
+      <PanelCard
+        id="rh-modules"
+        title="Espaces RH"
+        subtitle="Accès direct aux fonctionnalités RH déjà disponibles dans l'application"
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {rhModules.map((module) => {
+            const toneClass = accentClasses[module.tone] || accentClasses.info;
+            return (
+              <button
+                key={module.id}
+                type="button"
+                onClick={() => navigate(module.route)}
+                className="rounded-[22px] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border ${toneClass.icon}`}
+                >
+                  {module.icon}
+                </div>
+                <p className="mt-3 text-sm font-semibold text-slate-900">{module.title}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">{module.description}</p>
+                <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-slate-700">
+                  {module.cta}
+                  <ChevronRight size={14} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </PanelCard>
 
       <section
         id="rh-rendez-vous"

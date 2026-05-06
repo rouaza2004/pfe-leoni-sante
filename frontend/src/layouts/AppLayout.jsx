@@ -1,4 +1,4 @@
-﻿import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -20,38 +20,41 @@ import {
 } from "lucide-react";
 
 import { getUserRole, logout as doLogout } from "../auth/auth.js";
+import { isAdminReadOnlyPath, isMutationActionElement } from "../auth/readOnlyAccess.js";
+import AdminMetierHeader from "../components/admin/AdminMetierHeader.jsx";
+import AppSidebar from "../components/layout/AppSidebar.jsx";
+import { getSidebarSections, roleLabel } from "./sidebarConfig.jsx";
 import leoniLogo from "../assets/leoni-logo.png";
-
-const roleLabel = (role) => {
-  switch (role) {
-    case "ADMIN":
-      return "Administrateur";
-    case "MEDECIN_TRAITANT":
-      return "MÃ©decin Traitant";
-    case "MEDECIN_TRAVAIL":
-      return "MÃ©decin du Travail";
-    case "MEDECIN_CONTROLEUR":
-      return "MÃ©decin ContrÃ´leur";
-    case "INFIRMIER":
-      return "Infirmier";
-    case "RESPONSABLE_RH":
-      return "Responsable RH";
-    case "AGENT_HSEE":
-      return "Agent HSEE";
-    default:
-      return role || "Utilisateur";
-  }
-};
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = getUserRole();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const storageKey = `sidebar-collapsed:${getUserRole() || "default"}`;
+    return window.localStorage.getItem(storageKey) === "true";
+  });
   const [incidentsOpen, setIncidentsOpen] = useState(false);
   const [accidentsOpen, setAccidentsOpen] = useState(false);
   const [mpOpen, setMpOpen] = useState(false);
   const [cnamOpen, setCnamOpen] = useState(false);
   const incidentType = new URLSearchParams(location.search).get("type") || "with_bon";
+  const incidentsRouteActive = location.pathname.startsWith("/infirmier/incidents");
+  const accidentsRouteActive =
+    location.pathname.startsWith("/infirmier/accidents") ||
+    location.pathname.startsWith("/bon-chauffeur") ||
+    location.pathname.startsWith("/suivi-transferts");
+  const isAdminReadOnly = isAdminReadOnlyPath(location.pathname, role);
+  const currentDateLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat("fr-FR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(new Date()),
+    [],
+  );
 
   useEffect(() => {
     if (location.pathname.startsWith("/infirmier/incidents")) {
@@ -66,21 +69,6 @@ export default function AppLayout() {
       location.pathname.startsWith("/suivi-transferts")
     ) {
       setAccidentsOpen(true);
-    }
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (
-      location.pathname.startsWith("/infirmier/mp/") ||
-      location.pathname.startsWith("/infirmier/maladies-professionnelles")
-    ) {
-      setMpOpen(true);
-    }
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (location.pathname.startsWith("/infirmier/cnam/")) {
-      setCnamOpen(true);
     }
   }, [location.pathname]);
 
@@ -106,8 +94,7 @@ export default function AppLayout() {
   }, [role]);
 
   const navItems = useMemo(() => {
-    const dashboardLabel =
-      role === "MEDECIN_CONTROLEUR" ? "Tableau de bord" : "Dashboard";
+    const dashboardLabel = role === "MEDECIN_CONTROLEUR" ? "Tableau de bord" : "Dashboard";
     const common = [
       { to: homePath, label: dashboardLabel, icon: <LayoutDashboard size={18} /> },
     ];
@@ -137,7 +124,7 @@ export default function AppLayout() {
           icon: <Users size={18} />,
         },
         {
-          to: "/medecin-travail/dossiers-medicaux",
+          to: "/medecin-travail/collaborateurs?target=dossier",
           label: "Dossiers m\u00E9dicaux",
           icon: <FileText size={18} />,
         },
@@ -147,7 +134,7 @@ export default function AppLayout() {
           icon: <Calendar size={18} />,
         },
         {
-          to: "/medecin-travail/examens-complementaires",
+          to: "/medecin-travail/collaborateurs?target=examen-complementaire",
           label: "Examens compl\u00E9mentaires",
           icon: <Activity size={18} />,
         },
@@ -199,8 +186,8 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/infirmier/pointage-medecins",
-          label: "Pointage médecins",
+          to: "/pointage",
+          label: "Pointage",
           icon: <Clock size={18} />,
         },
         {
@@ -269,44 +256,9 @@ export default function AppLayout() {
           ],
         },
         {
-          type: "submenu",
-          submenuKey: "mp",
-          label: "Maladie professionnelle",
+          to: "/infirmier/maladies-professionnelles",
+          label: "Maladies pro.",
           icon: <FileText size={18} />,
-          basePath: "/infirmier/mp",
-          isActive: (loc) =>
-            loc.pathname.startsWith("/infirmier/mp/") ||
-            loc.pathname.startsWith("/infirmier/maladies-professionnelles"),
-          children: [
-            {
-              to: "/infirmier/mp/declaration",
-              label: "Déclaration MP",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname === "/infirmier/mp/declaration",
-            },
-            {
-              to: "/infirmier/mp/suivi",
-              label: "Suivi MP",
-              icon: <ClipboardList size={16} />,
-              isActive: (loc) => loc.pathname === "/infirmier/mp/suivi",
-            },
-          ],
-        },
-        {
-          type: "submenu",
-          submenuKey: "cnam",
-          label: "CNAM",
-          icon: <ClipboardList size={18} />,
-          basePath: "/infirmier/cnam",
-          isActive: (loc) => loc.pathname.startsWith("/infirmier/cnam/"),
-          children: [
-            {
-              to: "/infirmier/cnam/suivi",
-              label: "Suivi des déclarations CNAM",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname === "/infirmier/cnam/suivi",
-            },
-          ],
         },
         {
           to: "/infirmier/stock",
@@ -331,8 +283,8 @@ export default function AppLayout() {
         ...common,
         {
           to: "/rh/absences-ponctualite",
-          label: "Absences & Ponctualité",
-          icon: <Calendar size={18} />,
+          label: "Absences & ponctualité",
+          icon: <BarChart3 size={18} />,
         },
         {
           to: "/rh/nouveaux-operateurs",
@@ -345,9 +297,9 @@ export default function AppLayout() {
           icon: <Clock size={18} />,
         },
         {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
+          to: "/rh/rapports",
+          label: "Rapports RH",
+          icon: <FileText size={18} />,
         },
       ];
     }
@@ -356,44 +308,109 @@ export default function AppLayout() {
       return [
         ...common,
         {
-          to: "/hsee/statistiques",
-          label: "Analyses & KPIs",
-          icon: <BarChart3 size={18} />,
+          to: "/pointage",
+          label: "Pointage",
+          icon: <Clock size={18} />,
         },
         {
-          to: "/hsee/enquete-at",
-          label: "Enquête AT",
-          icon: <ClipboardList size={18} />,
-        },
-        {
-          to: "/hsee/visites-medicales",
-          label: "Visites Médicales",
-          icon: <Calendar size={18} />,
-        },
-        {
-          to: "/hsee/inventaire-medical",
-          label: "Inventaire Médical",
-          icon: <Boxes size={18} />,
-        },
-        {
-          to: "/hsee/cartographie-risques",
-          label: "Cartographie Risques",
+          to: "/hsee",
+          label: "Supervision",
           icon: <ShieldAlert size={18} />,
         },
         {
-          to: "/hsee/rapports",
-          label: "Rapports",
+          to: "/hsee/statistiques",
+          label: "Statistiques",
+          icon: <BarChart3 size={18} />,
+        },
+        {
+          to: "/hsee/plan-action",
+          label: "Plan d'action",
+          icon: <ClipboardList size={18} />,
+        },
+        {
+          type: "submenu",
+          submenuKey: "incidents",
+          label: "Incidents",
+          icon: <Bell size={18} />,
+          basePath: "/infirmier/incidents",
+          children: [
+            {
+              to: "/infirmier/incidents?type=with_bon",
+              label: "Incidents + Bon",
+              icon: <FileText size={16} />,
+              type: "with_bon",
+            },
+            {
+              to: "/infirmier/incidents?type=without_bon",
+              label: "Incidents sans Bon",
+              icon: <Zap size={16} />,
+              type: "without_bon",
+            },
+          ],
+        },
+        {
+          type: "submenu",
+          submenuKey: "accidents",
+          label: "Accidents",
+          icon: <ShieldAlert size={18} />,
+          isActive: (loc) =>
+            [
+              "/infirmier/accidents",
+              "/infirmier/enquete-initiale",
+              "/bon-chauffeur",
+              "/suivi-transferts",
+            ].some((path) => loc.pathname.startsWith(path)),
+          children: [
+            {
+              to: "/infirmier/accidents",
+              label: "Déclaration d'accident",
+              icon: <FileText size={16} />,
+              isActive: (loc) => loc.pathname.startsWith("/infirmier/accidents"),
+            },
+            {
+              to: "/infirmier/enquete-initiale",
+              label: "Enquête initiale",
+              icon: <FileText size={16} />,
+              isActive: (loc) => loc.pathname.startsWith("/infirmier/enquete-initiale"),
+            },
+            {
+              to: "/bon-chauffeur",
+              label: "Bon Chauffeur",
+              icon: <ClipboardList size={16} />,
+              isActive: (loc) => loc.pathname.startsWith("/bon-chauffeur"),
+            },
+            {
+              to: "/suivi-transferts",
+              label: "Suivi des transferts",
+              icon: <Activity size={16} />,
+              isActive: (loc) => loc.pathname.startsWith("/suivi-transferts"),
+            },
+          ],
+        },
+        {
+          to: "/infirmier/maladies-professionnelles",
+          label: "Maladies pro.",
           icon: <FileText size={18} />,
         },
         {
-          to: "/hsee/historique-enquetes",
-          label: "Historique Enquêtes",
-          icon: <Activity size={18} />,
+          to: "/infirmier/stock",
+          label: "Stock",
+          icon: <Boxes size={18} />,
         },
         {
-          to: "/hsee/enquetes-recues",
-          label: "Enquêtes reçues",
-          icon: <UserRoundSearch size={18} />,
+          to: "/infirmier/rdv",
+          label: "Rendez-vous",
+          icon: <Calendar size={18} />,
+        },
+        {
+          to: "/medecin-travail/fiches-aptitude",
+          label: "Fiches aptitude",
+          icon: <ShieldCheck size={18} />,
+        },
+        {
+          to: "/medecin-travail/collaborateurs",
+          label: "Dossiers mÃ©dicaux",
+          icon: <FileText size={18} />,
         },
       ];
     }
@@ -441,26 +458,8 @@ export default function AppLayout() {
                 : location.pathname.startsWith(it.basePath || "");
               const isAccidents = it.submenuKey === "accidents";
               const isIncidents = it.submenuKey === "incidents";
-              const isMp = it.submenuKey === "mp";
-              const isCnam = it.submenuKey === "cnam";
-              const isOpen = isAccidents
-                ? accidentsOpen
-                : isIncidents
-                ? incidentsOpen
-                : isMp
-                ? mpOpen
-                : isCnam
-                ? cnamOpen
-                : false;
-              const setOpen = isAccidents
-                ? setAccidentsOpen
-                : isIncidents
-                ? setIncidentsOpen
-                : isMp
-                ? setMpOpen
-                : isCnam
-                ? setCnamOpen
-                : () => {};
+              const isOpen = isAccidents ? accidentsOpen : incidentsOpen;
+              const setOpen = isAccidents ? setAccidentsOpen : setIncidentsOpen;
               return (
                 <div key={`${it.label}-${index}`} className="space-y-1">
                   <button
@@ -554,4 +553,3 @@ export default function AppLayout() {
     </div>
   );
 }
-

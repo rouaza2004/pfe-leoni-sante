@@ -369,8 +369,7 @@ export default function CollaborateursMedTravail({
               dossier_medical_data: dossier,
               dossier_complet: dossierComplet,
             };
-          } catch (dossierError) {
-            console.error("DOSSIER LOAD ERROR =", c?.id, dossierError);
+          } catch (error) {
             return {
               ...c,
               dossier_medical_data: null,

@@ -1,8 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Download, FileText } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
-import { api } from "../../api/api";
 import { getUsername } from "../../auth/auth";
 import { downloadControleMedicalPdf } from "../../utils/generateControleMedicalPdf";
 
@@ -35,18 +34,19 @@ function SectionCard({ title, subtitle, children, icon }) {
 
 export default function ControleMedicalPdfPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
   const doctorIdentifier = getUsername() || "Dr. ____________";
-  const lastSavedSignatureRef = useRef("");
+  const prefill = location.state?.prefill || {};
 
   const [form, setForm] = useState({
-    date: today,
-    matricule: "",
-    segment: "",
-    nom: "",
-    prenom: "",
-    reposPrescrit: "",
-    avisMedecinControleur: "",
+    date: prefill.date || today,
+    matricule: prefill.matricule || "",
+    segment: prefill.segment || "",
+    nom: prefill.nom || "",
+    prenom: prefill.prenom || "",
+    reposPrescrit: prefill.reposPrescrit || "",
+    avisMedecinControleur: prefill.avisMedecinControleur || "",
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -59,50 +59,16 @@ export default function ControleMedicalPdfPage() {
   };
 
   const handleGeneratePdf = async () => {
-    const payload = {
-      date: form.date,
-      matricule: form.matricule.trim(),
-      segment: form.segment.trim(),
-      nom: form.nom.trim(),
-      prenom: form.prenom.trim(),
-      repos_prescrit: form.reposPrescrit.trim(),
-      avis_medecin_controleur: form.avisMedecinControleur.trim(),
-      medecin_identifiant: doctorIdentifier,
-      statut: "VALIDE",
-    };
-    const payloadSignature = JSON.stringify(payload);
-
     try {
       setIsSaving(true);
-
-      if (lastSavedSignatureRef.current !== payloadSignature) {
-        await api.post("/medical/medecin-controleur/controles/", payload);
-        lastSavedSignatureRef.current = payloadSignature;
-      }
 
       downloadControleMedicalPdf({
         ...form,
         medecinControleur: doctorIdentifier,
       });
     } catch (error) {
-      console.error("Erreur enregistrement contrôle médical", {
-        endpoint: "/api/medical/medecin-controleur/controles/",
-        method: "POST",
-        payload,
-        status: error?.response?.status,
-        data: error?.response?.data,
-        message: error?.message,
-      });
-
-      const backendDetail =
-        error?.response?.data?.detail ||
-        error?.response?.data?.code ||
-        error?.message ||
-        "Erreur inconnue";
-
-      window.alert(
-        `Impossible d'enregistrer ce contrôle médical pour le rapport.\n${backendDetail}`
-      );
+      console.error("Erreur generation controle medical PDF", error);
+      window.alert("Impossible de generer le PDF du controle medical.");
     } finally {
       setIsSaving(false);
     }
@@ -121,18 +87,18 @@ export default function ControleMedicalPdfPage() {
 
       <section className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-sky-50/35 to-white p-6 shadow-sm shadow-slate-200/50">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Contrôle médical
+          ContrÃ´le mÃ©dical
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          Renseignez le formulaire puis générez le document PDF au format administratif.
+          Renseignez le formulaire puis gÃ©nÃ©rez le document PDF au format administratif.
         </p>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_340px]">
         <div className="space-y-6">
           <SectionCard
-            title="Informations générales"
-            subtitle="Données principales à reproduire dans le document"
+            title="Informations gÃ©nÃ©rales"
+            subtitle="DonnÃ©es principales Ã  reproduire dans le document"
             icon={<FileText size={18} />}
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -167,8 +133,8 @@ export default function ControleMedicalPdfPage() {
               </Field>
 
               <Field
-                label="Médecin contrôleur"
-                hint="Renseigné automatiquement depuis la session active."
+                label="MÃ©decin contrÃ´leur"
+                hint="RenseignÃ© automatiquement depuis la session active."
               >
                 <input
                   type="text"
@@ -188,7 +154,7 @@ export default function ControleMedicalPdfPage() {
                 />
               </Field>
 
-              <Field label="Prénom">
+              <Field label="PrÃ©nom">
                 <input
                   type="text"
                   name="prenom"
@@ -211,11 +177,11 @@ export default function ControleMedicalPdfPage() {
           </SectionCard>
 
           <SectionCard
-            title="Avis du médecin contrôleur"
-            subtitle="Zone de texte libre imprimée dans la grande section centrale du PDF"
+            title="Avis du mÃ©decin contrÃ´leur"
+            subtitle="Zone de texte libre imprimÃ©e dans la grande section centrale du PDF"
             icon={<FileText size={18} />}
           >
-            <Field label="Avis du médecin contrôleur">
+            <Field label="Avis du mÃ©decin contrÃ´leur">
               <textarea
                 name="avisMedecinControleur"
                 rows={10}
@@ -244,7 +210,7 @@ export default function ControleMedicalPdfPage() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-sm shadow-sky-900/25 transition hover:bg-slate-800"
             >
               <Download size={16} />
-              {isSaving ? "Enregistrement..." : "Générer PDF"}
+              {isSaving ? "Enregistrement..." : "GÃ©nÃ©rer PDF"}
             </button>
           </section>
         </aside>
@@ -252,5 +218,3 @@ export default function ControleMedicalPdfPage() {
     </div>
   );
 }
-
-
