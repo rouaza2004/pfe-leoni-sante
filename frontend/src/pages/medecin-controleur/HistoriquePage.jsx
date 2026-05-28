@@ -9,6 +9,44 @@ const filters = [
   { id: "expertise", label: "Demande d'expertise" },
 ];
 
+const HISTORY_ENDPOINT = "/statistiques/";
+
+function firstArray(...values) {
+  return values.find((value) => Array.isArray(value)) || [];
+}
+
+function extractHistoryRecords(payload, type) {
+  const combined = firstArray(
+    payload,
+    payload?.records,
+    payload?.history,
+    payload?.historique,
+    payload?.dossiers
+  );
+
+  if (type === "controle") {
+    return firstArray(
+      payload?.controles,
+      payload?.controles_medicaux,
+      payload?.controle_medical_history,
+      payload?.history?.controles,
+      payload?.historique?.controles,
+      payload?.records?.controles,
+      combined.filter?.((item) => item.type === "controle")
+    );
+  }
+
+  return firstArray(
+    payload?.expertises,
+    payload?.demandes_expertise,
+    payload?.demande_expertise_history,
+    payload?.history?.expertises,
+    payload?.historique?.expertises,
+    payload?.records?.expertises,
+    combined.filter?.((item) => item.type === "expertise")
+  );
+}
+
 function EmptyState({ text }) {
   return (
     <div className="rounded-[24px] border border-dashed border-sky-200 bg-sky-50/40 p-6 text-sm text-slate-600 shadow-sm shadow-slate-200/40">
@@ -49,14 +87,11 @@ export default function HistoriquePage() {
         setIsLoading(true);
         setErrorMessage("");
 
-        const [controlesResponse, expertisesResponse] = await Promise.all([
-          api.get("/medical/medecin-controleur/controles/"),
-          api.get("/medical/medecin-controleur/expertises/"),
-        ]);
+        const historyResponse = await api.get(HISTORY_ENDPOINT);
 
         if (cancelled) return;
 
-        const controles = (Array.isArray(controlesResponse.data) ? controlesResponse.data : []).map(
+        const controles = extractHistoryRecords(historyResponse.data, "controle").map(
           (item) => ({
             ...item,
             id: `controle-${item.id}`,
@@ -68,7 +103,7 @@ export default function HistoriquePage() {
           })
         );
 
-        const expertises = (Array.isArray(expertisesResponse.data) ? expertisesResponse.data : []).map(
+        const expertises = extractHistoryRecords(historyResponse.data, "expertise").map(
           (item) => ({
             ...item,
             id: `expertise-${item.id}`,
@@ -89,8 +124,7 @@ export default function HistoriquePage() {
         setRecords(combined);
       } catch (error) {
         console.error("Erreur chargement historique médecin contrôleur", {
-          controlesEndpoint: "/api/medical/medecin-controleur/controles/",
-          expertisesEndpoint: "/api/medical/medecin-controleur/expertises/",
+          historyEndpoint: "/api/statistiques/",
           message: error?.message,
           status: error?.response?.status,
           data: error?.response?.data,

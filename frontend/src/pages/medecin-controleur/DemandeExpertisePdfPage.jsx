@@ -70,7 +70,7 @@ export default function DemandeExpertisePdfPage() {
     try {
       setIsSaving(true);
 
-      downloadDemandeExpertisePdf({
+      await downloadDemandeExpertisePdf({
         ...form,
         medecinControleur: doctorDisplay,
         attachmentNames: selectedFiles.map((file) => file.name),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, FileText, Pill, Plus, Printer, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getUserRole, getUsername } from "@/auth/auth";
@@ -6,6 +6,7 @@ import {
   buildCertificatPrintHtml,
   buildOrdonnancePrintHtml,
 } from "./CertificatOrdonnancePrintTemplate";
+import { getCollaborateurs } from "./collaborateurs.api";
 
 const STORAGE_KEY = "medecin-traitant-certificat-ordonnance-draft";
 
@@ -83,6 +84,42 @@ const formatDateLabel = (value) => {
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString("fr-FR");
 };
+
+const normalizeSearchText = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const getCollaborateurFullName = (collaborateur) =>
+  [collaborateur?.nom, collaborateur?.prenom].filter(Boolean).join(" ").trim();
+
+const getCollaborateurSearchText = (collaborateur) =>
+  [
+    collaborateur?.matricule,
+    collaborateur?.nom,
+    collaborateur?.prenom,
+    getCollaborateurFullName(collaborateur),
+    [collaborateur?.prenom, collaborateur?.nom].filter(Boolean).join(" ").trim(),
+    collaborateur?.poste,
+    collaborateur?.poste_nom,
+    collaborateur?.departement,
+    collaborateur?.site?.nom,
+    collaborateur?.segment_nom,
+    collaborateur?.segment?.nom,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+const getCollaborateurMeta = (collaborateur) =>
+  [
+    collaborateur?.site?.nom,
+    collaborateur?.poste || collaborateur?.poste_nom,
+    collaborateur?.segment_nom || collaborateur?.segment?.nom || collaborateur?.segment,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
 function getDoctorIdentity(role) {
   const fallbackUsername = getUsername();
@@ -175,6 +212,7 @@ export default function CertificatOrdonnancePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = getUserRole();
+  const patientAutocompleteRef = useRef(null);
 
   const doctor = useMemo(() => getDoctorIdentity(role), [role]);
 
@@ -229,6 +267,10 @@ export default function CertificatOrdonnancePage() {
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [collaborateurs, setCollaborateurs] = useState([]);
+  const [collaborateursLoading, setCollaborateursLoading] = useState(false);
+  const [collaborateursError, setCollaborateursError] = useState("");
+  const [activePatientField, setActivePatientField] = useState(null);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -240,6 +282,48 @@ export default function CertificatOrdonnancePage() {
 
     return () => window.clearTimeout(timer);
   }, [message]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCollaborateurs = async () => {
+      try {
+        setCollaborateursLoading(true);
+        setCollaborateursError("");
+        const result = await getCollaborateurs();
+        if (cancelled) return;
+        setCollaborateurs(Array.isArray(result) ? result : []);
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setCollaborateurs([]);
+          setCollaborateursError("Impossible de charger les collaborateurs.");
+        }
+      } finally {
+        if (!cancelled) setCollaborateursLoading(false);
+      }
+    };
+
+    loadCollaborateurs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (
+        patientAutocompleteRef.current &&
+        !patientAutocompleteRef.current.contains(event.target)
+      ) {
+        setActivePatientField(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   const showMessage = (type, value) => {
     setMessageType(type);
@@ -255,6 +339,52 @@ export default function CertificatOrdonnancePage() {
   const updateCommonField = (name, value) => {
     setCommonData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
+    if ((name === "nomPrenom" || name === "matricule") && !value.trim()) {
+      setActivePatientField(null);
+    }
+    clearFeedback();
+  };
+
+  const patientSearchQuery =
+    activePatientField === "matricule" ? commonData.matricule : commonData.nomPrenom;
+
+  const patientSuggestions = useMemo(() => {
+    const query = normalizeSearchText(patientSearchQuery);
+    if (!query) return [];
+
+    return collaborateurs
+      .filter((collaborateur) =>
+        normalizeSearchText(getCollaborateurSearchText(collaborateur)).includes(query)
+      )
+      .slice(0, 8);
+  }, [collaborateurs, patientSearchQuery]);
+
+  const shouldShowPatientDropdown =
+    Boolean(activePatientField && patientSearchQuery.trim()) &&
+    (collaborateursLoading ||
+      collaborateursError ||
+      patientSuggestions.length > 0 ||
+      (!collaborateursLoading && patientSuggestions.length === 0));
+
+  const shouldShowNoPatientResult =
+    Boolean(activePatientField && patientSearchQuery.trim()) &&
+    !collaborateursLoading &&
+    !collaborateursError &&
+    patientSuggestions.length === 0;
+
+  const selectCollaborateur = (collaborateur) => {
+    setCommonData((prev) => ({
+      ...prev,
+      nomPrenom: getCollaborateurFullName(collaborateur),
+      matricule: collaborateur?.matricule || "",
+      dateNaissance:
+        collaborateur?.date_naissance ||
+        collaborateur?.dateNaissance ||
+        collaborateur?.dateNaissancePatient ||
+        "",
+    }));
+    setErrors((prev) => ({ ...prev, nomPrenom: "", matricule: "", dateNaissance: "" }));
+    setActivePatientField(null);
     clearFeedback();
   };
 
@@ -460,6 +590,7 @@ export default function CertificatOrdonnancePage() {
     setErrors({});
     setMessage(null);
     setMessageType(null);
+    setActivePatientField(null);
     setSavedAt("");
     setStatus("Formulaire réinitialisé.");
     localStorage.removeItem(STORAGE_KEY);
@@ -586,11 +717,20 @@ export default function CertificatOrdonnancePage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
+              <div ref={patientAutocompleteRef} className="relative md:col-span-2">
+                <div className="grid gap-4 md:grid-cols-2">
               <Field label="Nom et prénom" required>
                 <Input
                   value={commonData.nomPrenom}
-                  onChange={(event) => updateCommonField("nomPrenom", event.target.value)}
+                  onFocus={() => {
+                    if (commonData.nomPrenom.trim()) setActivePatientField("nomPrenom");
+                  }}
+                  onChange={(event) => {
+                    setActivePatientField("nomPrenom");
+                    updateCommonField("nomPrenom", event.target.value);
+                  }}
                   placeholder="Nom complet du patient"
+                  autoComplete="off"
                 />
                 {errors.nomPrenom ? (
                   <p className="mt-1 text-xs text-red-600">{errors.nomPrenom}</p>
@@ -600,10 +740,67 @@ export default function CertificatOrdonnancePage() {
               <Field label="Matricule">
                 <Input
                   value={commonData.matricule}
-                  onChange={(event) => updateCommonField("matricule", event.target.value)}
+                  onFocus={() => {
+                    if (commonData.matricule.trim()) setActivePatientField("matricule");
+                  }}
+                  onChange={(event) => {
+                    setActivePatientField("matricule");
+                    updateCommonField("matricule", event.target.value);
+                  }}
                   placeholder="Matricule patient"
+                  autoComplete="off"
                 />
               </Field>
+
+                </div>
+
+                {shouldShowPatientDropdown ? (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+                    {collaborateursLoading ? (
+                      <p className="px-4 py-3 text-sm text-slate-500">Chargement...</p>
+                    ) : null}
+
+                    {!collaborateursLoading && collaborateursError ? (
+                      <p className="px-4 py-3 text-sm text-red-600">{collaborateursError}</p>
+                    ) : null}
+
+                    {!collaborateursLoading && !collaborateursError ? (
+                      <div className="max-h-72 overflow-y-auto py-1">
+                        {patientSuggestions.map((collaborateur) => {
+                          const meta = getCollaborateurMeta(collaborateur);
+
+                          return (
+                            <button
+                              key={collaborateur.id || collaborateur.matricule}
+                              type="button"
+                              onClick={() => selectCollaborateur(collaborateur)}
+                              className="w-full px-4 py-3 text-left transition hover:bg-slate-50"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  {collaborateur.matricule || "--"}
+                                </span>
+                                <span className="text-sm font-semibold text-slate-900">
+                                  {getCollaborateurFullName(collaborateur) || "--"}
+                                </span>
+                              </div>
+                              {meta ? (
+                                <p className="mt-1 text-xs text-slate-500">{meta}</p>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+
+                        {shouldShowNoPatientResult ? (
+                          <p className="px-4 py-3 text-sm text-slate-500">
+                            Aucun collaborateur trouvÃ©
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
 
               <Field label="Date de naissance">
                 <Input

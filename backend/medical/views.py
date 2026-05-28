@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.staticfiles import finders
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db import transaction
+from django.db import OperationalError, ProgrammingError, connection, transaction
 from django.db.models import Sum, Count, Case, When, Value, CharField, Q, F
 from django.db.models.functions import ExtractMonth, ExtractYear
 from django.http import HttpResponse
@@ -75,6 +75,8 @@ from .models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    ControleMedicalRecord,
+    DemandeExpertiseRecord,
 )
 
 from .serializers import (
@@ -106,6 +108,8 @@ from .serializers import (
     FicheAptitudeSerializer,
     DemandeExamenLaboSerializer,
     ExamenComplementaireSerializer,
+    ControleMedicalRecordSerializer,
+    DemandeExpertiseRecordSerializer,
 )
 from .ai_service import (
     AIServiceConfigurationError,
@@ -210,6 +214,29 @@ def require_medecin_travail(request):
     if role not in ["MEDECIN_TRAVAIL", "ADMIN"]:
         raise PermissionDenied(
             "Seul le médecin du travail peut modifier le dossier médical."
+        )
+
+
+def require_medecin_controleur(request):
+    role = (getattr(request.user, "role", "") or "").strip().upper()
+    if role not in ["MEDECIN_CONTROLEUR", "ADMIN"]:
+        raise PermissionDenied(
+            "Seul le médecin contrôleur peut accéder à cet historique."
+        )
+
+
+def ensure_medecin_controleur_history_tables():
+    existing_tables = connection.introspection.table_names()
+    required_tables = [
+        ControleMedicalRecord._meta.db_table,
+        DemandeExpertiseRecord._meta.db_table,
+    ]
+    missing_tables = [table for table in required_tables if table not in existing_tables]
+
+    if missing_tables:
+        raise OperationalError(
+            "Tables d'historique médecin contrôleur manquantes: "
+            + ", ".join(missing_tables)
         )
 
 

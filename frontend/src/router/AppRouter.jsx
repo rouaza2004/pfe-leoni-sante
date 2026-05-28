@@ -12,6 +12,7 @@ import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminAudit from "../pages/admin/AdminAudit";
 import AdminPointage from "../pages/admin/AdminPointage";
 import AdminServices from "../pages/admin/AdminServices";
+import AdminSites from "../pages/admin/AdminSites";
 import Parametres from "../pages/admin/Parametres";
 import RolesPermissions from "../pages/admin/RolesPermissions";
 import Utilisateurs from "../pages/admin/Utilisateurs";
@@ -46,6 +47,8 @@ import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
 import PatientsPage from "../pages/infirmier/PatientsPage";
 import PatientDetailPage from "../pages/infirmier/PatientDetailPage";
 import IncidentsHubPage from "../pages/infirmier/IncidentsHubPage";
+import IncidentsAvecBonPage from "../pages/infirmier/IncidentsAvecBonPage";
+import IncidentsSansBonPage from "../pages/infirmier/IncidentsSansBonPage";
 import AccidentsPage from "../pages/infirmier/AccidentsPage";
 import EnqueteInitialePage from "../pages/infirmier/EnqueteInitialePage";
 import TransmissionEnquetesHSEEPage from "../pages/infirmier/TransmissionEnquetesHSEEPage";
@@ -180,6 +183,15 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["ADMIN"]}>
               <AdminServices />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/admin/sites"
+          element={
+            <RoleRoute allowedRoles={["ADMIN"]}>
+              <AdminSites />
             </RoleRoute>
           }
         />
@@ -541,6 +553,24 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE", "ADMIN"]}>
               <IncidentsHubPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/incidents/avec-bon"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE", "ADMIN"]}>
+              <IncidentsAvecBonPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/incidents/sans-bon"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE", "ADMIN"]}>
+              <IncidentsSansBonPage />
             </RoleRoute>
           }
         />

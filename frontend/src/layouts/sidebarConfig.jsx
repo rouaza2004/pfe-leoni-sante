@@ -5,6 +5,7 @@ import {
   Brain,
   Boxes,
   BriefcaseMedical,
+  Building2,
   Calendar,
   ClipboardList,
   Clock,
@@ -172,6 +173,52 @@ export const getSidebarSections = (role) => {
               icon: <BriefcaseMedical size={18} />,
               end: true,
             },
+            {
+              to: "/admin/sites",
+              label: "Sites",
+              icon: <Building2 size={18} />,
+              end: true,
+            },
+          ],
+        },
+        {
+          title: "Espaces métier",
+          items: [
+            {
+              to: "/rh",
+              label: "Espace RH",
+              icon: <BarChart3 size={18} />,
+              end: true,
+            },
+            {
+              to: "/medecin-traitant",
+              label: "Médecin traitant",
+              icon: <Stethoscope size={18} />,
+              end: true,
+            },
+            {
+              to: "/medecin-travail",
+              label: "Médecin du travail",
+              icon: <Stethoscope size={18} />,
+              end: true,
+            },
+            {
+              to: "/medecin-controleur",
+              label: "Médecin contrôleur",
+              icon: <Stethoscope size={18} />,
+              end: true,
+            },
+            {
+              to: "/infirmier",
+              label: "Espace Infirmiers",
+              icon: <Users size={18} />,
+              end: true,
+            },
+          ],
+        },
+        {
+          title: "Administration",
+          items: [
             {
               to: "/admin/roles-permissions",
               label: "Rôles & Permissions",

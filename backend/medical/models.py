@@ -226,12 +226,17 @@ class IncidentAvecBon(models.Model):
 
 
 class IncidentSansBon(models.Model):
+    date_incident = models.DateField(blank=True, null=True)
     heure = models.TimeField(blank=True, null=True)
     matricule = models.CharField(max_length=50, blank=True, null=True)
+    numero_assurance = models.CharField(max_length=100, blank=True, null=True)
     segment = models.CharField(max_length=120, blank=True, null=True)
     plant = models.CharField(max_length=50, blank=True, null=True)
     nom_prenom = models.CharField(max_length=255, blank=True, null=True)
     poste = models.CharField(max_length=255, blank=True, null=True)
+    destination = models.CharField(max_length=255, blank=True, null=True)
+    cause = models.CharField(max_length=255, blank=True, null=True)
+    lesion = models.CharField(max_length=255, blank=True, null=True)
     mode_lesion = models.CharField(max_length=255, blank=True, null=True)
     agent_causal = models.CharField(max_length=255, blank=True, null=True)
     telephone = models.CharField(max_length=30, blank=True, null=True)
