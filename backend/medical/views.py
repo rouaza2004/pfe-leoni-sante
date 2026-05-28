@@ -33,9 +33,10 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 
 from rest_framework import generics, status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.serializers import ValidationError
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -70,6 +71,7 @@ from .models import (
     BonChauffeur,
     SuiviTransfertUrgence,
     PlanActionHSEE,
+    HSEEGeneratedReport,
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
@@ -96,6 +98,7 @@ from .serializers import (
     SuiviTransfertUrgenceSerializer,
     PointageMedecinSerializer,
     PlanActionHSEESerializer,
+    AIAnalysisRequestSerializer,
     HSEEEnqueteSerializer,
     HSEEReportTemplateSerializer,
     HSEEGeneratedReportSerializer,
@@ -104,6 +107,91 @@ from .serializers import (
     DemandeExamenLaboSerializer,
     ExamenComplementaireSerializer,
 )
+from .ai_service import (
+    AIServiceConfigurationError,
+    AIServiceRequestError,
+    analyze_medical_text,
+)
+
+HSEE_MONTH_LABELS = {
+    1: "Jan",
+    2: "Fev",
+    3: "Mar",
+    4: "Avr",
+    5: "Mai",
+    6: "Juin",
+    7: "Juil",
+    8: "Aout",
+    9: "Sep",
+    10: "Oct",
+    11: "Nov",
+    12: "Dec",
+}
+
+
+@api_view(["POST"])
+# TEMPORAIRE : accès libre pour tests IA
+@permission_classes([AllowAny])
+def analyse_ai(request):
+    serializer = AIAnalysisRequestSerializer(data=request.data)
+
+    try:
+        serializer.is_valid(raise_exception=True)
+    except ValidationError as exc:
+        description_errors = exc.detail.get("description") if isinstance(exc.detail, dict) else None
+        if description_errors:
+            return Response(
+                {
+                    "success": False,
+                    "error": "Description vide.",
+                    "details": description_errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        raise
+
+    description = serializer.validated_data["description"]
+    analysis_type = serializer.validated_data["type"]
+
+    try:
+        result = analyze_medical_text(description, analysis_type)
+    except AIServiceConfigurationError as exc:
+        return Response(
+            {
+                "success": False,
+                "error": "Clé API Gemini absente ou configuration invalide.",
+                "details": str(exc),
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    except AIServiceRequestError as exc:
+        return Response(
+            {
+                "success": False,
+                "error": "Erreur Gemini",
+                "details": str(exc),
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    except Exception as exc:
+        return Response(
+            {
+                "success": False,
+                "error": "Erreur Gemini",
+                "details": str(exc) or exc.__class__.__name__,
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    return Response(
+        {
+            "success": True,
+            "analysis": result["analysis"],
+            "type": analysis_type,
+            "source": result["source"],
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 def link_callback(uri, rel):
@@ -152,12 +240,21 @@ def _normalize_hsee_department(value):
     return department
 
 
+def _normalize_site_filter(value):
+    site = (value or "").strip()
+    if not site or site.lower() in {"all", "tous", "tous les sites"}:
+        return ""
+    return site
+
+
 def _build_hsee_filter_meta(request):
     period = _normalize_hsee_period(request.query_params.get("period"))
     department = _normalize_hsee_department(request.query_params.get("department"))
+    site = _normalize_site_filter(request.query_params.get("site"))
     return {
         "period": period,
         "department": department,
+        "site": site,
         "start_date": _get_hsee_period_start(period),
     }
 
@@ -180,7 +277,15 @@ def _hsee_departments():
     return sorted(values)
 
 
-def _filter_accidents_queryset(start_date, department=""):
+def _hsee_sites():
+    values = set()
+    for name in Site.objects.exclude(nom__isnull=True).exclude(nom__exact="").values_list("nom", flat=True):
+        if name:
+            values.add(name.strip())
+    return sorted(values)
+
+
+def _filter_accidents_queryset(start_date, department="", site=""):
     queryset = AccidentTravail.objects.filter(
         enquete_initiale__sent_to_hsee=True,
         date_accident__gte=start_date,
@@ -191,6 +296,8 @@ def _filter_accidents_queryset(start_date, department=""):
             | Q(activite_service__iexact=department)
             | Q(dossier__collaborateur__departement__iexact=department)
         )
+    if site:
+        queryset = queryset.filter(dossier__collaborateur__site__nom__iexact=site)
     return queryset
 
 
@@ -203,52 +310,64 @@ def _get_accident_hsee_status(accident):
     return enquete.get_statut_display()
 
 
-def _filter_incidents_queryset(start_date, department=""):
+def _filter_incidents_queryset(start_date, department="", site=""):
     queryset = IncidentInfirmier.objects.filter(date_incident__gte=start_date)
     if department:
         queryset = queryset.filter(
             Q(segment__iexact=department) | Q(dossier__collaborateur__departement__iexact=department)
         )
+    if site:
+        queryset = queryset.filter(dossier__collaborateur__site__nom__iexact=site)
     return queryset
 
 
-def _filter_incidents_avec_bon_queryset(start_date, department=""):
+def _filter_incidents_avec_bon_queryset(start_date, department="", site=""):
     queryset = IncidentAvecBon.objects.filter(date_incident__gte=start_date)
     if department:
         queryset = queryset.filter(destination__iexact=department)
+    if site:
+        queryset = queryset.filter(destination__iexact=site)
     return queryset
 
 
-def _filter_incidents_sans_bon_queryset(start_date, department=""):
+def _filter_incidents_sans_bon_queryset(start_date, department="", site=""):
     queryset = IncidentSansBon.objects.filter(created_at__date__gte=start_date)
     if department:
         queryset = queryset.filter(Q(segment__iexact=department) | Q(plant__iexact=department))
+    if site:
+        queryset = queryset.filter(site__iexact=site)
     return queryset
 
 
-def _filter_transferts_queryset(start_date, department=""):
+def _filter_transferts_queryset(start_date, department="", site=""):
     queryset = SuiviTransfertUrgence.objects.filter(date__gte=start_date)
     if department:
         queryset = queryset.filter(Q(plant__iexact=department) | Q(cost_center__iexact=department))
+    if site:
+        queryset = queryset.filter(plant__iexact=site)
     return queryset
 
 
-def _filter_visites_queryset(start_date, department=""):
+def _filter_visites_queryset(start_date, department="", site=""):
     queryset = FicheAptitude.objects.filter(
         Q(date_examen__gte=start_date) | Q(date_examen__isnull=True, date__gte=start_date)
     )
     if department:
         queryset = queryset.filter(collaborateur__departement__iexact=department)
+    if site:
+        queryset = queryset.filter(collaborateur__site__nom__iexact=site)
     return queryset
 
 
-def _filter_maladies_queryset(start_date, department=""):
+def _filter_maladies_queryset(start_date, department="", site=""):
     queryset = MaladieProfessionnelle.objects.filter(date_decouverte__gte=start_date)
     if department:
         queryset = queryset.filter(
             Q(dossier__collaborateur__departement__iexact=department)
             | Q(victime_lieu_travail__iexact=department)
         )
+    if site:
+        queryset = queryset.filter(dossier__collaborateur__site__nom__iexact=site)
     return queryset
 
 
@@ -282,18 +401,19 @@ def _build_hsee_dashboard_payload(request):
     filter_meta = _build_hsee_filter_meta(request)
     start_date = filter_meta["start_date"]
     department = filter_meta["department"]
+    site = filter_meta["site"]
 
-    accidents = _filter_accidents_queryset(start_date, department).select_related(
+    accidents = _filter_accidents_queryset(start_date, department, site).select_related(
         "dossier__collaborateur",
         "enquete_initiale",
         "enquete_initiale__sent_to_hsee_by",
     )
-    incidents = _filter_incidents_queryset(start_date, department)
-    incidents_avec_bon = _filter_incidents_avec_bon_queryset(start_date, department)
-    incidents_sans_bon = _filter_incidents_sans_bon_queryset(start_date, department)
-    transferts = _filter_transferts_queryset(start_date, department)
-    visites = _filter_visites_queryset(start_date, department)
-    maladies = _filter_maladies_queryset(start_date, department)
+    incidents = _filter_incidents_queryset(start_date, department, site)
+    incidents_avec_bon = _filter_incidents_avec_bon_queryset(start_date, department, site)
+    incidents_sans_bon = _filter_incidents_sans_bon_queryset(start_date, department, site)
+    transferts = _filter_transferts_queryset(start_date, department, site)
+    visites = _filter_visites_queryset(start_date, department, site)
+    maladies = _filter_maladies_queryset(start_date, department, site)
 
     total_accidents = accidents.count()
     total_jours_perdus = accidents.aggregate(total=Sum("duree_arret")).get("total") or 0
@@ -395,7 +515,9 @@ def _build_hsee_dashboard_payload(request):
         "filters": {
             "period": filter_meta["period"],
             "department": department,
+            "site": site,
             "departments": _hsee_departments(),
+            "sites": _hsee_sites(),
         },
         "kpis": {
             "accidents_travail": total_accidents,
@@ -571,13 +693,20 @@ class DossierMedicalDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CollaborateurMedListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = CollaborateurSerializer
-    queryset = Collaborateur.objects.all()
+    queryset = Collaborateur.objects.select_related("site").all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site = _normalize_site_filter(self.request.query_params.get("site"))
+        if site:
+            queryset = queryset.filter(site__nom__iexact=site)
+        return queryset.order_by("nom", "prenom")
 
 
 class CollaborateurMedDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = CollaborateurSerializer
-    queryset = Collaborateur.objects.all()
+    queryset = Collaborateur.objects.select_related("site").all()
 
 
 def apply_dossier_autofill(dossier, collaborateur):
@@ -772,7 +901,11 @@ class IncidentListCreateView(generics.ListCreateAPIView):
     queryset = IncidentInfirmier.objects.select_related("dossier__collaborateur").all()
 
     def get_queryset(self):
-        return self.queryset.order_by("-date_incident", "-heure_incident")
+        queryset = super().get_queryset()
+        site = _normalize_site_filter(self.request.query_params.get("site"))
+        if site:
+            queryset = queryset.filter(dossier__collaborateur__site__nom__iexact=site)
+        return queryset.order_by("-date_incident", "-heure_incident")
 
 
 
@@ -870,7 +1003,11 @@ class AccidentListCreateView(generics.ListCreateAPIView):
     ).all()
 
     def get_queryset(self):
-        return self.queryset.order_by("-date_accident", "-created_at")
+        queryset = super().get_queryset()
+        site = _normalize_site_filter(self.request.query_params.get("site"))
+        if site:
+            queryset = queryset.filter(dossier__collaborateur__site__nom__iexact=site)
+        return queryset.order_by("-date_accident", "-created_at")
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -1121,6 +1258,9 @@ class AccidentStatsView(APIView):
             "enquete_initiale",
             "enquete_initiale__sent_to_hsee_by",
         )
+        site = _normalize_site_filter(request.query_params.get("site"))
+        if site:
+            qs = qs.filter(dossier__collaborateur__site__nom__iexact=site)
 
         total = qs.count()
         today_count = qs.filter(date_accident=today).count()
@@ -1164,6 +1304,7 @@ class HSEEAccidentsListView(APIView):
             _filter_accidents_queryset(
                 filter_meta["start_date"],
                 filter_meta["department"],
+                filter_meta["site"],
             )
             .select_related(
                 "dossier__collaborateur",

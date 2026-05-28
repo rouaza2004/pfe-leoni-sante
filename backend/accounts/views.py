@@ -6,9 +6,14 @@ from rest_framework.filters import SearchFilter
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 
-from .models import Collaborateur, User
+from .models import Collaborateur, Site, User
 from .permissions import CanViewCollaborateurList
-from .serializers import CollaborateurSerializer, MyTokenObtainPairSerializer, UserMedecinSerializer
+from .serializers import (
+    CollaborateurSerializer,
+    MyTokenObtainPairSerializer,
+    SiteSerializer,
+    UserMedecinSerializer,
+)
 from .permissions_map import ROLE_PERMISSIONS
 from medical.models import (
     DossierMedical,
@@ -118,27 +123,40 @@ class MeView(APIView):
 
 
 class CollaborateurListAPIView(generics.ListAPIView):
-    queryset = Collaborateur.objects.all().order_by("nom", "prenom")
+    queryset = Collaborateur.objects.select_related("site").all().order_by("nom", "prenom")
     serializer_class = CollaborateurSerializer
     permission_classes = [IsAuthenticated, CanViewCollaborateurList]
 
     filter_backends = [SearchFilter]
     search_fields = ["nom", "prenom", "matricule", "email"]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site = (self.request.query_params.get("site") or "").strip()
+        if site and site.lower() not in {"all", "tous", "tous les sites"}:
+            queryset = queryset.filter(site__nom__iexact=site)
+        return queryset
+
 
 class CollaborateurDetailAPIView(APIView):
     permission_classes = [IsAuthenticated, CanViewCollaborateurList]
 
     def get(self, request, pk):
-        collab = get_object_or_404(Collaborateur, pk=pk)
+        collab = get_object_or_404(Collaborateur.objects.select_related("site"), pk=pk)
         return Response(CollaborateurSerializer(collab).data)
 
     def patch(self, request, pk):
-        collab = get_object_or_404(Collaborateur, pk=pk)
+        collab = get_object_or_404(Collaborateur.objects.select_related("site"), pk=pk)
         serializer = CollaborateurSerializer(collab, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SiteListAPIView(generics.ListAPIView):
+    serializer_class = SiteSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Site.objects.all().order_by("nom", "localite")
 
 
 class RHKpiView(APIView):

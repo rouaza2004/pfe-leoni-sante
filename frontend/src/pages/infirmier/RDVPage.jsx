@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/api/api";
+import { SITE_FILTER_OPTIONS, getSiteName, matchesSiteFilter } from "@/utils/siteOptions";
 
 const visitTypes = [
   { value: "VISITE_PERIODIQUE", label: "Visite périodique" },
@@ -142,6 +143,7 @@ export default function RDVPage() {
     medecin: "",
     collaborateur: "",
     statut: "",
+    site: "all",
   });
   const [collabSearch, setCollabSearch] = useState("");
   const [matchedCollab, setMatchedCollab] = useState(null);
@@ -152,7 +154,9 @@ export default function RDVPage() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [smsStatuses, setSmsStatuses] = useState({});
+  const [smsLoadingId, setSmsLoadingId] = useState(null);
   const [smsSuccessMessage, setSmsSuccessMessage] = useState("");
+  const [smsErrorMessage, setSmsErrorMessage] = useState("");
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -202,6 +206,7 @@ export default function RDVPage() {
       if (filters.date && item.date !== filters.date) return false;
       if (filters.medecin && String(item.medecin || "") !== filters.medecin) return false;
       if (filters.statut && item.statut !== filters.statut) return false;
+      if (!matchesSiteFilter(item.site_nom, filters.site)) return false;
 
       if (collaboratorQuery) {
         const target = [
@@ -209,6 +214,7 @@ export default function RDVPage() {
           item.collaborateur_nom,
           item.collaborateur_prenom,
           item.matricule,
+          item.site_nom,
         ]
           .filter(Boolean)
           .join(" ")
@@ -258,6 +264,14 @@ export default function RDVPage() {
     );
   }, [getCollaborateurForRdv]);
 
+  const getCollaborateurSite = useCallback(
+    (item) => {
+      const collaborateur = getCollaborateurForRdv(item);
+      return getSiteName(item.site_nom || collaborateur?.site);
+    },
+    [getCollaborateurForRdv]
+  );
+
   const getDefaultSmsStatus = useCallback((item) => {
     if (!getCollaborateurPhone(item)) return "ECHEC";
     if (item.statut === "TERMINE") return "ENVOYE";
@@ -295,7 +309,7 @@ export default function RDVPage() {
   };
 
   const resetFilters = () => {
-    setFilters({ date: "", medecin: "", collaborateur: "", statut: "" });
+    setFilters({ date: "", medecin: "", collaborateur: "", statut: "", site: "all" });
   };
 
   const selectCollaborateur = (collaborateur) => {
@@ -398,11 +412,29 @@ export default function RDVPage() {
     }
   };
 
-  const handleSendSms = (item) => {
-    if (!getCollaborateurPhone(item)) return;
+  const handleSendSms = async (item) => {
+    const phone = getCollaborateurPhone(item);
+    if (!phone) return;
 
-    setSmsStatuses((prev) => ({ ...prev, [item.id]: "ENVOYE" }));
-    setSmsSuccessMessage("SMS envoyé avec succès.");
+    try {
+      setSmsLoadingId(item.id);
+      setSmsSuccessMessage("");
+      setSmsErrorMessage("");
+
+      await api.post("/sms/test", {
+        phone,
+        message: "Bonjour, votre tour approche, veuillez vous rendre a l'infirmerie",
+      });
+
+      setSmsStatuses((prev) => ({ ...prev, [item.id]: "ENVOYE" }));
+      setSmsSuccessMessage("SMS envoy? avec succ?s.");
+    } catch (e) {
+      console.error(e);
+      setSmsStatuses((prev) => ({ ...prev, [item.id]: "ECHEC" }));
+      setSmsErrorMessage("Erreur lors de l'envoi du SMS.");
+    } finally {
+      setSmsLoadingId(null);
+    }
   };
 
   return (
@@ -643,7 +675,7 @@ export default function RDVPage() {
           </button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <input
             type="date"
             name="date"
@@ -688,6 +720,18 @@ export default function RDVPage() {
             {statusOptions.map((status) => (
               <option key={status.value} value={status.value}>
                 {status.label}
+              </option>
+            ))}
+          </select>
+          <select
+            name="site"
+            value={filters.site}
+            onChange={handleFilterChange}
+            className="rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
+          >
+            {SITE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -790,6 +834,7 @@ export default function RDVPage() {
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500">
                     <th className="px-3 py-3 font-medium">Nom collaborateur</th>
+                    <th className="px-3 py-3 font-medium">Site</th>
                     <th className="px-3 py-3 font-medium">Médecin</th>
                     <th className="px-3 py-3 font-medium">Date</th>
                     <th className="px-3 py-3 font-medium">Heure</th>
@@ -809,6 +854,7 @@ export default function RDVPage() {
                           </p>
                           <p className="text-xs text-slate-500">{item.matricule || "-"}</p>
                         </td>
+                        <td className="px-3 py-3 text-slate-700">{getCollaborateurSite(item)}</td>
                         <td className="px-3 py-3 text-slate-700">
                           <p>{getMedecinName(item)}</p>
                           <p className="text-xs text-slate-500">
@@ -856,7 +902,7 @@ export default function RDVPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="7" className="px-3 py-12 text-center text-slate-500">
+                      <td colSpan="8" className="px-3 py-12 text-center text-slate-500">
                         Aucun rendez-vous programmé
                       </td>
                     </tr>
@@ -884,6 +930,12 @@ export default function RDVPage() {
           </div>
         )}
 
+        {smsErrorMessage && (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {smsErrorMessage}
+          </div>
+        )}
+
         {loading ? (
           <div className="py-10 text-center text-sm text-slate-500">
             Chargement du suivi SMS...
@@ -894,6 +946,7 @@ export default function RDVPage() {
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
                   <th className="px-3 py-3 font-medium">Collaborateur</th>
+                  <th className="px-3 py-3 font-medium">Site</th>
                   <th className="px-3 py-3 font-medium">Numéro téléphone</th>
                   <th className="px-3 py-3 font-medium">Date rendez-vous</th>
                   <th className="px-3 py-3 font-medium">Médecin</th>
@@ -914,6 +967,7 @@ export default function RDVPage() {
                           </p>
                           <p className="text-xs text-slate-500">{item.matricule || "-"}</p>
                         </td>
+                        <td className="px-3 py-3 text-slate-700">{getCollaborateurSite(item)}</td>
                         <td className="px-3 py-3 text-slate-700">
                           {item.phone || "Numéro indisponible"}
                         </td>
@@ -955,9 +1009,14 @@ export default function RDVPage() {
                               <button
                                 type="button"
                                 onClick={() => handleSendSms(item)}
-                                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                disabled={smsLoadingId === item.id}
+                                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                               >
-                                {item.smsStatus === "ECHEC" ? "Relancer" : "Envoyer SMS"}
+                                {smsLoadingId === item.id
+                                  ? "Envoi..."
+                                  : item.smsStatus === "ECHEC"
+                                  ? "Relancer"
+                                  : "Envoyer SMS"}
                               </button>
                             )}
                           </div>
@@ -967,7 +1026,7 @@ export default function RDVPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="7" className="px-3 py-10 text-center text-slate-500">
                       Aucun rendez-vous programmé
                     </td>
                   </tr>

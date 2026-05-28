@@ -19,7 +19,7 @@ function formatDateTime(value) {
 
 function EmptyState({ text }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-sky-200 bg-sky-50/40 p-6 text-sm text-slate-600 shadow-sm shadow-slate-200/40">
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">
       {text}
     </div>
   );
@@ -117,22 +117,23 @@ export default function HSEEReceivedInvestigationsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <HSEEPageHeader
-        title="Enquêtes reçues"
-        subtitle="Consultez les enquêtes initiales envoyées à HSEE par l'équipe infirmière."
+        eyebrow="Espace HSEE"
+        title="Enquetes recues"
+        subtitle="Consultez les enquetes initiales envoyees a HSEE par l'equipe infirmiere."
       />
 
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <UserRoundSearch className="h-4 w-4 text-sky-600" />
-            {records.length} enquête(s) reçue(s)
+          <div className="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            <UserRoundSearch className="h-4 w-4 text-slate-600" />
+            {records.length} enquete(s) recue(s)
           </div>
 
-          <div className="flex flex-col gap-3 md:flex-row md:w-[560px]">
-            <label className="flex h-11 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm shadow-slate-200/40 transition focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100">
-              <Search size={16} className="text-sky-500" />
+          <div className="flex flex-col gap-3 md:w-[560px] md:flex-row">
+            <label className="flex h-10 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 shadow-sm transition focus-within:border-slate-300">
+              <Search size={16} className="text-slate-400" />
               <input
                 type="text"
                 value={search}
@@ -142,8 +143,8 @@ export default function HSEEReceivedInvestigationsPage() {
               />
             </label>
 
-            <label className="flex h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm shadow-slate-200/40">
-              <CalendarDays size={16} className="text-sky-500" />
+            <label className="flex h-10 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 shadow-sm">
+              <CalendarDays size={16} className="text-slate-400" />
               <input
                 type="date"
                 value={dateFilter}
@@ -156,29 +157,29 @@ export default function HSEEReceivedInvestigationsPage() {
       </section>
 
       {errorMessage ? (
-        <section className="rounded-[24px] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
+        <section className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
           {errorMessage}
         </section>
       ) : null}
 
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         {isLoading ? (
-          <p className="text-sm text-slate-500">Chargement des enquêtes reçues...</p>
+          <p className="text-sm text-slate-500">Chargement des enquetes recues...</p>
         ) : filteredRecords.length === 0 ? (
-          <EmptyState text="Aucune enquête reçue ne correspond aux filtres actuels." />
+          <EmptyState text="Aucune enquete recue ne correspond aux filtres actuels." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-y-3">
+            <table className="min-w-full border-separate border-spacing-y-2">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-400">
+                <tr className="text-left text-xs uppercase tracking-[0.12em] text-slate-400">
                   <th className="px-4 py-2 font-medium">Date</th>
                   <th className="px-4 py-2 font-medium">Collaborateur</th>
                   <th className="px-4 py-2 font-medium">Matricule</th>
-                  <th className="px-4 py-2 font-medium">Type d'accident</th>
+                  <th className="px-4 py-2 font-medium">Type</th>
                   <th className="px-4 py-2 font-medium">Statut</th>
                   <th className="px-4 py-2 font-medium">Date d'envoi</th>
                   <th className="px-4 py-2 font-medium">Actions</th>
-                  <th className="px-4 py-2 font-medium text-right">Détail</th>
+                  <th className="px-4 py-2 font-medium text-right">Detail</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,25 +187,23 @@ export default function HSEEReceivedInvestigationsPage() {
                   const isExpanded = expandedId === String(record.id);
                   return (
                     <Fragment key={record.id}>
-                      <tr className="rounded-2xl border border-sky-100 bg-sky-50/40 text-sm text-slate-700 shadow-sm shadow-slate-200/40">
-                        <td className="rounded-l-2xl px-4 py-4">{formatDate(record.date)}</td>
-                        <td className="px-4 py-4 font-medium text-slate-900">
-                          {record.collaborateur || "--"}
-                        </td>
-                        <td className="px-4 py-4">{record.matricule || "--"}</td>
-                        <td className="px-4 py-4">{record.type_accident || "--"}</td>
-                        <td className="px-4 py-4">
+                      <tr className="rounded-2xl border border-slate-200 bg-white text-sm text-slate-700 shadow-sm">
+                        <td className="rounded-l-2xl px-4 py-3">{formatDate(record.date)}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900">{record.collaborateur || "--"}</td>
+                        <td className="px-4 py-3">{record.matricule || "--"}</td>
+                        <td className="px-4 py-3">{record.type_accident || "--"}</td>
+                        <td className="px-4 py-3">
                           <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                            {record.status || "Envoyé HSEE"}
+                            {record.status || "Envoye HSEE"}
                           </span>
                         </td>
-                        <td className="px-4 py-4">{formatDateTime(record.sent_to_hsee_at)}</td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">{formatDateTime(record.sent_to_hsee_at)}</td>
+                        <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
                               onClick={() => handlePdf(record)}
-                              className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800 transition hover:bg-sky-100"
+                              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
                             >
                               <Eye className="h-4 w-4" />
                               Voir
@@ -215,15 +214,15 @@ export default function HSEEReceivedInvestigationsPage() {
                               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                             >
                               <Download className="h-4 w-4" />
-                              Télécharger PDF
+                              Telecharger PDF
                             </button>
                           </div>
                         </td>
-                        <td className="rounded-r-2xl px-4 py-4 text-right">
+                        <td className="rounded-r-2xl px-4 py-3 text-right">
                           <button
                             type="button"
                             onClick={() => setExpandedId(isExpanded ? "" : String(record.id))}
-                            className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800 transition hover:bg-sky-100"
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
                           >
                             <UserRoundSearch className="h-4 w-4" />
                             {isExpanded ? "Fermer" : "Voir"}
@@ -234,12 +233,10 @@ export default function HSEEReceivedInvestigationsPage() {
                       {isExpanded ? (
                         <tr>
                           <td colSpan={8} className="px-1 pb-2 pt-0">
-                            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                              <div className="grid gap-6 lg:grid-cols-2">
-                                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                                  <h3 className="text-sm font-semibold text-slate-900">
-                                    Informations générales
-                                  </h3>
+                            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                              <div className="grid gap-4 lg:grid-cols-2">
+                                <div className="rounded-2xl bg-white p-3 shadow-sm">
+                                  <h3 className="text-sm font-semibold text-slate-900">Informations generales</h3>
                                   <div className="mt-3 space-y-2 text-sm text-slate-600">
                                     <p><span className="font-medium text-slate-800">Lieu :</span> {record.detail?.lieu_accident || "--"}</p>
                                     <p><span className="font-medium text-slate-800">Heure :</span> {record.detail?.heure_accident || "--"}</p>
@@ -248,12 +245,10 @@ export default function HSEEReceivedInvestigationsPage() {
                                   </div>
                                 </div>
 
-                                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                                  <h3 className="text-sm font-semibold text-slate-900">
-                                    Détails accident
-                                  </h3>
+                                <div className="rounded-2xl bg-white p-3 shadow-sm">
+                                  <h3 className="text-sm font-semibold text-slate-900">Details accident</h3>
                                   <div className="mt-3 space-y-2 text-sm text-slate-600">
-                                    <p><span className="font-medium text-slate-800">Siège / lésion :</span> {record.detail?.siege_type_lesion || "--"}</p>
+                                    <p><span className="font-medium text-slate-800">Siege / lesion :</span> {record.detail?.siege_type_lesion || "--"}</p>
                                     <p><span className="font-medium text-slate-800">Transport victime :</span> {record.detail?.lieu_transport_victime || "--"}</p>
                                     <p><span className="font-medium text-slate-800">Circonstances :</span> {record.detail?.circonstances_accident || "--"}</p>
                                   </div>

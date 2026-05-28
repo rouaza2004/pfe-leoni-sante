@@ -2,6 +2,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/api";
 import { isAuthenticated } from "@/auth/auth";
+import { SITE_FILTER_OPTIONS, getSiteName, matchesSiteFilter } from "@/utils/siteOptions";
 import ExamenComplementaireForm from "./ExamenComplementaireForm";
 import {
   AlertCircle,
@@ -192,6 +193,7 @@ export default function CollaborateursMedTravail({
 }) {
   const [collaborateurs, setCollaborateurs] = useState([]);
   const [search, setSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -442,13 +444,14 @@ export default function CollaborateursMedTravail({
   const filtered = useMemo(() => {
     const dossiersOnly = collaborateurs.filter((c) => c.dossier_medical_data);
     const q = search.trim().toLowerCase();
-    if (!q) return dossiersOnly;
-    return dossiersOnly.filter((c) =>
-      `${c.nom || ""} ${c.prenom || ""} ${c.matricule || ""}`
+    const siteScoped = dossiersOnly.filter((c) => matchesSiteFilter(c.site, siteFilter));
+    if (!q) return siteScoped;
+    return siteScoped.filter((c) =>
+      `${c.nom || ""} ${c.prenom || ""} ${c.matricule || ""} ${getSiteName(c.site)}`
         .toLowerCase()
         .includes(q)
     );
-  }, [collaborateurs, search]);
+  }, [collaborateurs, search, siteFilter]);
 
   const selected = useMemo(() => {
     if (!selectedCollaborateurId) return null;
@@ -456,14 +459,16 @@ export default function CollaborateursMedTravail({
   }, [collaborateurs, selectedCollaborateurId]);
 
   const stats = useMemo(() => {
-    const dossiersOnly = collaborateurs.filter((c) => c.dossier_medical_data);
+    const dossiersOnly = collaborateurs.filter(
+      (c) => c.dossier_medical_data && matchesSiteFilter(c.site, siteFilter)
+    );
     const total = dossiersOnly.length;
     const complets = dossiersOnly.filter((c) => statusKey(c) === "COMPLET").length;
     const enCours = dossiersOnly.filter((c) => statusKey(c) === "EN_COURS").length;
     const incomplets = dossiersOnly.filter((c) => statusKey(c) === "INCOMPLET").length;
 
     return { total, complets, enCours, incomplets };
-  }, [collaborateurs]);
+  }, [collaborateurs, siteFilter]);
 
   const newCandidates = useMemo(() => {
     return collaborateurs.filter((c) => !c.dossier_medical_data);
@@ -912,15 +917,28 @@ export default function CollaborateursMedTravail({
 
         <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Rechercher collaborateur..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-slate-400"
-              />
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher collaborateur..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-slate-400"
+                />
+              </div>
+              <select
+                value={siteFilter}
+                onChange={(event) => setSiteFilter(event.target.value)}
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+              >
+                {SITE_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mt-4 max-h-[560px] space-y-2 overflow-auto pr-1">
@@ -953,7 +971,7 @@ export default function CollaborateursMedTravail({
                           {c.matricule || "--"}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {posteLabel} · {segmentLabel}
+                          {getSiteName(c.site)} · {posteLabel} · {segmentLabel}
                         </p>
                       </div>
                     </div>
@@ -1165,8 +1183,8 @@ export default function CollaborateursMedTravail({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
+    <div className="min-w-0 max-w-full space-y-6">
+      <div className="flex min-w-0 flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-slate-900">Dossiers médicaux</h1>
           <p className="mt-2 text-sm text-slate-500">
@@ -1217,8 +1235,8 @@ export default function CollaborateursMedTravail({
         />
       </div>
 
-      <div className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative w-full lg:max-w-xl">
+      <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative min-w-0 w-full lg:max-w-xl">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             id="dossiers-search"
@@ -1230,7 +1248,18 @@ export default function CollaborateursMedTravail({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={siteFilter}
+            onChange={(event) => setSiteFilter(event.target.value)}
+            className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+          >
+            {SITE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
@@ -1248,9 +1277,18 @@ export default function CollaborateursMedTravail({
         </div>
       </div>
 
-      <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
-        <div className="overflow-x-auto p-2 sm:p-4">
-          <table className="min-w-full border-separate border-spacing-y-2 text-sm">
+      <div className="min-w-0 max-w-full rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div className="max-w-full overflow-x-auto p-2 sm:p-4">
+          <table className="w-full min-w-[960px] table-fixed border-separate border-spacing-y-2 text-sm">
+            <colgroup>
+              <col className="w-[7%]" />
+              <col className="w-[24%]" />
+              <col className="w-[15%]" />
+              <col className="w-[13%]" />
+              <col className="w-[18%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12rem]" />
+            </colgroup>
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
               <tr>
                 <th className="px-5 py-4 text-left font-semibold">ID</th>
@@ -1275,32 +1313,34 @@ export default function CollaborateursMedTravail({
                     key={c.id}
                     className="bg-white text-slate-700 shadow-sm transition duration-200 hover:scale-[1.01] hover:shadow-md"
                   >
-                    <td className="rounded-l-2xl px-5 py-5 font-medium text-slate-900">
+                    <td className="rounded-l-2xl px-4 py-5 font-medium text-slate-900 sm:px-5">
                       {dossierId}
                     </td>
-                    <td className="px-5 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+                    <td className="min-w-0 px-4 py-5 sm:px-5">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
                           {getInitials(c.prenom, c.nom)}
                         </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">{fullName}</p>
-                          <p className="text-xs text-slate-500">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900">{fullName}</p>
+                          <p className="truncate text-xs text-slate-500">
                             Matricule : {c.matricule || "--"}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-5 text-slate-600">
+                    <td className="px-4 py-5 text-slate-600 sm:px-5">
                       {formatDate(c?.dossier_medical_data?.created_at)}
                     </td>
-                    <td className="px-5 py-5">
+                    <td className="px-4 py-5 sm:px-5">
                       <span className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
                         {groupeSanguin}
                       </span>
                     </td>
-                    <td className="px-5 py-5 text-slate-600">{allergies}</td>
-                    <td className="px-5 py-5">
+                    <td className="px-4 py-5 text-slate-600 sm:px-5">
+                      <p className="max-w-[16rem] truncate">{allergies}</p>
+                    </td>
+                    <td className="px-4 py-5 sm:px-5">
                       <span
                         className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
                           status.tone
@@ -1309,12 +1349,12 @@ export default function CollaborateursMedTravail({
                         {status.label}
                       </span>
                     </td>
-                    <td className="rounded-r-2xl px-5 py-5">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <td className="rounded-r-2xl px-4 py-5 align-top sm:px-5">
+                      <div className="grid min-w-0 gap-2 sm:grid-cols-2">
                         <button
                           type="button"
                           onClick={() => navigate(resolveTargetRoute(c.id, "profil"))}
-                          className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition hover:scale-[1.02] hover:bg-slate-100"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs font-medium leading-tight text-slate-700 transition hover:scale-[1.02] hover:bg-slate-100 sm:justify-start sm:text-left"
                         >
                           <Eye className="h-4 w-4" />
                           Voir
@@ -1324,7 +1364,7 @@ export default function CollaborateursMedTravail({
                           onClick={() =>
                             navigate(resolveTargetRoute(c.id, "dossier-medical"))
                           }
-                          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:scale-[1.02] hover:border-slate-400 hover:bg-slate-50"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-medium leading-tight text-slate-700 transition hover:scale-[1.02] hover:border-slate-400 hover:bg-slate-50 sm:justify-start sm:text-left"
                         >
                           <Pencil className="h-4 w-4" />
                           Modifier
@@ -1334,7 +1374,7 @@ export default function CollaborateursMedTravail({
                           onClick={() =>
                             navigate(resolveTargetRoute(c.id, "examen-complementaire"))
                           }
-                          className="inline-flex items-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 transition hover:scale-[1.02] hover:bg-sky-100"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-center text-xs font-medium leading-tight text-sky-700 transition hover:scale-[1.02] hover:bg-sky-100 sm:col-span-2 sm:justify-start sm:text-left"
                         >
                           <FilePlus2 className="h-4 w-4" />
                           Examens complementaires

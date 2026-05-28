@@ -50,18 +50,18 @@ function validate(values) {
   const errors = {};
 
   if (!values.title.trim()) errors.title = "Le titre du risque est obligatoire.";
-  if (!values.category) errors.category = "La catÃ©gorie est obligatoire.";
-  if (!values.department) errors.department = "Le dÃ©partement est obligatoire.";
+  if (!values.category) errors.category = "La catégorie est obligatoire.";
+  if (!values.department) errors.department = "Le département est obligatoire.";
   if (!values.description.trim()) errors.description = "La description est obligatoire.";
 
   const probability = Number(values.probability);
   if (!probability || probability < 1 || probability > 5) {
-    errors.probability = "La probabilitÃ© doit Ãªtre comprise entre 1 et 5.";
+    errors.probability = "La probabilité doit être comprise entre 1 et 5.";
   }
 
   const gravity = Number(values.gravity);
   if (!gravity || gravity < 1 || gravity > 5) {
-    errors.gravity = "La gravitÃ© doit Ãªtre comprise entre 1 et 5.";
+    errors.gravity = "La gravité doit être comprise entre 1 et 5.";
   }
 
   return errors;
@@ -128,7 +128,7 @@ export default function AddRiskModal({ open, onOpenChange, onSubmit, saving = fa
                 Ajouter un Nouveau Risque
               </Dialog.Title>
               <Dialog.Description className="mt-2 text-sm leading-6 text-slate-500">
-                Renseignez les informations essentielles pour ajouter un risque Ã  la cartographie.
+                Renseignez les informations essentielles pour ajouter un risque à la cartographie.
               </Dialog.Description>
             </div>
 
@@ -154,13 +154,13 @@ export default function AddRiskModal({ open, onOpenChange, onSubmit, saving = fa
                 />
               </FormField>
 
-              <FormField label="CatÃ©gorie" required error={errors.category}>
+              <FormField label="Catégorie" required error={errors.category}>
                 <select
                   value={values.category}
                   onChange={handleChange("category")}
                   className={baseInputClass(Boolean(errors.category))}
                 >
-                  <option value="">SÃ©lectionner une catÃ©gorie</option>
+                  <option value="">Sélectionner une catégorie</option>
                   {RISK_CATEGORY_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -169,13 +169,13 @@ export default function AddRiskModal({ open, onOpenChange, onSubmit, saving = fa
                 </select>
               </FormField>
 
-              <FormField label="DÃ©partement" required error={errors.department}>
+              <FormField label="Département" required error={errors.department}>
                 <select
                   value={values.department}
                   onChange={handleChange("department")}
                   className={baseInputClass(Boolean(errors.department))}
                 >
-                  <option value="">SÃ©lectionner un dÃ©partement</option>
+                  <option value="">Sélectionner un département</option>
                   {RISK_DEPARTMENT_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -199,14 +199,14 @@ export default function AddRiskModal({ open, onOpenChange, onSubmit, saving = fa
               <textarea
                 value={values.description}
                 onChange={handleChange("description")}
-                placeholder="DÃ©crire le risque..."
+                placeholder="Décrire le risque..."
                 rows={4}
                 className={`${baseInputClass(Boolean(errors.description))} resize-none`}
               />
             </FormField>
 
             <div className="grid gap-5 md:grid-cols-[1fr_1fr_1fr]">
-              <FormField label="ProbabilitÃ© (1-5)" required error={errors.probability}>
+              <FormField label="Probabilité (1-5)" required error={errors.probability}>
                 <select
                   value={values.probability}
                   onChange={handleChange("probability")}
@@ -221,7 +221,7 @@ export default function AddRiskModal({ open, onOpenChange, onSubmit, saving = fa
                 </select>
               </FormField>
 
-              <FormField label="GravitÃ© (1-5)" required error={errors.gravity}>
+              <FormField label="Gravité (1-5)" required error={errors.gravity}>
                 <select
                   value={values.gravity}
                   onChange={handleChange("gravity")}
@@ -237,28 +237,28 @@ export default function AddRiskModal({ open, onOpenChange, onSubmit, saving = fa
               </FormField>
 
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
-                <p className="text-sm font-semibold text-slate-700">CriticitÃ© calculÃ©e</p>
+                <p className="text-sm font-semibold text-slate-700">Criticité calculée</p>
                 <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
                   {criticalityPreview}
                 </p>
                 <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
-                  ProbabilitÃ© Ã— GravitÃ©
+                  Probabilité × Gravité
                 </p>
               </div>
             </div>
 
-            <FormField label="Mesures prÃ©ventives">
+            <FormField label="Mesures préventives">
               <textarea
                 value={values.preventiveMeasuresText}
                 onChange={handleChange("preventiveMeasuresText")}
-                placeholder={"Une ligne par mesure\nPort du casque\nSignalisation\nFormation sÃ©curitÃ©"}
+                placeholder={"Une ligne par mesure\nPort du casque\nSignalisation\nFormation sécurité"}
                 rows={4}
                 className={`${baseInputClass(false)} resize-none`}
               />
             </FormField>
 
             <div className="grid gap-5 md:grid-cols-2">
-              <FormField label="Ã‰chÃ©ance">
+              <FormField label="Échéance">
                 <input
                   type="date"
                   value={values.dueDate}

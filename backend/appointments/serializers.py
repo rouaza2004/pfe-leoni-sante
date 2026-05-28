@@ -6,6 +6,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     collaborateur_nom = serializers.CharField(source="collaborateur.nom", read_only=True)
     collaborateur_prenom = serializers.CharField(source="collaborateur.prenom", read_only=True)
     matricule = serializers.CharField(source="collaborateur.matricule", read_only=True)
+    site_nom = serializers.CharField(source="collaborateur.site.nom", read_only=True)
     medecin_nom = serializers.SerializerMethodField()
     medecin_role = serializers.SerializerMethodField()
     medecin_nom_ar = serializers.SerializerMethodField()
@@ -29,6 +30,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "collaborateur_nom",
             "collaborateur_prenom",
             "matricule",
+            "site_nom",
             "medecin",
             "medecin_nom",
             "medecin_role",

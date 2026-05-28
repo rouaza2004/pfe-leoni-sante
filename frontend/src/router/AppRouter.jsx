@@ -2,6 +2,7 @@
 import AppLayout from "../layouts/AppLayout";
 import LoginPage from "../pages/shared/LoginPage";
 import Dashboard from "../pages/shared/Dashboard";
+import AssistantIA from "../pages/shared/AssistantIA";
 import CollaborateurProfilePage from "../pages/shared/CollaborateurProfilePage";
 import FicheAptitudeForm from "../pages/medecin-travail/FicheAptitudeForm";
 import AnalysesLaboPage from "../pages/medecin-travail/AnalysesLaboPage";
@@ -23,6 +24,7 @@ import FicheMedicalePage from "../pages/medecin-traitant/FicheMedicalePage";
 import CertificatOrdonnancePage from "../pages/medecin-traitant/CertificatOrdonnancePage";
 import DocumentsMedicauxPage from "../pages/medecin-traitant/DocumentsMedicauxPage";
 import RDV from "../pages/medecin-traitant/RDV";
+import NotificationsMedecinTraitant from "../pages/medecin-traitant/NotificationsMedecinTraitant";
 
 import MedecinTravailDashboard from "../pages/medecin-travail/MedecinTravailDashboard";
 import CollaborateursMedTravail from "../pages/medecin-travail/CollaborateursMedTravail";
@@ -38,6 +40,7 @@ import DemandeExpertisePdfPage from "../pages/medecin-controleur/DemandeExpertis
 import HistoriquePage from "../pages/medecin-controleur/HistoriquePage";
 import RendezVousPage from "../pages/medecin-controleur/RendezVousPage";
 import RapportPage from "../pages/medecin-controleur/RapportPage";
+import NotificationsMedecinControleur from "../pages/medecin-controleur/NotificationsMedecinControleur";
 
 import InfirmierDashboard from "../pages/infirmier/InfirmierDashboard";
 import PatientsPage from "../pages/infirmier/PatientsPage";
@@ -45,6 +48,7 @@ import PatientDetailPage from "../pages/infirmier/PatientDetailPage";
 import IncidentsHubPage from "../pages/infirmier/IncidentsHubPage";
 import AccidentsPage from "../pages/infirmier/AccidentsPage";
 import EnqueteInitialePage from "../pages/infirmier/EnqueteInitialePage";
+import TransmissionEnquetesHSEEPage from "../pages/infirmier/TransmissionEnquetesHSEEPage";
 import MaladiesProfessionnellesPage from "../pages/infirmier/MaladiesProfessionnellesPage";
 import SuiviMPPage from "../pages/infirmier/SuiviMPPage";
 import SuiviDeclarationsCNAMPage from "../pages/infirmier/SuiviDeclarationsCNAMPage";
@@ -76,7 +80,7 @@ import { getUserRole, isAuthenticated } from "../auth/auth";
 function UnauthorizedPage() {
   return (
     <div className="p-6 text-2xl font-bold text-red-600">
-      AccÃ¨s non autorisÃ©
+      Accès non autorisé
     </div>
   );
 }
@@ -106,6 +110,25 @@ export default function AppRouter() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+
+        <Route
+          path="/assistant-ia"
+          element={
+            <RoleRoute
+              allowedRoles={[
+                "ADMIN",
+                "INFIRMIER",
+                "MEDECIN_TRAITANT",
+                "MEDECIN_TRAVAIL",
+                "MEDECIN_CONTROLEUR",
+                "AGENT_HSEE",
+                "RESPONSABLE_RH",
+              ]}
+            >
+              <AssistantIA />
+            </RoleRoute>
+          }
+        />
 
         <Route
           path="/collaborateur-profile"
@@ -162,13 +185,15 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/admin/configuration"
+          path="/admin/parametres"
           element={
             <RoleRoute allowedRoles={["ADMIN"]}>
               <Parametres />
             </RoleRoute>
           }
         />
+
+        <Route path="/admin/configuration" element={<Navigate to="/admin/parametres" replace />} />
 
         <Route
           path="/admin/audit"
@@ -265,6 +290,15 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE", "ADMIN"]}>
               <RDV />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/medecin-traitant/notifications"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_TRAITANT", "AGENT_HSEE", "ADMIN"]}>
+              <NotificationsMedecinTraitant />
             </RoleRoute>
           }
         />
@@ -431,6 +465,15 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/medecin-controleur/notifications"
+          element={
+            <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR", "ADMIN"]}>
+              <NotificationsMedecinControleur />
+            </RoleRoute>
+          }
+        />
+
+        <Route
           path="/medecin-controleur/rendez-vous"
           element={
             <RoleRoute allowedRoles={["MEDECIN_CONTROLEUR", "ADMIN"]}>
@@ -516,6 +559,15 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE", "ADMIN"]}>
               <EnqueteInitialePage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/infirmier/transmission-enquetes-hsee"
+          element={
+            <RoleRoute allowedRoles={["INFIRMIER", "AGENT_HSEE", "ADMIN"]}>
+              <TransmissionEnquetesHSEEPage />
             </RoleRoute>
           }
         />

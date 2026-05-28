@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Bell,
   CalendarDays,
   ChevronRight,
   Clock3,
   FileBadge2,
   FileText,
   FolderClock,
-  Search,
   ShieldAlert,
   Stethoscope,
   Upload,
@@ -275,19 +275,19 @@ function SummaryCard({ title, value, detail, icon, tone = "info" }) {
   const toneClass = accentClasses[tone] || accentClasses.info;
 
   return (
-    <article className="rounded-[22px] border bg-white p-3 shadow-sm border-slate-200 shadow-slate-200/40">
-      <div className="flex items-start justify-between gap-2.5">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{title}</p>
+    <article className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm transition hover:shadow-md">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs text-slate-500">{title}</p>
           <p
-            className={`mt-2 text-[24px] font-semibold leading-none tracking-tight ${toneClass.value}`}
+            className={`mt-1 text-[22px] font-bold leading-none ${toneClass.value}`}
           >
             {value}
           </p>
-          <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+          <p className="mt-1 text-[10px] text-slate-400">{detail}</p>
         </div>
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${toneClass.icon}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${toneClass.icon}`}
         >
           {icon}
         </div>
@@ -299,7 +299,7 @@ function SummaryCard({ title, value, detail, icon, tone = "info" }) {
 function StatusBadge({ label, tone = "info" }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
         statusClasses[tone] || statusClasses.info
       }`}
     >
@@ -312,21 +312,21 @@ function PanelCard({ id, title, subtitle, action, onAction, children }) {
   return (
     <section
       id={id}
-      className="rounded-[26px] border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60"
+      className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-200"
     >
-      <div className="mb-3.5 flex items-start justify-between gap-3">
+      <div className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          <p className="mt-0.5 text-[10px] text-slate-500">{subtitle}</p>
         </div>
         {action ? (
           <button
             type="button"
             onClick={onAction}
-            className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 transition hover:text-slate-900"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 transition hover:text-slate-900"
           >
             {action}
-            <ChevronRight size={14} />
+            <ChevronRight size={12} />
           </button>
         ) : null}
       </div>
@@ -339,9 +339,8 @@ export default function RHDashboard() {
   const navigate = useNavigate();
   const username = getUsername();
   const sessionIdentifier = username || "responsable-rh";
-  const [search, setSearch] = useState("");
+  const unreadNotificationsCount = 3;
   const [appointments, setAppointments] = useState(fallbackAppointments);
-  const [isUsingFallback, setIsUsingFallback] = useState(true);
   const [currentHour, setCurrentHour] = useState(() => new Date().getHours());
 
   useEffect(() => {
@@ -363,7 +362,6 @@ export default function RHDashboard() {
         const payload = Array.isArray(response?.data) ? response.data : [];
         if (payload.length > 0) {
           setAppointments(payload.map(normalizeApiAppointment).slice(0, 6));
-          setIsUsingFallback(false);
         }
       } catch (error) {
         console.error("Erreur chargement dashboard RH", {
@@ -382,40 +380,16 @@ export default function RHDashboard() {
   }, []);
 
   const filteredAppointments = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return appointments;
-
-    return appointments.filter((item) =>
-      [item.collaborateur, item.matricule, item.typeVisite, item.statut, item.focus]
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [appointments, search]);
+    return appointments;
+  }, [appointments]);
 
   const filteredFollowUps = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return fallbackFollowUps;
-
-    return fallbackFollowUps.filter((item) =>
-      [item.collaborateur, item.matricule, item.motif, item.detail]
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [search]);
+    return fallbackFollowUps;
+  }, []);
 
   const filteredDocuments = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return fallbackDocuments;
-
-    return fallbackDocuments.filter((item) =>
-      [item.titre, item.collaborateur, item.matricule, item.date]
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [search]);
+    return fallbackDocuments;
+  }, []);
 
   const currentDate = useMemo(
     () =>
@@ -526,58 +500,42 @@ export default function RHDashboard() {
   const featureCards = rhModules;
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-500">
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200">
-                <CalendarDays size={14} className="text-slate-700" />
+    <div className="space-y-1.5">
+      <section className="rounded-3xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 ring-1 ring-slate-200">
+                <CalendarDays size={12} className="text-slate-700" />
                 {currentDate}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 font-medium text-white">
-                <Clock3 size={14} />
-                {isUsingFallback ? "Vue RH prête à connecter" : "Rendez-vous synchronisés"}
               </span>
             </div>
 
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                LEONI
-              </p>
-              <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-slate-900">
+              <p className="text-xs font-medium text-slate-500">Espace RH</p>
+              <h1 className="mt-0.5 text-[20px] font-bold tracking-tight text-slate-900">
                 {`${greeting}, ${sessionIdentifier}`}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-5 text-slate-600">
+              <p className="mt-0.5 max-w-2xl text-xs text-slate-500">
                 Pilotage RH des rendez-vous, absences médicales et documents de suivi.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2.5 sm:flex-row xl:w-[340px] xl:flex-col">
-            <label className="flex h-10.5 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3.5 shadow-sm shadow-slate-200/40 transition focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-200">
-              <Search size={16} className="text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Rechercher par matricule ou collaborateur..."
-                className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={() => navigate("/rh")}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-            >
-              <UserRound size={15} />
-              Tableau de bord RH
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/rh")}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            <Bell size={12} />
+            <span>Notifications</span>
+            <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 py-0 text-[9px] font-semibold text-white">
+              {unreadNotificationsCount}
+            </span>
+          </button>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
           {summaryCards.map((card) => (
             <SummaryCard key={card.title} {...card} />
           ))}
@@ -589,7 +547,7 @@ export default function RHDashboard() {
         title="Espaces RH"
         subtitle="Accès direct aux fonctionnalités RH déjà disponibles dans l'application"
       >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-3">
           {rhModules.map((module) => {
             const toneClass = accentClasses[module.tone] || accentClasses.info;
             return (
@@ -597,18 +555,18 @@ export default function RHDashboard() {
                 key={module.id}
                 type="button"
                 onClick={() => navigate(module.route)}
-                className="rounded-[22px] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:bg-slate-50"
+                className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
               >
                 <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl border ${toneClass.icon}`}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg border ${toneClass.icon}`}
                 >
                   {module.icon}
                 </div>
-                <p className="mt-3 text-sm font-semibold text-slate-900">{module.title}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{module.description}</p>
-                <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-slate-700">
+                <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{module.title}</p>
+                <p className="mt-0.5 text-[10px] leading-4 text-slate-500">{module.description}</p>
+                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-slate-700">
                   {module.cta}
-                  <ChevronRight size={14} />
+                  <ChevronRight size={12} />
                 </div>
               </button>
             );
@@ -618,12 +576,12 @@ export default function RHDashboard() {
 
       <section
         id="rh-rendez-vous"
-        className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 ring-1 ring-sky-100/60"
+        className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-200"
       >
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-2 flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Prochains rendez-vous</h2>
-            <p className="mt-1 text-xs text-slate-500">
+            <h2 className="text-sm font-semibold text-slate-900">Prochains rendez-vous</h2>
+            <p className="mt-0.5 text-[10px] text-slate-500">
               Convocations médicales à venir et points de suivi pour le service RH.
             </p>
           </div>
@@ -631,105 +589,103 @@ export default function RHDashboard() {
           <button
             type="button"
             onClick={() => navigate("/rh")}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
           >
-            <UserRound size={15} />
+            <UserRound size={13} />
             Tableau de bord RH
           </button>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-1.5">
           {filteredAppointments.map((appointment) => (
             <article
               key={appointment.id}
-              className="grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50/80 p-3 transition hover:border-slate-300 lg:grid-cols-[84px_minmax(0,1fr)_auto]"
+              className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-2 transition hover:border-slate-300 lg:grid-cols-[76px_minmax(0,1fr)_auto]"
             >
-              <div className="rounded-2xl bg-white px-3 py-2.5 text-center shadow-sm ring-1 ring-slate-100">
+              <div className="rounded-xl bg-white px-2 py-2 text-center shadow-sm ring-1 ring-slate-100">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Horaire
                 </p>
-                <p className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
+                <p className="mt-0.5 text-[16px] font-semibold tracking-tight text-slate-900">
                   {appointment.heure || "--:--"}
                 </p>
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-0.5 text-[10px] text-slate-500">
                   {formatDateLabel(appointment.date)}
                 </p>
               </div>
 
               <div className="min-w-0">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-[13px] font-medium text-slate-900">
                       {appointment.collaborateur}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-0.5 text-[11px] text-slate-500">
                       {appointment.matricule} • {appointment.typeVisite}
                     </p>
                   </div>
                   <StatusBadge label={appointment.statut} tone={appointment.statutTone} />
                 </div>
-                <p className="mt-2 text-sm leading-5 text-slate-600">{appointment.focus}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-600">{appointment.focus}</p>
               </div>
 
-              <div className="flex flex-col justify-between gap-2 sm:flex-row lg:flex-col lg:items-end">
-                <span className="text-xs text-slate-500">Suivi RH</span>
+              <div className="flex flex-col justify-between gap-1.5 sm:flex-row lg:flex-col lg:items-end">
+                <span className="text-[10px] text-slate-500">Suivi RH</span>
                 <button
                   type="button"
                   onClick={() => navigate("/rh")}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                 >
                   Retour RH
-                  <ChevronRight size={14} />
+                  <ChevronRight size={12} />
                 </button>
               </div>
             </article>
           ))}
 
           {filteredAppointments.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-5 text-sm text-slate-600">
+            <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-4 text-xs text-slate-600">
               Aucun rendez-vous ne correspond à la recherche en cours.
             </div>
           ) : null}
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-1.5 xl:grid-cols-[1.15fr_0.85fr]">
         <PanelCard
           id="rh-follow-up"
           title="Collaborateurs à suivre"
           subtitle="Visites en retard, reprises, aptitudes sous condition et documents manquants"
         >
-          <div className="space-y-2">
+          <div className="space-y-1">
             {filteredFollowUps.map((item) => (
               <div
                 key={item.id}
-                className={`rounded-2xl border p-3 ${(
+                className={`rounded-2xl border p-2 ${(
                   accentClasses[item.tone] || accentClasses.info
                 ).soft}`}
               >
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">
-                      {item.collaborateur}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="text-[13px] font-medium text-slate-900">{item.collaborateur}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
                       {item.matricule} • {item.motif}
                     </p>
                   </div>
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${
                       (accentClasses[item.tone] || accentClasses.info).pill
                     }`}
                   >
                     Action RH
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-5 text-slate-600">{item.detail}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-600">{item.detail}</p>
               </div>
             ))}
 
             {filteredFollowUps.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-5 text-sm text-slate-600">
+              <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-4 text-xs text-slate-600">
                 Aucun collaborateur à suivre pour ce filtre.
               </div>
             ) : null}
@@ -741,21 +697,21 @@ export default function RHDashboard() {
           title="Documents récents"
           subtitle="Fiches d'aptitude, certificats et pièces médicales accessibles au suivi RH"
         >
-          <div className="space-y-2">
+          <div className="space-y-1">
             {filteredDocuments.map((doc) => (
               <div
                 key={doc.id}
-                className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3"
+                className="rounded-2xl border border-slate-200 bg-slate-50/80 p-2"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{doc.titre}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="text-[13px] font-medium text-slate-900">{doc.titre}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
                       {doc.collaborateur} • {doc.matricule}
                     </p>
                   </div>
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${
                       (accentClasses[doc.tone] || accentClasses.info).pill
                     }`}
                   >
@@ -766,7 +722,7 @@ export default function RHDashboard() {
             ))}
 
             {filteredDocuments.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-5 text-sm text-slate-600">
+              <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-4 text-xs text-slate-600">
                 Aucun document récent ne correspond à la recherche.
               </div>
             ) : null}
@@ -778,23 +734,23 @@ export default function RHDashboard() {
         title="Modules RH"
         subtitle="Accès direct aux fonctionnalités RH déjà disponibles dans l'application"
       >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-3">
           {featureCards.map((card) => (
             <button
               key={card.title}
               type="button"
               onClick={() => navigate(card.route)}
-              className="rounded-[22px] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:bg-slate-50"
+              className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
             >
               <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
+                className={`flex h-7 w-7 items-center justify-center rounded-lg border ${
                   (accentClasses[card.tone] || accentClasses.info).icon
                 }`}
               >
                 {card.icon}
               </div>
-              <p className="mt-3 text-sm font-semibold text-slate-900">{card.title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{card.description}</p>
+              <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{card.title}</p>
+              <p className="mt-0.5 text-[10px] leading-4 text-slate-500">{card.description}</p>
             </button>
           ))}
         </div>
@@ -804,23 +760,23 @@ export default function RHDashboard() {
         title="Accès rapide"
         subtitle="Entrées principales du workflow RH pour la recherche, le suivi et les documents"
       >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
           {quickActions.map((action) => (
             <button
               key={action.title}
               type="button"
               onClick={action.onClick}
-              className="rounded-[22px] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:bg-slate-50"
+              className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
             >
               <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
+                className={`flex h-7 w-7 items-center justify-center rounded-lg border ${
                   (accentClasses[action.tone] || accentClasses.info).icon
                 }`}
               >
                 {action.icon}
               </div>
-              <p className="mt-3 text-sm font-semibold text-slate-900">{action.title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{action.description}</p>
+              <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{action.title}</p>
+              <p className="mt-0.5 text-[10px] leading-4 text-slate-500">{action.description}</p>
             </button>
           ))}
         </div>

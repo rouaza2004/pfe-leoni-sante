@@ -41,6 +41,7 @@ class IncidentInfirmierSerializer(serializers.ModelSerializer):
     collaborateur_nom = serializers.SerializerMethodField()
     collaborateur_prenom = serializers.SerializerMethodField()
     matricule = serializers.SerializerMethodField()
+    site_nom = serializers.SerializerMethodField()
 
     class Meta:
         model = IncidentInfirmier
@@ -61,6 +62,7 @@ class IncidentInfirmierSerializer(serializers.ModelSerializer):
             "collaborateur_nom",
             "collaborateur_prenom",
             "matricule",
+            "site_nom",
         ]
 
     def get_collaborateur_nom(self, obj):
@@ -71,6 +73,9 @@ class IncidentInfirmierSerializer(serializers.ModelSerializer):
 
     def get_matricule(self, obj):
         return getattr(obj.dossier.collaborateur, "matricule", "")
+
+    def get_site_nom(self, obj):
+        return getattr(getattr(obj.dossier.collaborateur, "site", None), "nom", "") or "Non défini"
 
 
 class AccidentTravailSerializer(serializers.ModelSerializer):
@@ -86,6 +91,7 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
     sent_to_hsee_at = serializers.SerializerMethodField()
     sent_to_hsee_by_name = serializers.SerializerMethodField()
     enquete_initiale_status = serializers.SerializerMethodField()
+    site_nom = serializers.SerializerMethodField()
 
     class Meta:
         model = AccidentTravail
@@ -194,6 +200,7 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
             "collaborateur_nom",
             "collaborateur_prenom",
             "matricule",
+            "site_nom",
             "type_accident",
             "zone",
             "gravite_display",
@@ -216,6 +223,9 @@ class AccidentTravailSerializer(serializers.ModelSerializer):
 
     def get_matricule(self, obj):
         return getattr(obj.dossier.collaborateur, "matricule", "")
+
+    def get_site_nom(self, obj):
+        return getattr(getattr(obj.dossier.collaborateur, "site", None), "nom", "") or "Non défini"
 
     def get_type_accident(self, obj):
         return obj.nature_lesion or "Accident"
@@ -337,6 +347,24 @@ class PlanActionHSEESerializer(serializers.ModelSerializer):
             "statut",
             "created_at",
         ]
+
+
+class AIAnalysisRequestSerializer(serializers.Serializer):
+    description = serializers.CharField(trim_whitespace=True)
+    type = serializers.CharField(required=False, default="accident")
+
+    def validate_description(self, value):
+        text = (value or "").strip()
+        if not text:
+            raise serializers.ValidationError("La description est obligatoire.")
+        return text
+
+    def validate_type(self, value):
+        allowed = {"accident", "symptomes", "rapport_hsee", "general"}
+        normalized = (value or "accident").strip().lower()
+        if normalized not in allowed:
+            raise serializers.ValidationError("Type d’analyse non supporté.")
+        return normalized
 
 
 class EnqueteInitialeAccidentSerializer(serializers.ModelSerializer):
@@ -605,6 +633,7 @@ class MaladieProfessionnelleSerializer(serializers.ModelSerializer):
     collaborateur_prenom = serializers.SerializerMethodField()
     matricule = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
+    site_nom = serializers.SerializerMethodField()
 
     class Meta:
         model = MaladieProfessionnelle
@@ -625,6 +654,9 @@ class MaladieProfessionnelleSerializer(serializers.ModelSerializer):
 
     def get_matricule(self, obj):
         return getattr(obj.dossier.collaborateur, "matricule", "")
+
+    def get_site_nom(self, obj):
+        return getattr(getattr(obj.dossier.collaborateur, "site", None), "nom", "") or "Non défini"
 
     def get_created_by_name(self, obj):
         user = getattr(obj, "created_by", None)
@@ -875,6 +907,7 @@ class FicheAptitudeSerializer(serializers.ModelSerializer):
     collaborateur_nom = serializers.CharField(source="collaborateur.nom", read_only=True)
     collaborateur_prenom = serializers.CharField(source="collaborateur.prenom", read_only=True)
     matricule = serializers.CharField(source="collaborateur.matricule", read_only=True)
+    site_nom = serializers.CharField(source="collaborateur.site.nom", read_only=True)
 
     class Meta:
         model = FicheAptitude

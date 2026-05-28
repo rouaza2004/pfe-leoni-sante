@@ -87,7 +87,7 @@ export default function HSEERiskMapPage() {
       });
 
       setIsAddModalOpen(false);
-      toast.success("Le nouveau risque a Ã©tÃ© ajoutÃ© Ã  la cartographie.");
+      toast.success("Le nouveau risque a été ajouté à la cartographie.");
     } finally {
       setIsSavingRisk(false);
     }
@@ -105,7 +105,7 @@ export default function HSEERiskMapPage() {
       <HSEEPageHeader
         eyebrow="HSEE Risk Mapping"
         title="Cartographie des Risques"
-        subtitle="Identification, Ã©valuation et suivi des risques professionnels."
+        subtitle="Identification, évaluation et suivi des risques professionnels."
         actions={
           <>
             <button
@@ -137,14 +137,14 @@ export default function HSEERiskMapPage() {
         <RiskSummaryCard
           label="Risques Critiques"
           value={loading ? "..." : kpis.critiques}
-          hint="Surveillance immÃ©diate"
+          hint="Surveillance immédiate"
           icon={Siren}
           accentClass="bg-rose-100 text-rose-700"
         />
         <RiskSummaryCard
-          label="Risques Ã‰levÃ©s"
+          label="Risques Élevés"
           value={loading ? "..." : kpis.eleves}
-          hint="PrioritÃ© opÃ©rationnelle"
+          hint="Priorité opérationnelle"
           icon={ShieldAlert}
           accentClass="bg-orange-100 text-orange-700"
         />
@@ -156,9 +156,9 @@ export default function HSEERiskMapPage() {
           accentClass="bg-blue-100 text-blue-700"
         />
         <RiskSummaryCard
-          label="MaÃ®trisÃ©s"
+          label="Maîtrisés"
           value={loading ? "..." : kpis.maitrises}
-          hint="Risques stabilisÃ©s"
+          hint="Risques stabilisés"
           icon={CheckCircle2}
           accentClass="bg-emerald-100 text-emerald-700"
         />
@@ -181,10 +181,10 @@ export default function HSEERiskMapPage() {
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
-                  Registre dÃ©taillÃ© des risques
+                  Registre détaillé des risques
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Vue opÃ©rationnelle des risques Ã©valuÃ©s, de leur criticitÃ© et des mesures en place.
+                  Vue opérationnelle des risques évalués, de leur criticité et des mesures en place.
                 </p>
               </div>
               <button

@@ -449,7 +449,10 @@ export default function HSEEReportsPage() {
 
   const handleDownloadGenerated = (report) =>
     withReportAction(report.id, async () => {
-      await downloadReport(report.id, `${report.code || report.id}.${report.format === "EXCEL" ? "xlsx" : "pdf"}`);
+      await downloadReport(
+        report.id,
+        `${report.code || report.id}.${report.format === "EXCEL" ? "xlsx" : "pdf"}`
+      );
     });
 
   const handleSendGenerated = (report) =>

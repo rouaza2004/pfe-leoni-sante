@@ -43,13 +43,13 @@ const emptyForm = {
 };
 
 const StatCard = ({ title, value, icon, accent }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div className="flex items-start justify-between">
+  <div className="rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
+    <div className="flex items-start justify-between gap-2">
       <div>
         <p className="text-xs text-slate-500">{title}</p>
-        <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+        <p className="mt-1 text-[22px] font-bold leading-none text-slate-900">{value}</p>
       </div>
-      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${accent}`}>
+      <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${accent}`}>
         {icon}
       </div>
     </div>
@@ -506,7 +506,7 @@ export default function PointageMedecinsPage() {
             returnedPointage.medecin_name ||
             selectedMedecin?.full_name ||
             selectedMedecin?.username ||
-            "MÃ©decin",
+            "Médecin",
           id: form.id || returnedPointage.id || returnedPointage.pk || createTempId(),
         };
         setPointages((prev) => mergePointageIntoList(prev, savedPointage));
@@ -712,13 +712,13 @@ export default function PointageMedecinsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-2">
+      <div className="rounded-3xl bg-white p-2.5 shadow-sm ring-1 ring-slate-200">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm text-slate-500">Pointage</p>
+            <p className="text-xs font-medium text-slate-500">Pointage</p>
             <h1 className="text-3xl font-bold text-slate-900">Pointage Médecins</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-0.5 text-xs text-slate-500">
               Gestion des présences et heures de travail
             </p>
           </div>
@@ -726,25 +726,25 @@ export default function PointageMedecinsPage() {
             <button
               type="button"
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
-              <Download size={16} />
+              <Download size={14} />
               CSV
             </button>
             <button
               type="button"
               onClick={handleExportPDF}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
-              <FileText size={16} />
+              <FileText size={14} />
               PDF
             </button>
             <button
               type="button"
               onClick={openNew}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
             >
-              <Plus size={16} />
+              <Plus size={14} />
               Nouveau Pointage
             </button>
           </div>
@@ -752,30 +752,30 @@ export default function PointageMedecinsPage() {
       </div>
 
       {err && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700">
           {err}
         </div>
       )}
       {success && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
           {success}
         </div>
       )}
 
 
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-3xl bg-white p-2.5 shadow-sm ring-1 ring-slate-200">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold leading-tight text-slate-900">
               Récapitulatif annuel
             </h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-[10px] text-slate-500">
               Synthèse des présences par mois
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
-              <CalendarDays size={16} className="text-slate-500" />
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs">
+              <CalendarDays size={14} className="text-slate-500" />
               <select
                 name="year"
                 value={summaryFilters.year}
@@ -789,8 +789,8 @@ export default function PointageMedecinsPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
-              <User size={16} className="text-slate-500" />
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs">
+              <User size={14} className="text-slate-500" />
               <select
                 name="medecin"
                 value={summaryFilters.medecin}
@@ -808,96 +808,96 @@ export default function PointageMedecinsPage() {
             <button
               type="button"
               onClick={handleExportAnnualCSV}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
-              <Download size={16} />
+              <Download size={14} />
               CSV
             </button>
             <button
               type="button"
               onClick={handleExportAnnualPDF}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
-              <FileText size={16} />
+              <FileText size={14} />
               PDF
             </button>
           </div>
         </div>
 
           <>
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-7">
               <StatCard
                 title="Total pointages"
                 value={summary?.totalPointages ?? 0}
-                icon={<Users size={18} className="text-slate-600" />}
+                icon={<Users size={16} className="text-slate-600" />}
                 accent="bg-slate-100"
               />
               <StatCard
                 title="Présences"
                 value={summary?.totalPresents ?? 0}
-                icon={<CheckCircle2 size={18} className="text-emerald-600" />}
+                icon={<CheckCircle2 size={16} className="text-emerald-600" />}
                 accent="bg-emerald-50"
               />
               <StatCard
                 title="Absences"
                 value={summary?.totalAbsents ?? 0}
-                icon={<XCircle size={18} className="text-rose-600" />}
+                icon={<XCircle size={16} className="text-rose-600" />}
                 accent="bg-rose-50"
               />
               <StatCard
                 title="Congés"
                 value={summary?.totalConges ?? 0}
-                icon={<FileText size={18} className="text-amber-600" />}
+                icon={<FileText size={16} className="text-amber-600" />}
                 accent="bg-amber-50"
               />
               <StatCard
                 title="Missions"
                 value={summary?.totalMissions ?? 0}
-                icon={<Plane size={18} className="text-blue-600" />}
+                icon={<Plane size={16} className="text-blue-600" />}
                 accent="bg-blue-50"
               />
               <StatCard
                 title="Total heures"
                 value={`${summary?.totalHeures ?? 0}h`}
-                icon={<Timer size={18} className="text-amber-600" />}
+                icon={<Timer size={16} className="text-amber-600" />}
                 accent="bg-amber-50"
               />
               <StatCard
                 title="Taux présence"
                 value={`${summary?.tauxPresence ?? 0}%`}
-                icon={<CheckCircle2 size={18} className="text-emerald-600" />}
+                icon={<CheckCircle2 size={16} className="text-emerald-600" />}
                 accent="bg-emerald-50"
               />
             </div>
 
-            <div className="mt-6 grid gap-6 xl:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mt-3 grid gap-2 xl:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-white p-2.5 shadow-sm">
                 <h3 className="text-sm font-semibold text-slate-900">
                   Présence par mois
                 </h3>
-                <div className="mt-3 h-64 min-h-[240px] min-w-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                    <BarChart data={annualPresenceData}>
+                <div className="mt-2 h-[180px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <BarChart data={annualPresenceData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 11 }} />
+                      <YAxis tick={{ fill: "#64748b", fontSize: 11 }} />
                       <Tooltip />
-                      <Bar dataKey="presents" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="presents" fill="#22c55e" radius={[5, 5, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-3xl border border-slate-200 bg-white p-2.5 shadow-sm">
                 <h3 className="text-sm font-semibold text-slate-900">
                   Répartition mensuelle des statuts
                 </h3>
-                <div className="mt-3 h-64 min-h-[240px] min-w-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                    <BarChart data={annualStatusData}>
+                <div className="mt-2 h-[180px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <BarChart data={annualStatusData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 11 }} />
+                      <YAxis tick={{ fill: "#64748b", fontSize: 11 }} />
                       <Tooltip />
                       <Bar dataKey="presents" stackId="a" fill="#22c55e" />
                       <Bar dataKey="absents" stackId="a" fill="#f43f5e" />
@@ -909,23 +909,23 @@ export default function PointageMedecinsPage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-6 xl:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+            <div className="mt-3 grid gap-2 xl:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-white p-2.5 shadow-sm">
                 <h3 className="text-sm font-semibold text-slate-900">
                   Heures travaillées par mois
                 </h3>
-                <div className="mt-3 h-64 min-h-[240px] min-w-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                    <LineChart data={annualHoursData}>
+                <div className="mt-2 h-[180px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <LineChart data={annualHoursData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 11 }} />
+                      <YAxis tick={{ fill: "#64748b", fontSize: 11 }} />
                       <Tooltip />
                       <Line
                         type="monotone"
                         dataKey="heures"
                         stroke="#f59e0b"
-                        strokeWidth={2}
+                        strokeWidth={1.8}
                         dot={false}
                       />
                     </LineChart>
@@ -933,23 +933,23 @@ export default function PointageMedecinsPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-3xl border border-slate-200 bg-white p-2.5 shadow-sm">
                 <h3 className="text-sm font-semibold text-slate-900">
                   Top 5 médecins présents
                 </h3>
-                <div className="mt-4 space-y-3 text-sm text-slate-600">
+                <div className="mt-2 space-y-1.5 text-[11px] text-slate-600">
                   {(summary?.topDoctors || []).length === 0 && (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
                       Aucun top médecin disponible pour cette année.
                     </div>
                   )}
                   {(summary?.topDoctors || []).map((doc) => (
                     <div
                       key={doc.medecinId}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2"
+                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2"
                     >
                       <span className="font-medium text-slate-700">{doc.nom}</span>
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                         {doc.presents} présences
                       </span>
                     </div>
@@ -958,40 +958,40 @@ export default function PointageMedecinsPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mt-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-900">
                 Tableau récapitulatif annuel
               </h3>
-              <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full text-sm">
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-[12px]">
                   <thead className="bg-slate-50">
                     <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      <th className="px-4 py-3">Mois</th>
+                      <th className="px-3 py-2">Mois</th>
                       <th className="px-4 py-3">Présences</th>
-                      <th className="px-4 py-3">Absences</th>
+                      <th className="px-3 py-2">Absences</th>
                       <th className="px-4 py-3">Congés</th>
-                      <th className="px-4 py-3">Missions</th>
-                      <th className="px-4 py-3">Total heures</th>
+                      <th className="px-3 py-2">Missions</th>
+                      <th className="px-3 py-2">Total heures</th>
                       <th className="px-4 py-3">Taux présence</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {annualMonthly.map((row) => (
                       <tr key={row.month} className="text-slate-700 hover:bg-slate-50">
-                        <td className="px-4 py-3 font-medium text-slate-900">
+                        <td className="px-3 py-2 font-medium text-slate-900">
                           {row.label}
                         </td>
                         <td className="px-4 py-3">{row.presents}</td>
-                        <td className="px-4 py-3">{row.absents}</td>
+                        <td className="px-3 py-2">{row.absents}</td>
                         <td className="px-4 py-3">{row.conges}</td>
-                        <td className="px-4 py-3">{row.missions}</td>
-                        <td className="px-4 py-3">{row.totalHeures}h</td>
+                        <td className="px-3 py-2">{row.missions}</td>
+                        <td className="px-3 py-2">{row.totalHeures}h</td>
                         <td className="px-4 py-3">{row.tauxPresence}%</td>
                       </tr>
                     ))}
                     {annualMonthly.length === 0 && (
                       <tr>
-                        <td className="px-4 py-8" colSpan={7}>
+                        <td className="px-3 py-6" colSpan={7}>
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5 text-center text-sm text-slate-500">
                             Aucune donnée annuelle disponible pour cette année.
                           </div>
@@ -1005,58 +1005,58 @@ export default function PointageMedecinsPage() {
           </>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
         <StatCard
           title="Total"
           value={stats.total}
-          icon={<Users size={18} className="text-slate-600" />}
+          icon={<Users size={16} className="text-slate-600" />}
           accent="bg-slate-100"
         />
         <StatCard
           title="Présents"
           value={stats.present}
-          icon={<CheckCircle2 size={18} className="text-emerald-600" />}
+          icon={<CheckCircle2 size={16} className="text-emerald-600" />}
           accent="bg-emerald-50"
         />
         <StatCard
           title="Absents"
           value={stats.absent}
-          icon={<XCircle size={18} className="text-rose-600" />}
+          icon={<XCircle size={16} className="text-rose-600" />}
           accent="bg-rose-50"
         />
         <StatCard
           title="Congés"
           value={stats.conge}
-          icon={<FileText size={18} className="text-amber-600" />}
+          icon={<FileText size={16} className="text-amber-600" />}
           accent="bg-amber-50"
         />
         <StatCard
           title="Missions"
           value={stats.mission}
-          icon={<Plane size={18} className="text-blue-600" />}
+          icon={<Plane size={16} className="text-blue-600" />}
           accent="bg-blue-50"
         />
         <StatCard
           title="Total Heures"
           value={`${stats.totalHours}h`}
-          icon={<Timer size={18} className="text-amber-600" />}
+          icon={<Timer size={16} className="text-amber-600" />}
           accent="bg-amber-50"
         />
       </div>
 
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div className="rounded-3xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-[12px]">
             <thead className="bg-slate-50">
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
                 <th className="px-4 py-3">Médecin</th>
-                <th className="px-4 py-3">Date</th>
+                <th className="px-3 py-2">Date</th>
                 <th className="px-4 py-3">Arrivée</th>
                 <th className="px-4 py-3">Départ</th>
                 <th className="px-4 py-3">Durée</th>
                 <th className="px-4 py-3">Statut</th>
                 <th className="px-4 py-3">Note</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1100,14 +1100,14 @@ export default function PointageMedecinsPage() {
                         <button
                           type="button"
                           onClick={() => openEdit(row)}
-                          className="rounded-xl border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                          className="rounded-xl border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
                         >
                           Modifier
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(row)}
-                          className="rounded-xl border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                          className="rounded-xl border border-red-200 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
                         >
                           Supprimer
                         </button>
@@ -1118,7 +1118,7 @@ export default function PointageMedecinsPage() {
               })}
               {pointages.length === 0 && (
                 <tr>
-                  <td className="px-4 py-8" colSpan={8}>
+                  <td className="px-3 py-6" colSpan={8}>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5 text-center text-sm text-slate-500">
                       Aucun pointage trouvé pour les critères sélectionnés.
                     </div>

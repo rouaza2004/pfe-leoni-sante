@@ -690,7 +690,7 @@ export default function Utilisateurs() {
     setIsAddModalOpen(false);
     setFeedback({
       type: "success",
-      message: "Utilisateur ajoutÃ© avec succÃ¨s",
+      message: "Utilisateur ajouté avec succès",
     });
   }
 

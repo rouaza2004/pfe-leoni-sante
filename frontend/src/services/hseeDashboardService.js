@@ -4,7 +4,9 @@ const EMPTY_DASHBOARD = {
   filters: {
     period: "6m",
     department: "",
+    site: "",
     departments: [],
+    sites: [],
   },
   kpis: {
     accidents_travail: 0,
@@ -56,13 +58,16 @@ function normalizeAccidents(rows) {
   }));
 }
 
-export async function getHseeDashboardStats(period, department) {
+export async function getHseeDashboardStats(period, department, site) {
   const params = {
     period: period || "6m",
   };
 
   if (department) {
     params.department = department;
+  }
+  if (site) {
+    params.site = site;
   }
 
   const response = await api.get("/medical/hsee/dashboard/", { params });
@@ -72,7 +77,9 @@ export async function getHseeDashboardStats(period, department) {
     filters: {
       period: payload?.filters?.period || EMPTY_DASHBOARD.filters.period,
       department: payload?.filters?.department || "",
+      site: payload?.filters?.site || "",
       departments: ensureArray(payload?.filters?.departments).filter(Boolean),
+      sites: ensureArray(payload?.filters?.sites).filter(Boolean),
     },
     kpis: {
       accidents_travail: ensureNumber(payload?.kpis?.accidents_travail),

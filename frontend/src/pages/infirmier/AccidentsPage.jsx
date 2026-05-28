@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { api } from "@/api/api";
 import { getCollaborateurProfilByMatricule } from "../shared/collaborateurProfile.api";
+import { SITE_FILTER_OPTIONS, getSiteName, matchesSiteFilter } from "@/utils/siteOptions";
 
 const defaultEmployeurValues = {
   employeur_cnss: "1234567-89",
@@ -133,6 +134,7 @@ const normalizeSexe = (value) => {
 export default function AccidentsPage() {
   const [accidents, setAccidents] = useState([]);
   const [search, setSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [matriculeSearch, setMatriculeSearch] = useState("");
@@ -151,25 +153,27 @@ export default function AccidentsPage() {
 
   const filteredAccidents = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return accidents;
-
-    return accidents.filter((item) =>
-      [
-        item.matricule,
-        item.collaborateur_nom,
-        item.collaborateur_prenom,
-        item.date_accident,
-        item.lieu_accident,
-        item.nature_lesion,
-        item.siege_lesion,
-        item.cause,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
+    return accidents.filter(
+      (item) =>
+        matchesSiteFilter(item.site_nom, siteFilter) &&
+        (!q ||
+          [
+            item.matricule,
+            item.collaborateur_nom,
+            item.collaborateur_prenom,
+            item.date_accident,
+            item.lieu_accident,
+            item.nature_lesion,
+            item.siege_lesion,
+            item.cause,
+            item.site_nom,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(q))
     );
-  }, [accidents, search]);
+  }, [accidents, search, siteFilter]);
 
   const loadData = async () => {
     try {
@@ -515,6 +519,9 @@ export default function AccidentsPage() {
                       selectedProfile.collaborateur.segment?.nom ||
                       "—"}
                   </p>
+                  <p className="text-slate-600">
+                    Site: {getSiteName(selectedProfile.collaborateur.site)}
+                  </p>
                 </div>
               )}
             </Section>
@@ -550,6 +557,7 @@ export default function AccidentsPage() {
                 <InputField label="Profession" name="victime_profession" value={form.victime_profession} onChange={handleChange} />
                 <InputField label="Poste occupé" name="victime_poste_accident" value={form.victime_poste_accident} onChange={handleChange} />
                 <InputField label="Lieu travail habituel" name="victime_lieu_travail" value={form.victime_lieu_travail} onChange={handleChange} />
+                <InputField label="Site" value={getSiteName(selectedProfile?.collaborateur?.site)} readOnly />
                 <CheckboxField label="Autres victimes" name="autres_victimes" checked={form.autres_victimes} onChange={handleChange} />
               </div>
             </Section>
@@ -672,6 +680,17 @@ export default function AccidentsPage() {
               className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-slate-900"
             />
           </div>
+          <select
+            value={siteFilter}
+            onChange={(event) => setSiteFilter(event.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 lg:w-56"
+          >
+            {SITE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {loading ? (
@@ -684,6 +703,7 @@ export default function AccidentsPage() {
                   <th className="px-3 py-3 font-medium">Date</th>
                   <th className="px-3 py-3 font-medium">Collaborateur</th>
                   <th className="px-3 py-3 font-medium">Matricule</th>
+                  <th className="px-3 py-3 font-medium">Site</th>
                   <th className="px-3 py-3 font-medium">Lésion</th>
                   <th className="px-3 py-3 font-medium">Actions</th>
                 </tr>
@@ -698,6 +718,7 @@ export default function AccidentsPage() {
                         {item.collaborateur_prenom} {item.collaborateur_nom}
                       </td>
                       <td className="px-3 py-3 text-slate-700">{item.matricule}</td>
+                      <td className="px-3 py-3 text-slate-700">{getSiteName(item.site_nom)}</td>
                       <td className="px-3 py-3 text-slate-700">{item.nature_lesion}</td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-2">
@@ -728,7 +749,7 @@ export default function AccidentsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="6" className="px-3 py-10 text-center text-slate-500">
                       Aucune déclaration trouvée.
                     </td>
                   </tr>
@@ -800,7 +821,7 @@ function Section({ title, children }) {
   );
 }
 
-function InputField({ label, name, value, onChange, type = "text", required, placeholder }) {
+function InputField({ label, name, value, onChange, type = "text", required, placeholder, readOnly = false }) {
   return (
     <div>
       <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
@@ -811,7 +832,12 @@ function InputField({ label, name, value, onChange, type = "text", required, pla
         onChange={onChange}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-900"
+        readOnly={readOnly}
+        className={`w-full rounded-xl border px-4 py-2.5 text-sm outline-none ${
+          readOnly
+            ? "border-slate-200 bg-slate-50 text-slate-600"
+            : "border-slate-300 focus:border-slate-900"
+        }`}
       />
     </div>
   );

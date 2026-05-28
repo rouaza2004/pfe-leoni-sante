@@ -12,6 +12,7 @@ import {
 import { api } from "@/api/api";
 import DossierMedical from "../medecin-traitant/DossierMedical";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
+import { SITE_FILTER_OPTIONS, matchesSiteFilter } from "@/utils/siteOptions";
 
 const tabs = [
   { id: "profil", label: "Profil & Administratif" },
@@ -78,6 +79,7 @@ const getInitials = (prenom, nom) =>
 
 export default function PatientsPage() {
   const [search, setSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [collaborateurs, setCollaborateurs] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listErr, setListErr] = useState("");
@@ -203,12 +205,12 @@ export default function PatientsPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return collaborateurs;
-
-    return collaborateurs.filter((c) =>
-      [c.matricule].filter(Boolean).join(" ").toLowerCase().includes(q)
-    );
-  }, [collaborateurs, search]);
+    return collaborateurs.filter((c) => {
+      if (!matchesSiteFilter(c.site, siteFilter)) return false;
+      if (!q) return true;
+      return [c.matricule].filter(Boolean).join(" ").toLowerCase().includes(q);
+    });
+  }, [collaborateurs, search, siteFilter]);
 
   const selectedFromList = useMemo(() => {
     if (!selectedMatricule) return null;
@@ -276,6 +278,17 @@ export default function PatientsPage() {
               className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-slate-400"
             />
           </div>
+          <select
+            value={siteFilter}
+            onChange={(event) => setSiteFilter(event.target.value)}
+            className="mt-3 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+          >
+            {SITE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
 
           {loadingList && (
             <p className="mt-4 text-sm text-slate-500">Chargement...</p>

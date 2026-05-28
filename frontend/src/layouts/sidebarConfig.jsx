@@ -2,10 +2,10 @@ import {
   Activity,
   BarChart3,
   Bell,
+  Brain,
   Boxes,
   BriefcaseMedical,
   Calendar,
-  CircleUser,
   ClipboardList,
   Clock,
   FileText,
@@ -15,7 +15,6 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
-  Stethoscope,
   Users,
   UserRound,
   Zap,
@@ -94,6 +93,7 @@ const accidentsSubmenu = {
     [
       "/infirmier/accidents",
       "/infirmier/enquete-initiale",
+      "/infirmier/transmission-enquetes-hsee",
       "/bon-chauffeur",
       "/suivi-transferts",
     ].some((path) => location.pathname.startsWith(path)),
@@ -109,6 +109,13 @@ const accidentsSubmenu = {
       label: "Enquête initiale",
       icon: <FileText size={16} />,
       isActive: (location) => location.pathname.startsWith("/infirmier/enquete-initiale"),
+    },
+    {
+      to: "/infirmier/transmission-enquetes-hsee",
+      label: "Transmission HSEE",
+      icon: <Activity size={16} />,
+      isActive: (location) =>
+        location.pathname.startsWith("/infirmier/transmission-enquetes-hsee"),
     },
     {
       to: "/bon-chauffeur",
@@ -129,7 +136,7 @@ export const getSidebarSections = (role) => {
   const homePath = getHomePath(role);
   const dashboardLabel =
     role === "ADMIN"
-      ? "Tableau de Bord"
+      ? "Dashboard"
       : role === "MEDECIN_CONTROLEUR"
       ? "Tableau de bord"
       : "Dashboard";
@@ -140,14 +147,19 @@ export const getSidebarSections = (role) => {
     icon: dashboardIcon,
     end: true,
   };
+  const assistantItem = {
+    to: "/assistant-ia",
+    label: "Assistant IA",
+    icon: <Brain size={18} />,
+  };
 
   switch (role) {
     case "ADMIN":
       return [
         {
-          title: "Menu Principal",
           items: [
             dashboardItem,
+            assistantItem,
             {
               to: "/admin/utilisateurs",
               label: "Utilisateurs",
@@ -160,46 +172,6 @@ export const getSidebarSections = (role) => {
               icon: <BriefcaseMedical size={18} />,
               end: true,
             },
-          ],
-        },
-        {
-          title: "Espaces métier",
-          items: [
-            {
-              to: "/rh",
-              label: "Espace RH",
-              icon: <BarChart3 size={18} />,
-              end: true,
-            },
-            {
-              to: "/medecin-traitant",
-              label: "Médecin traitant",
-              icon: <Stethoscope size={18} />,
-              end: true,
-            },
-            {
-              to: "/medecin-travail",
-              label: "Médecin du travail",
-              icon: <Stethoscope size={18} />,
-              end: true,
-            },
-            {
-              to: "/medecin-controleur",
-              label: "Médecin contrôleur",
-              icon: <Stethoscope size={18} />,
-              end: true,
-            },
-            {
-              to: "/infirmier",
-              label: "Espace Infirmiers",
-              icon: <Users size={18} />,
-              end: true,
-            },
-          ],
-        },
-        {
-          title: "Administration",
-          items: [
             {
               to: "/admin/roles-permissions",
               label: "Rôles & Permissions",
@@ -207,26 +179,21 @@ export const getSidebarSections = (role) => {
               end: true,
             },
             {
-              to: "/admin/configuration",
-              label: "Configuration",
+              to: "/admin/audit",
+              label: "Audit",
+              icon: <FileText size={18} />,
+              end: true,
+            },
+            {
+              to: "/admin/parametres",
+              label: "Paramètres",
               icon: <Settings size={18} />,
               end: true,
             },
             {
-              to: "/admin/audit",
-              label: "Journaux d'Audit",
-              icon: <FileText size={18} />,
-              end: true,
-            },
-          ],
-        },
-        {
-          title: "Compte",
-          items: [
-            {
-              to: "/collaborateur-profile",
-              label: "Mon Profil",
-              icon: <CircleUser size={18} />,
+              to: "/admin/pointage",
+              label: "Pointage",
+              icon: <Clock size={18} />,
               end: true,
             },
           ],
@@ -237,6 +204,7 @@ export const getSidebarSections = (role) => {
         {
           items: [
             dashboardItem,
+            assistantItem,
             {
               to: "/medecin-traitant/collaborateurs",
               label: "Collaborateurs",
@@ -247,6 +215,11 @@ export const getSidebarSections = (role) => {
               label: "Rendez-vous",
               icon: <Calendar size={18} />,
             },
+            {
+              to: "/medecin-traitant/notifications",
+              label: "Notifications",
+              icon: <Bell size={18} />,
+            },
           ],
         },
       ];
@@ -255,6 +228,7 @@ export const getSidebarSections = (role) => {
         {
           items: [
             dashboardItem,
+            assistantItem,
             {
               to: "/medecin-travail/collaborateurs",
               label: "Collaborateurs",
@@ -293,6 +267,7 @@ export const getSidebarSections = (role) => {
         {
           items: [
             dashboardItem,
+            assistantItem,
             {
               to: "/medecin-controleur/recherche",
               label: "Recherche collaborateur",
@@ -314,6 +289,11 @@ export const getSidebarSections = (role) => {
               icon: <FileText size={18} />,
             },
             {
+              to: "/medecin-controleur/notifications",
+              label: "Notifications",
+              icon: <Bell size={18} />,
+            },
+            {
               to: "/collaborateur-profile",
               label: "Profil collaborateur",
               icon: <UserRound size={18} />,
@@ -326,9 +306,10 @@ export const getSidebarSections = (role) => {
         {
           items: [
             dashboardItem,
+            assistantItem,
             {
-              to: "/pointage",
-              label: "Pointage",
+              to: "/infirmier/pointage-medecins",
+              label: "Pointage médecin",
               icon: <Clock size={18} />,
             },
             {
@@ -366,6 +347,7 @@ export const getSidebarSections = (role) => {
         {
           items: [
             dashboardItem,
+            assistantItem,
             {
               to: "/rh/absences-ponctualite",
               label: "Absences & ponctualité",
@@ -394,6 +376,7 @@ export const getSidebarSections = (role) => {
         {
           items: [
             dashboardItem,
+            assistantItem,
             {
               to: "/pointage",
               label: "Pointage",
@@ -413,6 +396,31 @@ export const getSidebarSections = (role) => {
               to: "/hsee/plan-action",
               label: "Plan d'action",
               icon: <ClipboardList size={18} />,
+            },
+            {
+              to: "/hsee/enquete-at",
+              label: "Enquete HSEE",
+              icon: <FileText size={18} />,
+            },
+            {
+              to: "/hsee/enquetes-recues",
+              label: "Enquetes recues",
+              icon: <Bell size={18} />,
+            },
+            {
+              to: "/hsee/historique-enquetes",
+              label: "Historique enquetes",
+              icon: <ClipboardList size={18} />,
+            },
+            {
+              to: "/hsee/cartographie-risques",
+              label: "Cartographie des risques",
+              icon: <ShieldCheck size={18} />,
+            },
+            {
+              to: "/hsee/rapports",
+              label: "Rapports",
+              icon: <FileText size={18} />,
             },
             incidentsSubmenu,
             accidentsSubmenu,

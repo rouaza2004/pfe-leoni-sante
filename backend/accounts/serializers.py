@@ -37,6 +37,14 @@ class SiteSerializer(serializers.ModelSerializer):
 
 class CollaborateurSerializer(serializers.ModelSerializer):
     site = SiteSerializer(read_only=True)
+    site_id = serializers.PrimaryKeyRelatedField(
+        source="site",
+        queryset=Site.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    site_label = serializers.SerializerMethodField()
 
     class Meta:
         model = Collaborateur
@@ -55,7 +63,13 @@ class CollaborateurSerializer(serializers.ModelSerializer):
             "actif",
             "created_at",
             "site",
+            "site_id",
+            "site_label",
         ]
+
+    def get_site_label(self, obj):
+        site = getattr(obj, "site", None)
+        return getattr(site, "nom", "") or "Non défini"
 
 
 class UserMedecinSerializer(serializers.ModelSerializer):

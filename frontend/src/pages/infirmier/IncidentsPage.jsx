@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, TriangleAlert, Eye, Loader2 } from "lucide-react";
 import { api } from "@/api/api";
 import { getCollaborateurProfilByMatricule } from "../shared/collaborateurProfile.api";
+import { SITE_FILTER_OPTIONS, getSiteName, matchesSiteFilter } from "@/utils/siteOptions";
 
 const emptyForm = {
   matricule: "",
@@ -21,6 +22,7 @@ export default function IncidentsPage() {
   const [incidents, setIncidents] = useState([]);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [search, setSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -37,12 +39,17 @@ export default function IncidentsPage() {
 
   const filteredIncidents = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return incidents;
-
-    return incidents.filter((item) =>
-      [item.matricule].filter(Boolean).join(" ").toLowerCase().includes(q)
+    return incidents.filter(
+      (item) =>
+        matchesSiteFilter(item.site_nom, siteFilter) &&
+        (!q ||
+          [item.matricule, item.collaborateur, item.site_nom]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(q))
     );
-  }, [incidents, search]);
+  }, [incidents, search, siteFilter]);
 
   const loadData = async () => {
     try {
@@ -219,7 +226,7 @@ export default function IncidentsPage() {
               </div>
               {selectedCollaborateur && (
                 <p className="mt-2 text-sm text-slate-600">
-                  {selectedCollaborateur.prenom} {selectedCollaborateur.nom}
+                  {selectedCollaborateur.prenom} {selectedCollaborateur.nom} · {getSiteName(selectedCollaborateur.site)}
                 </p>
               )}
             </div>
@@ -228,6 +235,7 @@ export default function IncidentsPage() {
               label="Matricule"
               value={form.matricule || selectedCollaborateur?.matricule || ""}
             />
+            <ReadOnlyField label="Site" value={getSiteName(selectedCollaborateur?.site)} />
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -410,6 +418,17 @@ export default function IncidentsPage() {
               className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-slate-900"
             />
           </div>
+          <select
+            value={siteFilter}
+            onChange={(event) => setSiteFilter(event.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 lg:w-56"
+          >
+            {SITE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {loading ? (
@@ -423,6 +442,7 @@ export default function IncidentsPage() {
                   <th className="px-3 py-3 font-medium">Heure</th>
                   <th className="px-3 py-3 font-medium">Collaborateur</th>
                   <th className="px-3 py-3 font-medium">Matricule</th>
+                  <th className="px-3 py-3 font-medium">Site</th>
                   <th className="px-3 py-3 font-medium">Segment</th>
                   <th className="px-3 py-3 font-medium">Unité</th>
                   <th className="px-3 py-3 font-medium">Mode lésion</th>
@@ -441,6 +461,7 @@ export default function IncidentsPage() {
                         {item.collaborateur}
                       </td>
                       <td className="px-3 py-3 text-slate-700">{item.matricule}</td>
+                      <td className="px-3 py-3 text-slate-700">{getSiteName(item.site_nom)}</td>
                       <td className="px-3 py-3 text-slate-700">{item.segment}</td>
                       <td className="px-3 py-3 text-slate-700">{item.unite || "-"}</td>
                       <td className="px-3 py-3">
@@ -465,7 +486,7 @@ export default function IncidentsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="9" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="10" className="px-3 py-10 text-center text-slate-500">
                       Aucun incident trouvé.
                     </td>
                   </tr>

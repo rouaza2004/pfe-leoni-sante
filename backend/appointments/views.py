@@ -11,11 +11,16 @@ class AppointmentListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = Appointment.objects.all().order_by("-date", "-heure")
+        qs = Appointment.objects.select_related("collaborateur__site", "medecin").all().order_by("-date", "-heure")
         user = self.request.user
         role = getattr(user, "role", "") or ""
         if role.upper() in ["MEDECIN_TRAITANT", "MEDECIN_TRAVAIL", "MEDECIN_CONTROLEUR"]:
-            return qs.filter(medecin=user)
+            qs = qs.filter(medecin=user)
+
+        site = (self.request.query_params.get("site") or "").strip()
+        if site and site.lower() not in {"all", "tous", "tous les sites"}:
+            qs = qs.filter(collaborateur__site__nom__iexact=site)
+
         return qs
 
     def perform_create(self, serializer):

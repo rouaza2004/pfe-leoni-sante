@@ -6,7 +6,7 @@ export const RISK_CATEGORY_OPTIONS = [
   "Risque biologique",
   "Risque ergonomique",
   "Risque incendie",
-  "Risque Ã©lectrique",
+  "Risque électrique",
   "Autre",
 ];
 
@@ -14,7 +14,7 @@ export const RISK_DEPARTMENT_OPTIONS = [
   "Production",
   "Maintenance",
   "Logistique",
-  "QualitÃ©",
+  "Qualité",
   "Administration",
   "HSE",
 ];
@@ -22,7 +22,7 @@ export const RISK_DEPARTMENT_OPTIONS = [
 const LEVELS = [
   { key: "faible", label: "Faible", min: 1, color: "emerald" },
   { key: "moyen", label: "Moyen", min: 6, color: "amber" },
-  { key: "eleve", label: "Ã‰levÃ©", min: 12, color: "orange" },
+  { key: "eleve", label: "Élevé", min: 12, color: "orange" },
   { key: "critique", label: "Critique", min: 20, color: "rose" },
 ];
 
@@ -34,24 +34,24 @@ function hashValue(input) {
 
 function normalizeStatus(statut) {
   if (statut === "TERMINE") {
-    return { key: "maitrise", label: "MaÃ®trisÃ©" };
+    return { key: "maitrise", label: "Maîtrisé" };
   }
 
   if (statut === "EN_COURS") {
     return { key: "traitement", label: "En traitement" };
   }
 
-  return { key: "planifie", label: "PlanifiÃ©" };
+  return { key: "planifie", label: "Planifié" };
 }
 
 function extractMeasures(action) {
   const parts = String(action || "")
-    .split(/[\n.;â€¢]/)
+    .split(/[\n.;•]/)
     .map((part) => part.trim())
     .filter(Boolean);
 
   if (parts.length) return parts.slice(0, 4);
-  return ["Mesures prÃ©ventives Ã  prÃ©ciser."];
+  return ["Mesures préventives à préciser."];
 }
 
 function inferCategory(plan) {
@@ -59,7 +59,7 @@ function inferCategory(plan) {
 
   if (source.includes("chim")) return "Risque chimique";
   if (source.includes("incend")) return "Risque incendie";
-  if (source.includes("elect")) return "Risque Ã©lectrique";
+  if (source.includes("elect")) return "Risque électrique";
   if (source.includes("ergon") || source.includes("posture")) return "Risque ergonomique";
   if (source.includes("bio")) return "Risque biologique";
   if (source.includes("machine") || source.includes("atelier")) return "Risque physique";
@@ -67,8 +67,7 @@ function inferCategory(plan) {
 }
 
 function deriveProbability(plan) {
-  const statusWeight =
-    plan?.statut === "TERMINE" ? 1 : plan?.statut === "EN_COURS" ? 2 : 3;
+  const statusWeight = plan?.statut === "TERMINE" ? 1 : plan?.statut === "EN_COURS" ? 2 : 3;
   const seed = hashValue(`${plan?.id}-${plan?.zone}-${plan?.risque}`);
   return Math.min(5, Math.max(1, ((seed + statusWeight) % 5) + 1));
 }
@@ -86,7 +85,7 @@ export function getRiskLevel(score) {
 }
 
 function ensureDateLabel(value) {
-  return value || "Ã€ dÃ©finir";
+  return value || "À définir";
 }
 
 function toIsoNow() {
@@ -133,8 +132,8 @@ export function createRiskFromForm(values, existingRisks = []) {
     status: { key: "traitement", label: "En traitement" },
     preventiveMeasures: values.preventiveMeasures.length
       ? values.preventiveMeasures
-      : ["Mesures prÃ©ventives Ã  prÃ©ciser."],
-    responsible: values.responsible?.trim() || "Non assignÃ©",
+      : ["Mesures préventives à préciser."],
+    responsible: values.responsible?.trim() || "Non assigné",
     dueDate: ensureDateLabel(values.dueDate),
     createdAt,
   };
@@ -148,20 +147,20 @@ function mapPlanToRisk(plan, index) {
   return {
     id: String(plan?.id ?? index + 1),
     code: `RISK-${String(index + 1).padStart(3, "0")}`,
-    title: plan?.risque || `Risque identifiÃ© - ${plan?.zone || "Zone non renseignÃ©e"}`,
+    title: plan?.risque || `Risque identifié - ${plan?.zone || "Zone non renseignée"}`,
     category: inferCategory(plan),
-    department: plan?.zone || "Zone non renseignÃ©e",
+    department: plan?.zone || "Zone non renseignée",
     description:
       plan?.risque && plan?.zone
-        ? `Risque identifiÃ© dans la zone ${plan.zone}. Suivi structurÃ© requis pour rÃ©duire l'exposition et sÃ©curiser l'activitÃ©.`
-        : "Risque professionnel Ã  suivre dans la cartographie HSEE.",
+        ? `Risque identifié dans la zone ${plan.zone}. Suivi structuré requis pour réduire l'exposition et sécuriser l'activité.`
+        : "Risque professionnel à suivre dans la cartographie HSEE.",
     probability,
     gravity,
     criticality,
     level: getRiskLevel(criticality),
     status: normalizeStatus(plan?.statut),
     preventiveMeasures: extractMeasures(plan?.action),
-    responsible: plan?.responsable || "Non assignÃ©",
+    responsible: plan?.responsable || "Non assigné",
     dueDate: ensureDateLabel(plan?.delai),
     createdAt: plan?.created_at || toIsoNow(),
     sourcePlan: plan,

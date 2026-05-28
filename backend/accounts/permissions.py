@@ -1,16 +1,14 @@
 from rest_framework.permissions import BasePermission
 
+from .permissions_map import ROLE_PERMISSIONS
+
 class CanViewCollaborateurList(BasePermission):
-    allowed_roles = [
-        "ADMIN",
-        "INFIRMIER",
-        "MEDECIN_TRAVAIL",
-        "MEDECIN_TRAITANT",
-        "MEDECIN_CONTROLEUR",
-    ]
+    permission_name = "VIEW_COLLABORATEURS"
 
     def has_permission(self, request, view):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        return getattr(user, "role", None) in self.allowed_roles
+        role = (getattr(user, "role", "") or "").strip().upper()
+        permissions = ROLE_PERMISSIONS.get(role, [])
+        return self.permission_name in permissions

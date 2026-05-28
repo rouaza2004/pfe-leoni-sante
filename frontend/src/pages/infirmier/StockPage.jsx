@@ -115,13 +115,13 @@ const stockBadge = (item) => {
 };
 
 const StatCard = ({ title, value, icon, accent }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div className="flex items-start justify-between">
+  <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/70">
+    <div className="flex items-start justify-between gap-3">
       <div>
-        <p className="text-sm text-slate-500">{title}</p>
-        <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+        <p className="text-[13px] font-medium text-slate-500">{title}</p>
+        <p className="mt-1.5 text-[28px] font-bold leading-none text-slate-900">{value}</p>
       </div>
-      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${accent}`}>
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${accent}`}>
         {icon}
       </div>
     </div>
@@ -129,7 +129,9 @@ const StatCard = ({ title, value, icon, accent }) => (
 );
 
 const Badge = ({ children, className }) => (
-  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${className}`}>
+  <span
+    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${className}`}
+  >
     {children}
   </span>
 );
@@ -157,13 +159,13 @@ const FilterSelect = ({ value, onChange, placeholder, options }) => {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm hover:border-slate-400"
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-700 shadow-sm transition hover:border-slate-300"
       >
         <span className={value ? "text-slate-900" : "text-slate-500"}>{selectedLabel}</span>
         <span className="text-slate-400">▾</span>
       </button>
       {open && (
-        <div className="absolute z-40 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+        <div className="absolute z-40 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-2 shadow-lg shadow-slate-200/80">
           <div className="max-h-56 overflow-auto">
             {options.map((option) => {
               const isSelected = option.value === value;
@@ -175,7 +177,7 @@ const FilterSelect = ({ value, onChange, placeholder, options }) => {
                     onChange(option.value);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm ${
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[13px] ${
                     isSelected
                       ? "bg-slate-100 text-slate-900"
                       : "text-slate-600 hover:bg-slate-50"
@@ -201,21 +203,21 @@ const ModalShell = ({ open, title, onClose, children, footer }) => {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl rounded-3xl bg-white shadow-xl ring-1 ring-slate-200"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+      className="w-full max-w-5xl rounded-3xl bg-white shadow-xl ring-1 ring-slate-200"
+      onClick={(event) => event.stopPropagation()}
+    >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:bg-slate-50"
+            className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
           >
             Fermer
           </button>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">{children}</div>
-        {footer && <div className="border-t border-slate-200 px-6 py-4">{footer}</div>}
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <div className="border-t border-slate-200 px-5 py-3">{footer}</div>}
       </div>
     </div>
   );
@@ -303,6 +305,14 @@ export default function StockPage() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleNewItemChange = (e) => {
+    handleItemChange(e, setNewItem);
+  };
+
+  const handleEditChange = (e) => {
+    handleItemChange(e, setEditItem);
   };
 
   const handleMoveSubmit = async (e) => {
@@ -675,22 +685,22 @@ export default function StockPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-4">
+      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Gestion des médicaments</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <h1 className="text-[27px] font-bold tracking-tight text-slate-900">Gestion des médicaments</h1>
+            <p className="mt-1 text-[14px] text-slate-500">
               Inventaire complet de la pharmacie — stock, expiration, ajout, modification
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative" ref={alertsRef}>
               <button
                 type="button"
                 onClick={() => setShowAlerts((prev) => !prev)}
-                className="relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:bg-slate-50"
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
               >
                 <Bell size={18} />
                 {alerts.length > 0 && (
@@ -701,20 +711,20 @@ export default function StockPage() {
               </button>
 
               {showAlerts && (
-                <div className="absolute right-0 mt-3 w-[320px] rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-900">Alertes médicaments</p>
+                <div className="absolute right-0 mt-2 w-[300px] rounded-2xl border border-slate-200 bg-white p-3 shadow-lg shadow-slate-200/80">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <p className="text-[13px] font-semibold text-slate-900">Alertes médicaments</p>
                     <Badge className="bg-slate-100 text-slate-600">{alerts.length}</Badge>
                   </div>
-                  <div className="max-h-64 space-y-3 overflow-auto">
+                  <div className="max-h-64 space-y-2.5 overflow-auto">
                     {alerts.length === 0 ? (
-                      <p className="text-sm text-slate-500">Aucune alerte pour le moment.</p>
+                      <p className="text-[13px] text-slate-500">Aucune alerte pour le moment.</p>
                     ) : (
                       alerts.map((alert) => (
                         <div key={alert.id} className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-sm font-medium text-slate-800">{alert.item.nom}</p>
-                            <p className="text-xs text-slate-500">{alert.detail}</p>
+                            <p className="text-[13px] font-medium text-slate-800">{alert.item.nom}</p>
+                            <p className="text-[11px] text-slate-500">{alert.detail}</p>
                           </div>
                           <Badge className={alert.badge}>{alert.label}</Badge>
                         </div>
@@ -728,7 +738,7 @@ export default function StockPage() {
             <button
               type="button"
               onClick={handleImportClick}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <FileUp size={16} />
               {importing ? "Import..." : "Importer"}
@@ -743,7 +753,7 @@ export default function StockPage() {
 
             <button
               onClick={() => setShowMoveForm(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <ClipboardList size={16} />
               Mouvement stock
@@ -751,7 +761,7 @@ export default function StockPage() {
 
             <button
               onClick={() => setShowItemForm(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-3.5 text-[13px] font-medium text-white transition hover:bg-slate-800"
             >
               <Plus size={16} />
               Ajouter
@@ -761,19 +771,19 @@ export default function StockPage() {
       </div>
 
       {(err || importErr || importMsg) && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {err && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
               {err}
             </div>
           )}
           {importErr && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
               {importErr}
             </div>
           )}
           {importMsg && (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-700">
               {importMsg}
             </div>
           )}
@@ -781,18 +791,18 @@ export default function StockPage() {
       )}
 
       {showToast && alerts.length > 0 && (
-        <div className="fixed bottom-4 left-4 z-50 w-[320px] rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-lg">
-          <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
-            <CircleAlert size={16} />
+        <div className="fixed bottom-4 left-[max(1rem,calc(16rem+1rem))] z-40 w-[270px] rounded-2xl border border-amber-200 bg-amber-50/95 p-3 shadow-lg shadow-amber-100">
+          <div className="flex items-center gap-2 text-[13px] font-semibold text-amber-800">
+            <CircleAlert size={14} />
             {toastLabel}
           </div>
-          <p className="mt-2 text-xs text-amber-700">
+          <p className="mt-1 text-[11px] leading-5 text-amber-700">
             {toastNames || "Consultez la liste des alertes."}
           </p>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total actifs"
           value={stats.totalActifs}
@@ -819,16 +829,16 @@ export default function StockPage() {
         />
       </div>
 
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="grid gap-4 lg:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))]">
+      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="grid gap-3 lg:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))]">
           <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Rechercher par nom, forme, dosage, catégorie..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 text-sm outline-none focus:border-slate-900"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-[13px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
           </div>
 
@@ -862,28 +872,28 @@ export default function StockPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Liste des médicaments</h2>
-          <p className="text-sm text-slate-500">Inventaire détaillé des stocks</p>
+      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-slate-900">Liste des médicaments</h2>
+          <p className="text-[13px] text-slate-500">Inventaire détaillé des stocks</p>
         </div>
 
         {loading ? (
-          <div className="py-10 text-center text-slate-500">Chargement...</div>
+          <div className="py-8 text-center text-[13px] text-slate-500">Chargement...</div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-[13px]">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
-                  <th className="px-3 py-3 font-medium">Nom</th>
-                  <th className="px-3 py-3 font-medium">Forme</th>
-                  <th className="px-3 py-3 font-medium">Dosage</th>
-                  <th className="px-3 py-3 font-medium">Catégorie</th>
-                  <th className="px-3 py-3 font-medium">Stock</th>
-                  <th className="px-3 py-3 font-medium">Expiration</th>
-                  <th className="px-3 py-3 font-medium">Statut stock</th>
-                  <th className="px-3 py-3 font-medium text-right">Actions</th>
+                  <th className="px-3 py-2.5 font-medium">Nom</th>
+                  <th className="px-3 py-2.5 font-medium">Forme</th>
+                  <th className="px-3 py-2.5 font-medium">Dosage</th>
+                  <th className="px-3 py-2.5 font-medium">Catégorie</th>
+                  <th className="px-3 py-2.5 font-medium">Stock</th>
+                  <th className="px-3 py-2.5 font-medium">Expiration</th>
+                  <th className="px-3 py-2.5 font-medium">Statut stock</th>
+                  <th className="px-3 py-2.5 font-medium text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -910,53 +920,62 @@ export default function StockPage() {
                       <tr
                         key={item.id}
                         onClick={() => openDetail(item)}
-                        className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                        className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50/80"
                       >
-                        <td className="px-3 py-4 font-medium text-slate-900">
+                        <td className="px-3 py-2.5 font-medium text-slate-900">
                           <div className="flex items-center gap-2">
-                            <Boxes size={16} className="text-slate-500" />
+                            <Boxes size={15} className="text-slate-500" />
                             <div>
-                              <p>{item.nom}</p>
-                              <p className="text-xs text-slate-400">{item.libelle || "--"}</p>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  startEditItem(item);
+                                }}
+                                className="cursor-pointer bg-transparent p-0 text-left font-semibold text-slate-900 transition hover:text-blue-700 hover:underline"
+                              >
+                                {item.nom}
+                              </button>
+                              <p className="text-[11px] text-slate-400">{item.libelle || "--"}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-4 text-slate-600">{item.forme || "--"}</td>
-                        <td className="px-3 py-4 text-slate-600">{item.dosage || "--"}</td>
-                        <td className="px-3 py-4">
-                          <Badge className="bg-slate-100 text-slate-600">
+                        <td className="px-3 py-2.5 text-slate-600">{item.forme || "--"}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{item.dosage || "--"}</td>
+                        <td className="px-3 py-2.5">
+                          <Badge className="bg-slate-100 text-slate-600/90">
                             {item.categorie || "--"}
                           </Badge>
                         </td>
-                        <td className="px-3 py-4 text-slate-600">
-                          <div className="text-xs text-slate-500">
+                        <td className="px-3 py-2.5 text-slate-600">
+                          <div className="text-[11px] text-slate-500">
                             {item.quantite} / min {item.seuil_critique}
                           </div>
-                          <div className="mt-2 h-2 w-28 rounded-full bg-slate-100">
+                          <div className="mt-1.5 h-1.5 w-24 rounded-full bg-slate-100">
                             <div
-                              className="h-2 rounded-full bg-slate-700"
+                              className="h-1.5 rounded-full bg-slate-700"
                               style={{ width: `${percent}%` }}
                             />
                           </div>
                         </td>
-                        <td className={`px-3 py-4 ${expiryClass}`}>
+                        <td className={`px-3 py-2.5 ${expiryClass}`}>
                           {formatDate(item.date_expiration)}
                         </td>
-                        <td className="px-3 py-4">
+                        <td className="px-3 py-2.5">
                           <Badge className={statusClass(item)}>{getStatusLabel(item)}</Badge>
                         </td>
-                        <td className="px-3 py-4 text-right">
-                          <div className="flex justify-end gap-2">
+                        <td className="px-3 py-2.5 text-right">
+                          <div className="flex justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openDetail(item);
                               }}
-                              className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50"
                               aria-label="Détails"
                             >
-                              <Eye size={15} />
+                              <Eye size={14} />
                             </button>
                             <button
                               type="button"
@@ -964,20 +983,20 @@ export default function StockPage() {
                                 event.stopPropagation();
                                 startEditItem(item);
                               }}
-                              className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50"
                               aria-label="Modifier"
                             >
-                              <Pencil size={15} />
+                              <Pencil size={14} />
                             </button>
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                               }}
-                              className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50"
                               aria-label="Historique"
                             >
-                              <History size={15} />
+                              <History size={14} />
                             </button>
                             <button
                               type="button"
@@ -985,10 +1004,10 @@ export default function StockPage() {
                                 event.stopPropagation();
                                 handleDeleteItem(item);
                               }}
-                              className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
+                              className="rounded-lg border border-red-200 p-1.5 text-red-600 transition hover:bg-red-50"
                               aria-label="Supprimer"
                             >
-                              <Trash2 size={15} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
@@ -997,7 +1016,7 @@ export default function StockPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="8" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="8" className="px-3 py-8 text-center text-[13px] text-slate-500">
                       Aucun médicament trouvé.
                     </td>
                   </tr>
@@ -1005,16 +1024,16 @@ export default function StockPage() {
               </tbody>
               </table>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="text-sm text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-slate-500">
               Page {safePage} / {totalPages}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={safePage === 1}
-                className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-[13px] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ‹
               </button>
@@ -1023,7 +1042,7 @@ export default function StockPage() {
                   key={page}
                   type="button"
                   onClick={() => setCurrentPage(page)}
-                  className={`min-w-[36px] rounded-lg border px-3 py-1.5 text-sm ${
+                  className={`min-w-[34px] rounded-lg border px-2.5 py-1 text-[13px] ${
                     page === safePage
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -1036,7 +1055,7 @@ export default function StockPage() {
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 disabled={safePage === totalPages}
-                className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-[13px] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ›
               </button>
@@ -1056,8 +1075,8 @@ export default function StockPage() {
       >
         {detailItem && (
           <div className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="space-y-3 text-sm text-slate-700">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2.5 text-[13px] text-slate-700">
                 <p>
                   <span className="font-semibold">ID:</span>{" "}
                   {detailItem.id ? `MED${String(detailItem.id).padStart(3, "0")}` : "--"}
@@ -1088,7 +1107,7 @@ export default function StockPage() {
                   {formatDateTime(detailItem.created_at)}
                 </p>
               </div>
-              <div className="space-y-3 text-sm text-slate-700">
+              <div className="space-y-2.5 text-[13px] text-slate-700">
                 <p className="flex items-center gap-2">
                   <span className="font-semibold">Statut:</span>
                   <Badge className={detailItem.actif ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}>
@@ -1131,30 +1150,30 @@ export default function StockPage() {
       </ModalShell>
 
       {showItemForm && (
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="mb-5 text-lg font-semibold text-slate-900">Nouvel article</h2>
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-4 text-base font-semibold text-slate-900">Nouvel article</h2>
 
-          <form onSubmit={handleItemSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <form onSubmit={handleItemSubmit} className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div className="xl:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">Nom article</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Nom article</label>
               <input
                 type="text"
                 name="nom"
                 value={newItem.nom}
-                onChange={handleItemChange}
+                onChange={handleNewItemChange}
                 required
                 placeholder="Ex: Augmentin 1g"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Type</label>
               <select
                 name="type_article"
                 value={newItem.type_article}
-                onChange={handleItemChange}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                onChange={handleNewItemChange}
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               >
                 <option value="MEDICAMENT">Médicament</option>
                 <option value="CONSOMMABLE">Consommable</option>
@@ -1162,41 +1181,41 @@ export default function StockPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Quantité initiale</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Quantité initiale</label>
               <input
                 type="number"
                 min="0"
                 name="quantite"
                 value={newItem.quantite}
-                onChange={handleItemChange}
+                onChange={handleNewItemChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Seuil critique</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Seuil critique</label>
               <input
                 type="number"
                 min="0"
                 name="seuil_critique"
                 value={newItem.seuil_critique}
-                onChange={handleItemChange}
+                onChange={handleNewItemChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
             <div className="xl:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">Unité</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Unité</label>
               <input
                 type="text"
                 name="unite"
                 value={newItem.unite}
-                onChange={handleItemChange}
+                onChange={handleNewItemChange}
                 required
                 placeholder="Ex: boîtes, flacons, paquets..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
@@ -1207,7 +1226,7 @@ export default function StockPage() {
                   setNewItem(emptyItem);
                   setShowItemForm(false);
                 }}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
               >
                 Annuler
               </button>
@@ -1215,7 +1234,7 @@ export default function StockPage() {
               <button
                 type="submit"
                 disabled={savingItem}
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-slate-800 disabled:opacity-70"
               >
                 {savingItem ? "Enregistrement..." : "Ajouter article"}
               </button>
@@ -1225,37 +1244,37 @@ export default function StockPage() {
       )}
 
       {showEditForm && (
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="mb-5 text-lg font-semibold text-slate-900">Modifier article</h2>
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-4 text-base font-semibold text-slate-900">Modifier article</h2>
 
-          <form onSubmit={handleEditSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <form onSubmit={handleEditSubmit} className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div className="xl:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">Nom article</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Nom article</label>
               <input
                 type="text"
                 name="nom"
                 value={editItem.nom}
                 onChange={handleEditChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Type</label>
               <select
                 name="type_article"
                 value={editItem.type_article}
                 onChange={handleEditChange}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               >
-                <option value="MEDICAMENT">MÃ©dicament</option>
+                <option value="MEDICAMENT">Médicament</option>
                 <option value="CONSOMMABLE">Consommable</option>
               </select>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">QuantitÃ©</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Quantité</label>
               <input
                 type="number"
                 min="0"
@@ -1263,12 +1282,12 @@ export default function StockPage() {
                 value={editItem.quantite}
                 onChange={handleEditChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Seuil critique</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Seuil critique</label>
               <input
                 type="number"
                 min="0"
@@ -1276,19 +1295,19 @@ export default function StockPage() {
                 value={editItem.seuil_critique}
                 onChange={handleEditChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
             <div className="xl:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">UnitÃ©</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Unité</label>
               <input
                 type="text"
                 name="unite"
                 value={editItem.unite}
                 onChange={handleEditChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
@@ -1299,7 +1318,7 @@ export default function StockPage() {
                   setEditItem({ ...emptyItem, id: null });
                   setShowEditForm(false);
                 }}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
               >
                 Annuler
               </button>
@@ -1307,7 +1326,7 @@ export default function StockPage() {
               <button
                 type="submit"
                 disabled={savingEdit}
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-slate-800 disabled:opacity-70"
               >
                 {savingEdit ? "Enregistrement..." : "Enregistrer"}
               </button>
@@ -1317,18 +1336,18 @@ export default function StockPage() {
       )}
 
       {showMoveForm && (
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="mb-5 text-lg font-semibold text-slate-900">Nouveau mouvement</h2>
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-4 text-base font-semibold text-slate-900">Nouveau mouvement</h2>
 
-          <form onSubmit={handleMoveSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <form onSubmit={handleMoveSubmit} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Article</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Article</label>
               <select
                 name="stock_item"
                 value={movement.stock_item}
                 onChange={handleMoveChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               >
                 <option value="">Sélectionner</option>
                 {items.map((item) => (
@@ -1340,12 +1359,12 @@ export default function StockPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Type mouvement</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Type mouvement</label>
               <select
                 name="type_mouvement"
                 value={movement.type_mouvement}
                 onChange={handleMoveChange}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               >
                 <option value="ENTREE">Entrée</option>
                 <option value="SORTIE">Sortie</option>
@@ -1353,7 +1372,7 @@ export default function StockPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Quantité</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Quantité</label>
               <input
                 type="number"
                 min="1"
@@ -1361,19 +1380,19 @@ export default function StockPage() {
                 value={movement.quantite}
                 onChange={handleMoveChange}
                 required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Remarque</label>
+              <label className="mb-1 block text-[13px] font-medium text-slate-700">Remarque</label>
               <input
                 type="text"
                 name="remarque"
                 value={movement.remarque}
                 onChange={handleMoveChange}
                 placeholder="Optionnel"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-[13px] outline-none focus:border-slate-300"
               />
             </div>
 
@@ -1384,7 +1403,7 @@ export default function StockPage() {
                   setMovement(emptyMove);
                   setShowMoveForm(false);
                 }}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
               >
                 Annuler
               </button>
@@ -1392,7 +1411,7 @@ export default function StockPage() {
               <button
                 type="submit"
                 disabled={savingMove}
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-slate-800 disabled:opacity-70"
               >
                 {savingMove ? "Enregistrement..." : "Enregistrer"}
               </button>
@@ -1401,39 +1420,39 @@ export default function StockPage() {
         </div>
       )}
 
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Liste du stock</h2>
-            <p className="text-sm text-slate-500">Médicaments et consommables disponibles</p>
+            <h2 className="text-base font-semibold text-slate-900">Liste du stock</h2>
+            <p className="text-[13px] text-slate-500">Médicaments et consommables disponibles</p>
           </div>
 
           <div className="relative w-full lg:w-96">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Rechercher article..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-slate-900"
+              className="h-10 w-full rounded-xl border border-slate-200 py-2 pl-9 pr-4 text-[13px] outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="py-10 text-center text-slate-500">Chargement...</div>
+          <div className="py-8 text-center text-[13px] text-slate-500">Chargement...</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-[13px]">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
-                  <th className="px-3 py-3 font-medium">Article</th>
-                  <th className="px-3 py-3 font-medium">Type</th>
-                  <th className="px-3 py-3 font-medium">Quantité</th>
-                  <th className="px-3 py-3 font-medium">Unité</th>
-                  <th className="px-3 py-3 font-medium">Seuil</th>
-                  <th className="px-3 py-3 font-medium">État</th>
-                  <th className="px-3 py-3 font-medium text-right">Actions</th>
+                  <th className="px-3 py-2.5 font-medium">Article</th>
+                  <th className="px-3 py-2.5 font-medium">Type</th>
+                  <th className="px-3 py-2.5 font-medium">Quantité</th>
+                  <th className="px-3 py-2.5 font-medium">Unité</th>
+                  <th className="px-3 py-2.5 font-medium">Seuil</th>
+                  <th className="px-3 py-2.5 font-medium">État</th>
+                  <th className="px-3 py-2.5 font-medium text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -1441,36 +1460,42 @@ export default function StockPage() {
                 {filteredItems.length > 0 ? (
                   filteredItems.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-3 py-3 font-medium text-slate-900">
+                      <td className="px-3 py-2.5 font-medium text-slate-900">
                         <div className="flex items-center gap-2">
-                          <Boxes size={16} className="text-slate-500" />
-                          {item.nom}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-slate-700">
-                        {item.type_article === "MEDICAMENT" ? "Médicament" : "Consommable"}
-                      </td>
-                      <td className="px-3 py-3 text-slate-700">{item.quantite}</td>
-                      <td className="px-3 py-3 text-slate-700">{item.unite}</td>
-                      <td className="px-3 py-3 text-slate-700">{item.seuil_critique}</td>
-                      <td className="px-3 py-3">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(item)}`}>
-                          {item.quantite <= item.seuil_critique ? "Critique" : "Disponible"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <div className="flex justify-end gap-2">
+                          <Boxes size={15} className="text-slate-500" />
                           <button
                             type="button"
                             onClick={() => startEditItem(item)}
-                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            className="cursor-pointer bg-transparent p-0 text-left font-semibold text-slate-900 transition hover:text-blue-700 hover:underline"
+                          >
+                            {item.nom}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-700">
+                        {item.type_article === "MEDICAMENT" ? "Médicament" : "Consommable"}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-700">{item.quantite}</td>
+                      <td className="px-3 py-2.5 text-slate-700">{item.unite}</td>
+                      <td className="px-3 py-2.5 text-slate-700">{item.seuil_critique}</td>
+                      <td className="px-3 py-2.5">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusClass(item)}`}>
+                          {item.quantite <= item.seuil_critique ? "Critique" : "Disponible"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => startEditItem(item)}
+                            className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                           >
                             Modifier
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteItem(item)}
-                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                            className="rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
                           >
                             Supprimer
                           </button>
@@ -1480,7 +1505,7 @@ export default function StockPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan="7" className="px-3 py-8 text-center text-[13px] text-slate-500">
                       Aucun article trouvé.
                     </td>
                   </tr>

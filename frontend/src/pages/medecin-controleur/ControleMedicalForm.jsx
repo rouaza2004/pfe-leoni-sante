@@ -145,7 +145,7 @@ export default function ControleMedicalForm() {
       </button>
 
       <div className="rounded-[26px] border border-slate-200 bg-gradient-to-br from-white via-sky-50/35 to-white p-5 shadow-sm shadow-slate-200/50">
-        <h1 className="text-2xl font-bold text-slate-800">ContrÃ´le MÃ©dical</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Contrôle Médical</h1>
         {collaborateur && (
           <p className="text-slate-500">
             {collaborateur.nom} {collaborateur.prenom} - {collaborateur.matricule}
@@ -159,7 +159,7 @@ export default function ControleMedicalForm() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
-            label="Date du contrÃ´le"
+            label="Date du contrôle"
             type="date"
             name="date_controle"
             value={form.date_controle}
@@ -176,12 +176,12 @@ export default function ControleMedicalForm() {
         </div>
 
         <Select
-          label="PrÃ©sence du collaborateur"
+          label="Présence du collaborateur"
           name="presence"
           value={form.presence}
           onChange={handleChange}
         >
-          <option value="present">PrÃ©sent</option>
+          <option value="present">Présent</option>
           <option value="absent">Absent</option>
         </Select>
 
@@ -190,11 +190,11 @@ export default function ControleMedicalForm() {
           name="conclusion"
           value={form.conclusion}
           onChange={handleChange}
-          placeholder="Conclusion du mÃ©decin contrÃ´leur"
+          placeholder="Conclusion du médecin contrôleur"
         />
 
         <TextArea
-          label="DÃ©cision / Recommandation"
+          label="Décision / Recommandation"
           name="decision"
           value={form.decision}
           onChange={handleChange}

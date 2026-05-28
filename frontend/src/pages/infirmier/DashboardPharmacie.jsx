@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -41,19 +41,77 @@ const EXP_BUCKET_COLORS = {
   gt365: "#22c55e",
 };
 
-function StatCard({ title, value, subtitle, icon, accent }) {
+function StatCard({ title, value, subtitle, icon, iconClass = "", alert = false }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-slate-500">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
-          {subtitle && <p className="mt-1 text-xs text-slate-400">{subtitle}</p>}
+    <div
+      className={`flex min-h-[78px] rounded-2xl border bg-white px-3 py-2 shadow-sm transition hover:shadow-md ${
+        alert ? "border-red-200" : "border-slate-200"
+      }`}
+    >
+      <div className="flex w-full items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] leading-4 text-slate-500">{title}</p>
+          <p
+            className={`mt-1 text-[18px] font-bold leading-none ${
+              alert ? "text-red-600" : "text-slate-900"
+            }`}
+          >
+            {value}
+          </p>
+          {subtitle ? <p className="mt-1 text-[10px] leading-3.5 text-slate-400">{subtitle}</p> : null}
         </div>
-        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${accent}`}>
+
+        <div
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+            alert ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-700"
+          } ${iconClass}`}
+        >
           {icon}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SectionShell({ title, subtitle, icon, children, className = "", bodyClassName = "" }) {
+  return (
+    <div
+      className={`flex h-[248px] min-h-[248px] flex-col rounded-3xl bg-white p-2.5 shadow-sm ring-1 ring-slate-200 ${className}`}
+    >
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-[14px] font-semibold leading-tight text-slate-900">{title}</h2>
+          {subtitle ? <p className="text-[11px] leading-4 text-slate-500">{subtitle}</p> : null}
+        </div>
+        {icon ? (
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+            {icon}
+          </div>
+        ) : null}
+      </div>
+      <div className={`min-h-0 flex-1 ${bodyClassName}`}>{children}</div>
+    </div>
+  );
+}
+
+function LegendList({ items }) {
+  return (
+    <div className="grid gap-1 text-[11px] text-slate-600">
+      {items.map((entry) => (
+        <div
+          key={entry.name}
+          className="flex h-6 items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1"
+        >
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="truncate">{entry.name}</span>
+          </div>
+          <span className="shrink-0 font-semibold text-slate-900">{entry.value}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -119,30 +177,30 @@ export default function DashboardPharmacie() {
       {
         title: "Total médicaments",
         value: metrics.total,
-        subtitle: "—",
-        icon: <Pill size={18} className="text-emerald-600" />,
-        accent: "bg-emerald-50",
+        subtitle: "Articles suivis",
+        icon: <Pill size={13} className="text-emerald-600" />,
+        iconClass: "bg-emerald-50 text-emerald-600",
       },
       {
         title: "Taux disponibilité",
         value: `${metrics.taux}%`,
         subtitle: "Produits en stock",
-        icon: <TrendingUp size={18} className="text-emerald-600" />,
-        accent: "bg-emerald-50",
+        icon: <TrendingUp size={13} className="text-blue-600" />,
+        iconClass: "bg-blue-50 text-blue-600",
       },
       {
         title: "Alertes stock",
         value: metrics.stockAlerts,
         subtitle: "Bas + rupture",
-        icon: <AlertTriangle size={18} className="text-amber-600" />,
-        accent: "bg-amber-50",
+        icon: <AlertTriangle size={13} />,
+        alert: true,
       },
       {
         title: "Expirations proches",
         value: metrics.expSoon,
         subtitle: "Expiré ou < 90 j",
-        icon: <CalendarClock size={18} className="text-rose-600" />,
-        accent: "bg-rose-50",
+        icon: <CalendarClock size={13} className="text-amber-600" />,
+        iconClass: "bg-amber-50 text-amber-600",
       },
     ],
     [metrics]
@@ -180,9 +238,9 @@ export default function DashboardPharmacie() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex items-center gap-3 text-slate-600">
-          <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="flex min-h-[260px] items-center justify-center">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
           <span>Chargement du tableau pharmacie...</span>
         </div>
       </div>
@@ -191,53 +249,49 @@ export default function DashboardPharmacie() {
 
   if (err) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700">
         {err}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Tableau de bord Pharmacie</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Analyse des stocks, consommations et tendances
-            </p>
-          </div>
+    <div className="space-y-2 overflow-visible">
+      <div className="rounded-3xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200">
+        <div className="flex min-h-[68px] flex-col justify-center">
+          <p className="text-[11px] font-medium leading-4 text-slate-500">Espace Pharmacie</p>
+          <h1 className="mt-0.5 text-[18px] font-bold leading-5 tracking-tight text-slate-900">
+            Tableau de bord Pharmacie
+          </h1>
+          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+            Vue compacte des stocks, consommations et expirations.
+          </p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {kpiCards.map((card) => (
           <StatCard key={card.title} {...card} />
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="mb-4 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Répartition des stocks</h2>
-          </div>
-          <div className="h-64 min-h-[240px] min-w-0">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={220}
-              style={{ minHeight: 220 }}
-            >
-              <PieChart>
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <SectionShell
+          title="Répartition des stocks"
+          subtitle="Vue globale par état"
+          icon={<BarChart3 size={11} />}
+          bodyClassName="space-y-1"
+        >
+          <div className="h-[140px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie
                   data={stockRepartition}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={4}
+                  innerRadius={35}
+                  outerRadius={55}
+                  paddingAngle={2}
                 >
                   {stockRepartition.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
@@ -247,41 +301,23 @@ export default function DashboardPharmacie() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 grid gap-2 text-sm text-slate-600">
-            {stockRepartition.map((entry) => (
-              <div key={entry.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: entry.color }}
-                  />
-                  <span>{entry.name}</span>
-                </div>
-                <span className="font-semibold text-slate-900">{entry.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+          <LegendList items={stockRepartition} />
+        </SectionShell>
 
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
-              Tendances de consommation (6 mois)
-            </h2>
-          </div>
-          <div className="h-64 min-h-[240px] min-w-0">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={220}
-              style={{ minHeight: 220 }}
-            >
-              <LineChart data={consumption.data}>
+        <SectionShell
+          title="Tendances de consommation"
+          subtitle="Historique des 6 derniers mois"
+          icon={<TrendingUp size={11} />}
+        >
+          <div className="h-[145px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <LineChart
+                data={consumption.data}
+                margin={{ top: 2, right: 2, left: -28, bottom: -8 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 12 }} />
-                <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+                <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 10 }} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 10 }} />
                 <Tooltip />
                 {consumption.categories.map((cat, index) => (
                   <Line
@@ -289,70 +325,61 @@ export default function DashboardPharmacie() {
                     type="monotone"
                     dataKey={cat}
                     stroke={LINE_COLORS[index % LINE_COLORS.length]}
-                    strokeWidth={2}
+                    strokeWidth={1.5}
                     dot={false}
                   />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      </div>
+        </SectionShell>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="mb-4 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
-              Niveaux de stock par catégorie
-            </h2>
-          </div>
-          <div className="h-72 min-h-[260px] min-w-0">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={220}
-              style={{ minHeight: 220 }}
-            >
-              <BarChart data={stockByCategory} layout="vertical">
+        <SectionShell
+          title="Niveaux de stock par catégorie"
+          subtitle="Stock actuel vs seuil"
+          icon={<BarChart3 size={11} />}
+        >
+          <div className="h-[145px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <BarChart
+                data={stockByCategory}
+                layout="vertical"
+                margin={{ top: 2, right: 2, left: -8, bottom: -8 }}
+                barCategoryGap={8}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 12 }} />
+                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10 }} />
                 <YAxis
                   type="category"
                   dataKey="categorie"
-                  width={140}
-                  tick={{ fill: "#64748b", fontSize: 12 }}
+                  width={82}
+                  tick={{ fill: "#64748b", fontSize: 10 }}
                 />
                 <Tooltip />
-                <Bar dataKey="stock" fill="#3b82f6" radius={[4, 4, 4, 4]} />
-                <Bar dataKey="seuil" fill="#f59e0b" radius={[4, 4, 4, 4]} />
+                <Bar dataKey="stock" fill="#3b82f6" radius={[3, 3, 3, 3]} />
+                <Bar dataKey="seuil" fill="#f59e0b" radius={[3, 3, 3, 3]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </SectionShell>
 
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="mb-4 flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
-              Échéancier des expirations
-            </h2>
-          </div>
-          <div className="h-72 min-h-[260px] min-w-0">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={220}
-              style={{ minHeight: 220 }}
-            >
-              <BarChart data={expirationBuckets}>
+        <SectionShell
+          title="Échéancier des expirations"
+          subtitle="Répartition des dates de péremption"
+          icon={<CalendarClock size={11} />}
+        >
+          <div className="h-[145px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <BarChart
+                data={expirationBuckets}
+                margin={{ top: 2, right: 2, left: -22, bottom: -8 }}
+                barCategoryGap={10}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 12 }} />
-                <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+                <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 10 }} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 10 }} />
                 <Tooltip />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {expirationBuckets.map((entry) => (
                     <Cell key={entry.label} fill={entry.color} />
                   ))}
@@ -360,7 +387,7 @@ export default function DashboardPharmacie() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </SectionShell>
       </div>
     </div>
   );

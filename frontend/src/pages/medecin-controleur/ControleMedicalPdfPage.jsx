@@ -87,18 +87,18 @@ export default function ControleMedicalPdfPage() {
 
       <section className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-sky-50/35 to-white p-6 shadow-sm shadow-slate-200/50">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          ContrÃ´le mÃ©dical
+          Contrôle médical
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          Renseignez le formulaire puis gÃ©nÃ©rez le document PDF au format administratif.
+          Renseignez le formulaire puis générez le document PDF au format administratif.
         </p>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_340px]">
         <div className="space-y-6">
           <SectionCard
-            title="Informations gÃ©nÃ©rales"
-            subtitle="DonnÃ©es principales Ã  reproduire dans le document"
+            title="Informations générales"
+            subtitle="Données principales à reproduire dans le document"
             icon={<FileText size={18} />}
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -133,8 +133,8 @@ export default function ControleMedicalPdfPage() {
               </Field>
 
               <Field
-                label="MÃ©decin contrÃ´leur"
-                hint="RenseignÃ© automatiquement depuis la session active."
+                label="Médecin contrôleur"
+                hint="Renseigné automatiquement depuis la session active."
               >
                 <input
                   type="text"
@@ -154,7 +154,7 @@ export default function ControleMedicalPdfPage() {
                 />
               </Field>
 
-              <Field label="PrÃ©nom">
+              <Field label="Prénom">
                 <input
                   type="text"
                   name="prenom"
@@ -177,11 +177,11 @@ export default function ControleMedicalPdfPage() {
           </SectionCard>
 
           <SectionCard
-            title="Avis du mÃ©decin contrÃ´leur"
-            subtitle="Zone de texte libre imprimÃ©e dans la grande section centrale du PDF"
+            title="Avis du médecin contrôleur"
+            subtitle="Zone de texte libre imprimée dans la grande section centrale du PDF"
             icon={<FileText size={18} />}
           >
-            <Field label="Avis du mÃ©decin contrÃ´leur">
+            <Field label="Avis du médecin contrôleur">
               <textarea
                 name="avisMedecinControleur"
                 rows={10}
@@ -210,7 +210,7 @@ export default function ControleMedicalPdfPage() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-sm shadow-sky-900/25 transition hover:bg-slate-800"
             >
               <Download size={16} />
-              {isSaving ? "Enregistrement..." : "GÃ©nÃ©rer PDF"}
+              {isSaving ? "Enregistrement..." : "Générer PDF"}
             </button>
           </section>
         </aside>

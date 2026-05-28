@@ -19,28 +19,143 @@ import {
   Cell,
 } from "recharts";
 import { api } from "@/api/api";
-import HSEEPageHeader from "@/components/hsee/HSEEPageHeader";
 
 const COLORS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6"];
 
 function StatCard({ title, value, subtitle }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
+      <p className="text-xs text-slate-500">{title}</p>
+      <p className="mt-1 text-[20px] font-bold leading-none text-slate-900">{value}</p>
+      <p className="mt-1 text-[10px] text-slate-400">{subtitle}</p>
     </div>
   );
+}
+
+function ChartShell({ icon: Icon, iconClass, title, subtitle, children, empty }) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-2.5 shadow-sm">
+      <div className="mb-2 flex items-center gap-2">
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${iconClass}`}>
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold leading-tight text-slate-900">{title}</h2>
+          <p className="text-[10px] text-slate-500">{subtitle}</p>
+        </div>
+      </div>
+      {children}
+      {empty ? (
+        <div className="rounded-2xl bg-slate-50 px-4 py-4 text-center text-xs text-slate-500">
+          {empty}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function normalizeLabel(value, fallback) {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text || fallback;
+}
+
+function normalizeSegment(accident) {
+  return normalizeLabel(
+    accident?.segment ||
+      accident?.zone ||
+      accident?.departement ||
+      accident?.activite_service ||
+      accident?.service,
+    "Non spécifié"
+  );
+}
+
+function normalizeGravite(accident) {
+  const raw =
+    accident?.gravite_display ||
+    accident?.gravite ||
+    accident?.gravity ||
+    accident?.niveau_gravite ||
+    "";
+
+  const normalized = String(raw).trim();
+  if (!normalized) return "Non spécifiée";
+
+  const upper = normalized.toUpperCase();
+  if (upper === "FAIBLE") return "Faible";
+  if (upper === "MOYENNE" || upper === "MOYEN") return "Moyenne";
+  if (upper === "GRAVE") return "Grave";
+  return normalized;
+}
+
+function normalizeDate(accident) {
+  return accident?.date_accident || accident?.date || accident?.created_at || null;
+}
+
+function normalizeJoursPerdus(accident) {
+  const raw = accident?.jours_perdus ?? accident?.jours_arret ?? accident?.duree_arret ?? 0;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function buildCountSeries(items, getKey, outputKey) {
+  const counts = new Map();
+
+  items.forEach((item) => {
+    const key = getKey(item);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .map(([label, value], index) => ({
+      [outputKey]: label,
+      value,
+      color: COLORS[index % COLORS.length],
+    }))
+    .sort(
+      (a, b) =>
+        b.value - a.value ||
+        String(a[outputKey]).localeCompare(String(b[outputKey]), "fr")
+    );
+}
+
+function buildMonthlySeries(items) {
+  const counts = new Map();
+
+  items.forEach((item) => {
+    const rawDate = normalizeDate(item);
+    if (!rawDate) return;
+
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) return;
+
+    const year = parsed.getFullYear();
+    const month = parsed.getMonth();
+    const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => {
+      const [year, month] = key.split("-");
+      const date = new Date(Number(year), Number(month) - 1, 1);
+
+      return {
+        mois: new Intl.DateTimeFormat("fr-FR", {
+          month: "short",
+          year: "numeric",
+        }).format(date),
+        accidents: value,
+      };
+    });
 }
 
 export default function HSEEStatsPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-
-  const [kpis, setKpis] = useState(null);
-  const [segments, setSegments] = useState([]);
-  const [gravites, setGravites] = useState([]);
-  const [mois, setMois] = useState([]);
+  const [accidents, setAccidents] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,19 +165,10 @@ export default function HSEEStatsPage() {
         setLoading(true);
         setErr("");
 
-        const [kpisRes, segmentsRes, gravitesRes, moisRes] = await Promise.all([
-          api.get("/medical/hsee/kpis/"),
-          api.get("/medical/hsee/accidents-par-segment/"),
-          api.get("/medical/hsee/accidents-par-gravite/"),
-          api.get("/medical/hsee/accidents-par-mois/"),
-        ]);
-
+        const response = await api.get("/medical/accidents-travail/");
         if (cancelled) return;
 
-        setKpis(kpisRes.data || {});
-        setSegments(Array.isArray(segmentsRes.data) ? segmentsRes.data : []);
-        setGravites(Array.isArray(gravitesRes.data) ? gravitesRes.data : []);
-        setMois(Array.isArray(moisRes.data) ? moisRes.data : []);
+        setAccidents(Array.isArray(response?.data) ? response.data : []);
       } catch (error) {
         console.error(error);
         if (!cancelled) {
@@ -82,20 +188,45 @@ export default function HSEEStatsPage() {
     };
   }, []);
 
+  const kpis = useMemo(() => {
+    const total = accidents.length;
+    const joursPerdus = accidents.reduce(
+      (sum, accident) => sum + normalizeJoursPerdus(accident),
+      0
+    );
+
+    return {
+      accidents_declares: total,
+      jours_perdus: joursPerdus,
+    };
+  }, [accidents]);
+
+  const segments = useMemo(
+    () => buildCountSeries(accidents, normalizeSegment, "segment"),
+    [accidents]
+  );
+
+  const gravites = useMemo(
+    () => buildCountSeries(accidents, normalizeGravite, "name"),
+    [accidents]
+  );
+
+  const mois = useMemo(() => buildMonthlySeries(accidents), [accidents]);
+
   const segmentCritique = useMemo(() => {
-    if (!segments.length) return "—";
-    return [...segments].sort((a, b) => b.value - a.value)[0]?.segment || "—";
+    if (!segments.length) return "-";
+    return segments[0]?.segment || "-";
   }, [segments]);
 
   const graviteDominante = useMemo(() => {
-    if (!gravites.length) return "—";
-    return [...gravites].sort((a, b) => b.value - a.value)[0]?.name || "—";
+    if (!gravites.length) return "-";
+    return gravites[0]?.name || "-";
   }, [gravites]);
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex items-center gap-3 text-slate-600">
+      <div className="flex min-h-[320px] items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-slate-600">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Chargement des statistiques HSEE...</span>
         </div>
@@ -112,18 +243,23 @@ export default function HSEEStatsPage() {
   }
 
   return (
-    <div className="bg-slate-50">
-      <div className="mb-6">
-        <HSEEPageHeader
-          title="Statistiques HSEE"
-          subtitle="Analyse des accidents par segment, par gravité et par évolution mensuelle."
-        />
-      </div>
+    <div className="space-y-2">
+      <section className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-200">
+        <div>
+          <p className="text-xs font-medium text-slate-500">Espace HSEE</p>
+          <h1 className="mt-0.5 text-[20px] font-bold tracking-tight text-slate-900">
+            Statistiques HSEE
+          </h1>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Analyse des accidents, des segments exposés et de l’évolution mensuelle.
+          </p>
+        </div>
+      </section>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         <StatCard
           title="Total accidents"
-          value={kpis?.accidents_declares ?? 0}
+          value={kpis.accidents_declares}
           subtitle="Période enregistrée"
         />
         <StatCard
@@ -138,166 +274,102 @@ export default function HSEEStatsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Accidents par segment
-              </h2>
-              <p className="text-sm text-slate-500">
-                Répartition selon les zones de travail
-              </p>
-            </div>
-          </div>
-
-          <div className="h-80 min-h-[280px] min-w-0">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={240}
-              style={{ minWidth: 0, minHeight: 240 }}
-            >
-              <BarChart data={segments}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="segment" />
-                <YAxis />
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+        <ChartShell
+          icon={BarChart3}
+          iconClass="bg-blue-50 text-blue-600"
+          title="Accidents par segment"
+          subtitle="Répartition selon les zones de travail"
+          empty={segments.length === 0 ? "Aucune statistique disponible." : ""}
+        >
+          <div className="h-[165px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <BarChart data={segments} margin={{ top: 2, right: 4, left: -16, bottom: -4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="segment" tick={{ fill: "#64748b", fontSize: 10 }} />
+                <YAxis allowDecimals={false} tick={{ fill: "#64748b", fontSize: 10 }} />
                 <Tooltip />
-                <Bar dataKey="value" radius={[10, 10, 0, 0]} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </ChartShell>
 
-          {segments.length === 0 && (
-            <div className="pt-4 text-sm text-slate-500">
-              Aucune statistique par segment disponible.
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50">
-              <PieChartIcon className="h-5 w-5 text-rose-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Accidents par gravité
-              </h2>
-              <p className="text-sm text-slate-500">
-                Classification selon le niveau de gravité
-              </p>
-            </div>
-          </div>
-
-          <div className="h-80 min-h-[280px] min-w-0">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={240}
-              style={{ minWidth: 0, minHeight: 240 }}
-            >
-              <PieChart>
+        <ChartShell
+          icon={PieChartIcon}
+          iconClass="bg-rose-50 text-rose-600"
+          title="Accidents par gravité"
+          subtitle="Classification selon le niveau de gravité"
+          empty={gravites.length === 0 ? "Aucune statistique disponible." : ""}
+        >
+          <div className="h-[165px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie
                   data={gravites}
                   dataKey="value"
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={95}
+                  outerRadius={58}
+                  innerRadius={24}
+                  paddingAngle={2}
                   label
                 >
                   {gravites.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
           </div>
-
-          {gravites.length === 0 && (
-            <div className="pt-4 text-sm text-slate-500">
-              Aucune statistique par gravité disponible.
-            </div>
-          )}
-        </section>
+        </ChartShell>
       </div>
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-            <TrendingUp className="h-5 w-5 text-emerald-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Évolution mensuelle des accidents
-            </h2>
-            <p className="text-sm text-slate-500">
-              Vue d’ensemble sur les derniers mois
-            </p>
-          </div>
-        </div>
-
-        <div className="h-80 min-h-[280px] min-w-0">
-          <ResponsiveContainer
-            width="100%"
-            height="100%"
-            minWidth={0}
-            minHeight={240}
-            style={{ minWidth: 0, minHeight: 240 }}
-          >
-            <BarChart data={mois}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="mois" />
-              <YAxis />
+      <ChartShell
+        icon={TrendingUp}
+        iconClass="bg-emerald-50 text-emerald-600"
+        title="Évolution mensuelle des accidents"
+        subtitle="Vue d’ensemble sur les derniers mois"
+        empty={mois.length === 0 ? "Aucune statistique disponible." : ""}
+      >
+        <div className="h-[165px] min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <BarChart data={mois} margin={{ top: 2, right: 4, left: -16, bottom: -4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="mois" tick={{ fill: "#64748b", fontSize: 10 }} />
+              <YAxis allowDecimals={false} tick={{ fill: "#64748b", fontSize: 10 }} />
               <Tooltip />
-              <Bar dataKey="accidents" radius={[10, 10, 0, 0]} />
+              <Bar dataKey="accidents" radius={[6, 6, 0, 0]} fill="#10b981" />
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </ChartShell>
 
-        {mois.length === 0 && (
-          <div className="pt-4 text-sm text-slate-500">
-            Aucune évolution mensuelle disponible.
-          </div>
-        )}
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+      <section className="rounded-3xl border border-slate-200 bg-white p-2.5 shadow-sm">
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+            <AlertTriangle className="h-3.5 w-3.5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Lecture rapide</h2>
-            <p className="text-sm text-slate-500">
-              Résumé analytique des données HSEE
-            </p>
+            <h2 className="text-sm font-semibold text-slate-900">Lecture rapide</h2>
+            <p className="text-[10px] text-slate-500">Résumé analytique des données HSEE</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-700">Zone prioritaire</p>
-            <p className="mt-1 text-lg font-bold text-slate-900">{segmentCritique}</p>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+          <div className="rounded-2xl bg-slate-50 p-2.5">
+            <p className="text-xs font-medium text-slate-700">Zone prioritaire</p>
+            <p className="mt-1 text-sm font-bold text-slate-900">{segmentCritique}</p>
           </div>
-
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-700">Gravité dominante</p>
-            <p className="mt-1 text-lg font-bold text-slate-900">{graviteDominante}</p>
+          <div className="rounded-2xl bg-slate-50 p-2.5">
+            <p className="text-xs font-medium text-slate-700">Gravité dominante</p>
+            <p className="mt-1 text-sm font-bold text-slate-900">{graviteDominante}</p>
           </div>
-
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-700">Jours perdus</p>
-            <p className="mt-1 text-lg font-bold text-slate-900">
-              {kpis?.jours_perdus ?? 0}
-            </p>
+          <div className="rounded-2xl bg-slate-50 p-2.5">
+            <p className="text-xs font-medium text-slate-700">Jours perdus</p>
+            <p className="mt-1 text-sm font-bold text-slate-900">{kpis.jours_perdus}</p>
           </div>
         </div>
       </section>

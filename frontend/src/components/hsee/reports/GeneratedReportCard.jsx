@@ -39,26 +39,26 @@ export default function GeneratedReportCard({
   actionLoading = false,
 }) {
   return (
-    <article className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-        <div className="flex min-w-0 gap-4">
+    <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex min-w-0 gap-3">
           <div
-            className={`mt-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${report.iconWrap}`}
+            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${report.iconWrap}`}
           >
-            <FileText className={`h-6 w-6 ${report.iconColor}`} />
+            <FileText className={`h-5 w-5 ${report.iconColor}`} />
           </div>
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold tracking-tight text-slate-950">
+              <h3 className="text-base font-semibold tracking-tight text-slate-950">
                 {report.title}
               </h3>
-              <span className="text-sm font-medium text-slate-400">
+              <span className="text-xs font-medium text-slate-400">
                 ({report.code || report.id})
               </span>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <Badge className={report.categoryClass}>{report.category}</Badge>
               <Badge className={statusClass(report.status)}>
                 {report.statusLabel || report.status}
@@ -68,38 +68,38 @@ export default function GeneratedReportCard({
               </Badge>
             </div>
 
-            <p className="mt-4 text-sm leading-6 text-slate-500">{report.description}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-500">{report.description}</p>
 
-            <div className="mt-5 grid gap-3 text-sm text-slate-500 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <div className="mt-4 grid gap-2 text-sm text-slate-500 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   Généré le
                 </p>
-                <p className="mt-1 font-medium text-slate-700">{report.generatedAt}</p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{report.generatedAt}</p>
               </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   Période
                 </p>
-                <p className="mt-1 font-medium text-slate-700">{report.period}</p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{report.period}</p>
               </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   Par
                 </p>
-                <p className="mt-1 font-medium text-slate-700">{report.author}</p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{report.author}</p>
               </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   Taille
                 </p>
-                <p className="mt-1 font-medium text-slate-700">{report.size}</p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{report.size}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:w-[180px] xl:grid-cols-1">
+        <div className="grid gap-2 sm:grid-cols-2 xl:w-[180px] xl:grid-cols-1">
           <ActionButton icon={Eye} onClick={onPreview} disabled={actionLoading}>
             Voir
           </ActionButton>
