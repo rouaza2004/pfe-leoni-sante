@@ -1,0 +1,596 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  Search,
+  User,
+  Mail,
+  BadgeCheck,
+  CalendarDays,
+  Briefcase,
+  Building2,
+  ShieldCheck,
+} from "lucide-react";
+import { api } from "@/controllers/api/api";
+import DossierMedical from "../medecin-traitant/DossierMedical";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
+import { SITE_FILTER_OPTIONS, matchesSiteFilter } from "@/utils/siteOptions";
+
+const tabs = [
+  { id: "profil", label: "Profil & Administratif" },
+  { id: "dossier", label: "Dossier Médical" },
+  { id: "rdv", label: "Rendez-vous" },
+  { id: "analyses", label: "Analyses" },
+];
+
+const InfoCard = ({ title, children }) => (
+  <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
+    <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+    <div className="mt-4 space-y-3">{children}</div>
+  </div>
+);
+
+const EmptyState = ({ text }) => (
+  <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
+    {text}
+  </div>
+);
+
+const InfoRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-start gap-3 rounded-2xl bg-slate-50/70 px-3 py-2.5">
+    {Icon ? (
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200">
+        <Icon className="h-4 w-4 text-slate-400" />
+      </div>
+    ) : null}
+    <div className="min-w-0">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+        {value || "--"}
+      </p>
+    </div>
+  </div>
+);
+
+const formatDate = (value) => {
+  if (!value) return "--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("fr-FR");
+};
+
+const aptitudeLabel = (value) => {
+  switch (value) {
+    case "APTE":
+      return "Apte";
+    case "APTE_AMENAGEMENT":
+      return "Apte avec aménagement";
+    case "INAPTE_TEMPORAIRE":
+      return "Inapte temporaire";
+    case "APTE_APRES_CHANGEMENT":
+      return "Apte après changement du poste";
+    case "INAPTE_DEFINITIF":
+      return "Inapte définitif";
+    default:
+      return value || "--";
+  }
+};
+
+const getInitials = (prenom, nom) =>
+  `${prenom?.[0] || ""}${nom?.[0] || ""}`.toUpperCase() || "--";
+
+export default function PatientsPage() {
+  const [search, setSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
+  const [collaborateurs, setCollaborateurs] = useState([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [listErr, setListErr] = useState("");
+
+  const [selectedMatricule, setSelectedMatricule] = useState("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailErr, setDetailErr] = useState("");
+  const [collabDetail, setCollabDetail] = useState(null);
+  const [dossier, setDossier] = useState(null);
+  const [accidents, setAccidents] = useState([]);
+  const [maladiesPro, setMaladiesPro] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+
+  const [rdvs, setRdvs] = useState([]);
+  const [rdvErr, setRdvErr] = useState("");
+
+  const [activeTab, setActiveTab] = useState("profil");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCollaborateurs = async () => {
+      try {
+        setLoadingList(true);
+        setListErr("");
+
+        const res = await api.get("/collaborateurs/");
+        const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+
+        if (cancelled) return;
+        setCollaborateurs(fixFrenchTextDeep(data));
+      } catch (e) {
+        console.error("COLLAB ERROR =", e?.response?.status, e?.response?.data);
+        if (!cancelled) setListErr("Erreur chargement collaborateurs");
+      } finally {
+        if (!cancelled) setLoadingList(false);
+      }
+    };
+
+    fetchCollaborateurs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRdvs = async () => {
+      try {
+        setRdvErr("");
+        const res = await api.get("/appointments/rdv/");
+        if (cancelled) return;
+        setRdvs(Array.isArray(res.data) ? res.data : []);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setRdvErr("Impossible de charger les rendez-vous.");
+      }
+    };
+
+    loadRdvs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMatricule && collaborateurs.length > 0) {
+      setSelectedMatricule(collaborateurs[0].matricule || "");
+    }
+  }, [collaborateurs, selectedMatricule]);
+
+  useEffect(() => {
+    if (!selectedMatricule) return;
+
+    let cancelled = false;
+
+    const loadDetail = async () => {
+      try {
+        setDetailLoading(true);
+        setDetailErr("");
+
+        const profileRes = await api.get(
+          `/collaborateurs/matricule/${selectedMatricule}/`
+        );
+        const profile = profileRes?.data || {};
+
+        if (cancelled) return;
+        setCollabDetail(profile.collaborateur ?? null);
+        setDossier(profile.dossier_medical ?? null);
+        setAccidents(Array.isArray(profile.accidents) ? profile.accidents : []);
+        setMaladiesPro(
+          Array.isArray(profile.maladies_professionnelles)
+            ? profile.maladies_professionnelles
+            : []
+        );
+        setIncidents(
+          Array.isArray(profile.incidents_infirmiers) ? profile.incidents_infirmiers : []
+        );
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setDetailErr("Erreur: impossible de charger les détails collaborateur.");
+          setCollabDetail(null);
+          setDossier(null);
+          setAccidents([]);
+          setMaladiesPro([]);
+          setIncidents([]);
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    };
+
+    loadDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMatricule]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return collaborateurs.filter((c) => {
+      if (!matchesSiteFilter(c.site, siteFilter)) return false;
+      if (!q) return true;
+      return [c.matricule].filter(Boolean).join(" ").toLowerCase().includes(q);
+    });
+  }, [collaborateurs, search, siteFilter]);
+
+  const selectedFromList = useMemo(() => {
+    if (!selectedMatricule) return null;
+    return (
+      collaborateurs.find((c) => c.matricule === selectedMatricule) || null
+    );
+  }, [collaborateurs, selectedMatricule]);
+
+  const collab = collabDetail || selectedFromList;
+
+  const lastVisit = useMemo(() => {
+    const initial = dossier?.examen_initial?.date_examen;
+    const others = Array.isArray(dossier?.examens_ulterieurs)
+      ? dossier.examens_ulterieurs
+      : [];
+    const dates = [initial, ...others.map((e) => e?.date)].filter(Boolean);
+    if (!dates.length) return "--";
+    const latest = dates.sort((a, b) => String(b).localeCompare(String(a)))[0];
+    return formatDate(latest);
+  }, [dossier]);
+
+  const lastPeriodic = useMemo(() => {
+    const others = Array.isArray(dossier?.examens_ulterieurs)
+      ? dossier.examens_ulterieurs
+      : [];
+    const periodic = others
+      .filter((e) => e?.type_examen === "PERIODIQUE")
+      .map((e) => e?.date)
+      .filter(Boolean);
+    if (!periodic.length) return "--";
+    const latest = periodic.sort((a, b) => String(b).localeCompare(String(a)))[0];
+    return formatDate(latest);
+  }, [dossier]);
+
+  const filteredRdvs = useMemo(() => {
+    if (!selectedMatricule) return [];
+    const target = selectedMatricule.toLowerCase();
+    return rdvs.filter((item) => {
+      const directMatricule = item?.matricule;
+      const nestedMatricule = item?.collaborateur?.matricule;
+      return [directMatricule, nestedMatricule]
+        .filter(Boolean)
+        .some((val) => String(val).toLowerCase() === target);
+    });
+  }, [rdvs, selectedMatricule]);
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <h1 className="text-2xl font-bold text-slate-900">Accueil Patient</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Sélectionnez un collaborateur pour afficher ses détails.
+        </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Rechercher par matricule..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-slate-400"
+            />
+          </div>
+          <select
+            value={siteFilter}
+            onChange={(event) => setSiteFilter(event.target.value)}
+            className="mt-3 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+          >
+            {SITE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          {loadingList && (
+            <p className="mt-4 text-sm text-slate-500">Chargement...</p>
+          )}
+          {listErr && <p className="mt-4 text-sm text-red-600">{listErr}</p>}
+
+          <div className="mt-4 max-h-[560px] space-y-2 overflow-auto pr-1">
+            {filtered.map((c) => {
+              const isSelected = c.matricule === selectedMatricule;
+              const segmentLabel =
+                c.segment_nom || c.segment?.nom || c.segment || "--";
+              const posteLabel = c.poste || c.poste_nom || "--";
+
+              return (
+                <button
+                  key={c.matricule || c.id}
+                  type="button"
+                  onClick={() => setSelectedMatricule(c.matricule || "")}
+                  className={`w-full rounded-[22px] border p-3 text-left transition ${
+                    isSelected
+                      ? "border-slate-900 bg-slate-50 shadow-sm"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-sm font-semibold text-slate-700">
+                      {getInitials(c.prenom, c.nom)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {`${c.prenom || ""} ${c.nom || ""}`.trim() || "--"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {c.matricule || "--"}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
+                          {posteLabel}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
+                          {segmentLabel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+
+            {!loadingList && filtered.length === 0 && (
+              <p className="text-sm text-slate-500">Aucun collaborateur trouvé.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {!selectedMatricule && (
+            <EmptyState text="Sélectionnez un collaborateur pour afficher les détails." />
+          )}
+
+          {selectedMatricule && (
+            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              {detailLoading ? (
+                <p className="text-sm text-slate-500">Chargement...</p>
+              ) : detailErr ? (
+                <p className="text-sm text-red-600">{detailErr}</p>
+              ) : (
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-lg font-semibold text-slate-700">
+                      {getInitials(collab?.prenom, collab?.nom)}
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        {`${collab?.prenom || ""} ${collab?.nom || ""}`.trim() ||
+                          "--"}
+                      </h2>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                          Matricule : {collab?.matricule || "--"}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                          {collab?.poste || collab?.poste_nom || "--"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
+                      dossier?.id
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {dossier?.id ? "Dossier actif" : "Dossier manquant"}
+                  </span>
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                      activeTab === tab.id
+                        ? "bg-slate-900 text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedMatricule && activeTab === "profil" && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <InfoCard title="Informations Générales">
+                <InfoRow
+                  icon={User}
+                  label="Nom complet"
+                  value={
+                    `${collab?.prenom || ""} ${collab?.nom || ""}`.trim() || "--"
+                  }
+                />
+                <InfoRow
+                  icon={Mail}
+                  label="Adresse e-mail"
+                  value={collab?.email || "--"}
+                />
+                <InfoRow icon={BadgeCheck} label="CIN" value={collab?.cin || "--"} />
+              </InfoCard>
+
+              <InfoCard title="Poste & Département">
+                <InfoRow
+                  icon={Briefcase}
+                  label="Poste"
+                  value={collab?.poste || collab?.poste_nom || "--"}
+                />
+                <InfoRow
+                  icon={Building2}
+                  label="Département"
+                  value={collab?.departement || "--"}
+                />
+              </InfoCard>
+
+              <InfoCard title="Site / Segment">
+                <InfoRow label="Site" value={collab?.site?.nom || "--"} />
+                <InfoRow label="Localité" value={collab?.site?.localite || "--"} />
+                <InfoRow
+                  label="Segment"
+                  value={
+                    collab?.segment_nom ||
+                    collab?.segment?.nom ||
+                    collab?.segment ||
+                    "--"
+                  }
+                />
+              </InfoCard>
+
+              <InfoCard title="Statut & Validité">
+                <div className="rounded-2xl bg-slate-50/70 px-3 py-2.5">
+                  <p className="text-xs font-medium text-slate-500">Statut du dossier</p>
+                  <div className="mt-2">
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
+                        dossier?.id
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      {dossier?.id ? "Dossier actif" : "Dossier manquant"}
+                    </span>
+                  </div>
+                </div>
+                <InfoRow
+                  label="Date de recrutement"
+                  value={formatDate(dossier?.date_recrutement)}
+                />
+              </InfoCard>
+
+              <InfoCard title="Suivi médical">
+                <InfoRow
+                  icon={CalendarDays}
+                  label="Dernière visite"
+                  value={lastVisit}
+                />
+                <InfoRow
+                  icon={CalendarDays}
+                  label="Visite périodique"
+                  value={lastPeriodic}
+                />
+                <InfoRow
+                  label="Aptitude"
+                  value={aptitudeLabel(dossier?.examen_initial?.aptitude)}
+                />
+              </InfoCard>
+            </div>
+          )}
+
+          {selectedMatricule && activeTab === "dossier" && (
+            <div className="space-y-4">
+              <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+                <DossierMedical collaborateurId={collab?.id || selectedFromList?.id} />
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <InfoCard title="Accidents du travail">
+                  {accidents.length === 0 ? (
+                    <EmptyState text="Aucun accident déclaré." />
+                  ) : (
+                    <ul className="space-y-2">
+                      {accidents.slice(0, 5).map((accident) => (
+                        <li key={accident.id} className="text-sm text-slate-700">
+                          {formatDate(accident.date_accident)} ·{" "}
+                          {accident.nature_lesion || "Accident"} ·{" "}
+                          {accident.gravite_display || accident.gravite || "--"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </InfoCard>
+
+                <InfoCard title="Maladies professionnelles">
+                  {maladiesPro.length === 0 ? (
+                    <EmptyState text="Aucune maladie professionnelle." />
+                  ) : (
+                    <ul className="space-y-2">
+                      {maladiesPro.slice(0, 5).map((maladie) => (
+                        <li key={maladie.id} className="text-sm text-slate-700">
+                          {formatDate(maladie.date_decouverte)} ·{" "}
+                          {maladie.nom_maladie || maladie.agent_causal || "--"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </InfoCard>
+
+                <InfoCard title="Incidents infirmiers">
+                  {incidents.length === 0 ? (
+                    <EmptyState text="Aucun incident infirmier." />
+                  ) : (
+                    <ul className="space-y-2">
+                      {incidents.slice(0, 5).map((incident) => (
+                        <li key={incident.id} className="text-sm text-slate-700">
+                          {formatDate(incident.date_incident)} ·{" "}
+                          {incident.mode_lesion || incident.agent_causal || "--"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </InfoCard>
+              </div>
+            </div>
+          )}
+
+          {selectedMatricule && activeTab === "rdv" && (
+            <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              {rdvErr ? (
+                <p className="text-sm text-red-600">{rdvErr}</p>
+              ) : filteredRdvs.length === 0 ? (
+                <EmptyState text="Aucun rendez-vous trouvé pour ce collaborateur." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-slate-500">
+                        <th className="py-3 font-medium">Date</th>
+                        <th className="py-3 font-medium">Heure</th>
+                        <th className="py-3 font-medium">Motif</th>
+                        <th className="py-3 font-medium">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRdvs.map((item) => (
+                        <tr key={item.id} className="border-b border-slate-100 last:border-0">
+                          <td className="py-3 text-slate-700">{item.date || "--"}</td>
+                          <td className="py-3 text-slate-700">{item.heure || "--"}</td>
+                          <td className="py-3 text-slate-700">{item.motif || "--"}</td>
+                          <td className="py-3 text-slate-700">{item.statut || "--"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {selectedMatricule && activeTab === "analyses" && (
+            <EmptyState text="Aucune analyse disponible pour ce collaborateur." />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+

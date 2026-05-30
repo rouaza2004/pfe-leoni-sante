@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 
-import leoniLogoUrl from "../assets/leoni-logo.png";
+import leoniLogoUrl from "@/views/assets/leoni-logo.png";
 
 const COMPANY_NAME = "SOCIETE LEONI WIRING SYSTEMS TUNISIA SARL";
 const HONORAIRES_TEXT =
@@ -260,3 +260,5 @@ export async function downloadDemandeExpertisePdf(formData) {
 
   doc.save(filename);
 }
+
+

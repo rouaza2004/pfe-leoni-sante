@@ -109,3 +109,4 @@ export function downloadControleMedicalPdf(formData) {
 
   doc.save(filename);
 }
+
