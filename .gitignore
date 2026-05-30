@@ -25,8 +25,13 @@ dist-ssr/
 # -----------------
 # Database dump
 # -----------------
+backup.sql
+backup_clean.sql
+backend/backup.sql
 backend/pfe_sante.sql
 pfe_sante.sql
+tmp_pdf/
+backend/tmp/
 
 # -----------------
 # Logs
