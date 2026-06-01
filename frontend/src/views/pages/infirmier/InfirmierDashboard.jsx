@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/controllers/api/api";
-import { SITE_FILTER_OPTIONS } from "@/utils/siteOptions";
+import { DEFAULT_SITE_FILTER_OPTIONS } from "@/utils/siteOptions";
 
 const StatCard = ({ title, value, subtitle, icon, alert = false, iconClass = "", onClick }) => (
   <div
@@ -122,13 +122,35 @@ export default function InfirmierDashboard() {
   });
   const [incidents, setIncidents] = useState([]);
   const [siteFilter, setSiteFilter] = useState("all");
+  const [siteOptions, setSiteOptions] = useState(DEFAULT_SITE_FILTER_OPTIONS);
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
   useEffect(() => {
+    loadSites();
+  }, []);
+
+  useEffect(() => {
     loadDashboard();
   }, [siteFilter]);
+
+  const loadSites = async () => {
+    try {
+      const res = await api.get("/sites/");
+      const sites = Array.isArray(res.data) ? res.data : [];
+      setSiteOptions([
+        ...DEFAULT_SITE_FILTER_OPTIONS.slice(0, 1),
+        ...sites
+          .map((site) => String(site?.nom || "").trim())
+          .filter(Boolean)
+          .map((site) => ({ value: site, label: site })),
+      ]);
+    } catch (e) {
+      console.error(e);
+      setSiteOptions(DEFAULT_SITE_FILTER_OPTIONS);
+    }
+  };
 
   const loadDashboard = async () => {
     try {
@@ -229,7 +251,7 @@ export default function InfirmierDashboard() {
             onChange={(event) => setSiteFilter(event.target.value)}
             className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-900"
           >
-            {SITE_FILTER_OPTIONS.map((option) => (
+            {siteOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

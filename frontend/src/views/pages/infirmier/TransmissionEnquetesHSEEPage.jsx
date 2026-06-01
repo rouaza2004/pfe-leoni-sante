@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -15,6 +15,7 @@ import {
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 
+import { api } from "@/controllers/api/api";
 import HSEEPageHeader from "@/views/components/hsee/HSEEPageHeader";
 import TransmissionEmptyState from "@/views/components/infirmier/transmission-hsee/TransmissionEmptyState";
 import TransmissionFilters from "@/views/components/infirmier/transmission-hsee/TransmissionFilters";
@@ -27,7 +28,6 @@ import TransmissionHistoryTable from "@/views/components/infirmier/transmission-
 import TransmissionStatCard from "@/views/components/infirmier/transmission-hsee/TransmissionStatCard";
 import { LEONI_SITES } from "@/utils/siteOptions";
 
-const SITES = LEONI_SITES;
 const TYPE_OPTIONS = [
   "Accident de travail",
   "Presqu'accident",
@@ -42,13 +42,13 @@ function formatToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function buildInitialForm() {
+function buildInitialForm(sites = LEONI_SITES) {
   return {
     id: null,
     reference: "",
     type: TYPE_OPTIONS[0],
     dateAccident: formatToday(),
-    site: SITES[0],
+    site: sites[0] || LEONI_SITES[0] || "",
     responsable: "",
     gravity: GRAVITY_OPTIONS[1],
     commentaire: "",
@@ -56,6 +56,17 @@ function buildInitialForm() {
     urgent: false,
     document: null,
   };
+}
+
+function getDocumentName(value) {
+  if (!value) return "";
+  if (typeof value.name === "string") return value.name;
+  if (typeof value.documentName === "string") return value.documentName;
+  return "";
+}
+
+function isFileDocument(value) {
+  return typeof File !== "undefined" && value instanceof File;
 }
 
 function buildPdf(form, status) {
@@ -85,7 +96,7 @@ function buildPdf(form, status) {
   line("Priorité :", form.priority);
   line("Statut :", status);
   line("Urgent :", form.urgent ? "Oui" : "Non");
-  line("Document lié :", form.document?.name || "Aucun fichier");
+  line("Document lié :", getDocumentName(form.document) || "Aucun fichier");
 
   y += 4;
   doc.setFont("helvetica", "bold");
@@ -98,25 +109,6 @@ function buildPdf(form, status) {
   return doc;
 }
 
-function buildRowFromForm(form, status = "Brouillon") {
-  const now = new Date();
-  return {
-    id: form.id || `tx-${now.getTime()}`,
-    reference: form.reference,
-    type: form.type,
-    dateAccident: form.dateAccident,
-    site: form.site,
-    responsable: form.responsable,
-    gravity: form.gravity,
-    commentaire: form.commentaire,
-    priority: form.priority,
-    urgent: form.urgent,
-    document: form.document,
-    status,
-    createdAt: now.toISOString(),
-  };
-}
-
 function validateForm(form) {
   const next = {};
   if (!form.reference.trim()) next.reference = "Champ obligatoire.";
@@ -127,14 +119,106 @@ function validateForm(form) {
   return next;
 }
 
+function mapTransmissionRow(row) {
+  return {
+    id: row.id,
+    reference: row.reference || "",
+    type: row.type || TYPE_OPTIONS[0],
+    dateAccident: row.dateAccident || "",
+    site: row.site || "",
+    responsable: row.responsable || "",
+    gravity: row.gravity || "",
+    commentaire: row.commentaire || "",
+    priority: row.priority || "",
+    urgent: Boolean(row.urgent),
+    status: row.status || "Brouillon",
+    statusCode: row.statusCode || "BROUILLON",
+    documentName: row.documentName || "",
+    documentUrl: row.documentUrl || "",
+    pdfUrl: row.pdfUrl || "",
+    sentAt: row.sentAt || "",
+    createdAt: row.createdAt || "",
+    updatedAt: row.updatedAt || "",
+  };
+}
+
+function buildFormData(form, action) {
+  const payload = new FormData();
+  payload.append("reference", form.reference);
+  payload.append("type", form.type);
+  payload.append("dateAccident", form.dateAccident);
+  payload.append("site", form.site);
+  payload.append("responsable", form.responsable);
+  payload.append("gravity", form.gravity);
+  payload.append("commentaire", form.commentaire);
+  payload.append("priority", form.priority);
+  payload.append("urgent", form.urgent ? "true" : "false");
+  payload.append("action", action);
+  if (isFileDocument(form.document)) {
+    payload.append("document", form.document);
+  }
+  return payload;
+}
+
 export default function TransmissionEnquetesHSEEPage() {
-  const [form, setForm] = useState(buildInitialForm);
+  const [sites, setSites] = useState(LEONI_SITES);
+  const [form, setForm] = useState(() => buildInitialForm(LEONI_SITES));
   const [errors, setErrors] = useState({});
   const [transmissions, setTransmissions] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [siteFilter, setSiteFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPageData = async () => {
+      try {
+        setIsLoading(true);
+        const [sitesResponse, transmissionsResponse] = await Promise.all([
+          api.get("/sites/"),
+          api.get("/medical/hsee-transmissions/"),
+        ]);
+
+        if (cancelled) return;
+
+        const nextSites = Array.isArray(sitesResponse.data)
+          ? sitesResponse.data.map((item) => item?.nom).filter(Boolean)
+          : [];
+        const resolvedSites = nextSites.length ? nextSites : LEONI_SITES;
+        setSites(resolvedSites);
+        setForm((current) => ({
+          ...current,
+          site: resolvedSites.includes(current.site) ? current.site : resolvedSites[0] || "",
+        }));
+
+        const rows = Array.isArray(transmissionsResponse.data)
+          ? transmissionsResponse.data.map(mapTransmissionRow)
+          : [];
+        setTransmissions(rows);
+      } catch (error) {
+        console.error("Erreur chargement transmissions HSEE", error);
+        if (!cancelled) {
+          toast.error("Impossible de charger les transmissions HSEE.");
+          setSites(LEONI_SITES);
+          setTransmissions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadPageData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const countByStatus = (status) =>
@@ -196,23 +280,69 @@ export default function TransmissionEnquetesHSEEPage() {
     },
   ];
 
+  const siteOptions = useMemo(
+    () => [{ value: "all", label: "Tous les sites" }, ...sites.map((item) => ({ value: item, label: item }))],
+    [sites]
+  );
+
   const setField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const upsertTransmission = (status) => {
+  const upsertTransmissionState = (row) => {
+    const normalized = mapTransmissionRow(row);
+    setTransmissions((current) => {
+      const exists = current.some((item) => item.id === normalized.id);
+      if (!exists) return [normalized, ...current];
+      return current.map((item) => (item.id === normalized.id ? normalized : item));
+    });
+    return normalized;
+  };
+
+  const persistTransmission = async (action) => {
     const nextErrors = validateForm(form);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return null;
 
-    const nextRow = buildRowFromForm(form, status);
-    setTransmissions((current) => {
-      const exists = current.some((item) => item.id === nextRow.id);
-      if (!exists) return [nextRow, ...current];
-      return current.map((item) => (item.id === nextRow.id ? nextRow : item));
-    });
-    setForm((current) => ({ ...current, id: nextRow.id }));
-    return nextRow;
+    try {
+      setIsSaving(true);
+      const payload = buildFormData(form, action);
+      const response = form.id
+        ? await api.patch(`/medical/hsee-transmissions/${form.id}/`, payload)
+        : await api.post("/medical/hsee-transmissions/", payload);
+      const saved = upsertTransmissionState(response.data);
+      setForm((current) => ({
+        ...current,
+        id: saved.id,
+        document: saved.documentName
+          ? { name: saved.documentName, url: saved.documentUrl || "", persisted: true }
+          : current.document,
+      }));
+      return saved;
+    } catch (error) {
+      console.error("Erreur sauvegarde transmission HSEE", error);
+      toast.error("Impossible d'enregistrer la transmission.");
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateTransmissionStatus = async (id, action, message, tone = "success") => {
+    try {
+      const payload = new FormData();
+      payload.append("action", action);
+      const response = await api.patch(`/medical/hsee-transmissions/${id}/`, payload);
+      upsertTransmissionState(response.data);
+      if (tone === "error") {
+        toast.error(message);
+      } else {
+        toast.success(message);
+      }
+    } catch (error) {
+      console.error("Erreur mise a jour statut transmission HSEE", error);
+      toast.error("Impossible de mettre à jour le statut.");
+    }
   };
 
   const handlePreview = () => {
@@ -229,18 +359,20 @@ export default function TransmissionEnquetesHSEEPage() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    buildPdf(form, "Brouillon").save(`${form.reference || "transmission-hsee"}.pdf`);
+    buildPdf(form, form.id ? "Enregistrée" : "Brouillon").save(
+      `${form.reference || "transmission-hsee"}.pdf`
+    );
     toast.success("PDF généré avec succès.");
   };
 
-  const handleSave = () => {
-    const row = upsertTransmission("Brouillon");
+  const handleSave = async () => {
+    const row = await persistTransmission("save");
     if (!row) return;
     toast.success("Transmission enregistrée en brouillon.");
   };
 
-  const handleTransmit = () => {
-    const row = upsertTransmission("En attente");
+  const handleTransmit = async () => {
+    const row = await persistTransmission("transmit");
     if (!row) return;
     toast.success("Enquête transmise vers HSEE.");
   };
@@ -257,16 +389,12 @@ export default function TransmissionEnquetesHSEEPage() {
       commentaire: row.commentaire,
       priority: row.priority,
       urgent: row.urgent,
-      document: row.document || null,
+      document: row.documentName
+        ? { name: row.documentName, url: row.documentUrl || "", persisted: true }
+        : null,
     });
     setErrors({});
     toast.success("Transmission chargée dans le formulaire.");
-  };
-
-  const updateStatus = (id, status) => {
-    setTransmissions((current) =>
-      current.map((item) => (item.id === id ? { ...item, status } : item))
-    );
   };
 
   const handlePreviewRow = (row) => {
@@ -282,7 +410,7 @@ export default function TransmissionEnquetesHSEEPage() {
         commentaire: row.commentaire,
         priority: row.priority,
         urgent: row.urgent,
-        document: row.document,
+        document: row.documentName ? { name: row.documentName } : null,
       },
       row.status
     );
@@ -302,7 +430,7 @@ export default function TransmissionEnquetesHSEEPage() {
         commentaire: row.commentaire,
         priority: row.priority,
         urgent: row.urgent,
-        document: row.document,
+        document: row.documentName ? { name: row.documentName } : null,
       },
       row.status
     );
@@ -372,7 +500,7 @@ export default function TransmissionEnquetesHSEEPage() {
             value={form.site}
             error={errors.site}
             onChange={(event) => setField("site", event.target.value)}
-            options={SITES.map((item) => ({ value: item, label: item }))}
+            options={sites.map((item) => ({ value: item, label: item }))}
           />
           <TextField
             label="Responsable"
@@ -399,7 +527,7 @@ export default function TransmissionEnquetesHSEEPage() {
             </p>
             <label className="mt-2 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-3.5 py-2.5 text-[13px] text-slate-600 transition hover:border-slate-400">
               <span className="truncate">
-                {form.document?.name || "Ajouter un fichier PDF ou document justificatif"}
+                {getDocumentName(form.document) || "Ajouter un fichier PDF ou document justificatif"}
               </span>
               <FileUp className="h-4 w-4 shrink-0 text-slate-500" />
               <input
@@ -450,7 +578,8 @@ export default function TransmissionEnquetesHSEEPage() {
           <button
             type="button"
             onClick={handleSave}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[13px] font-medium text-white transition hover:bg-slate-800"
+            disabled={isSaving}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[13px] font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Save className="h-4 w-4" />
             Enregistrer
@@ -458,7 +587,8 @@ export default function TransmissionEnquetesHSEEPage() {
           <button
             type="button"
             onClick={handleTransmit}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+            disabled={isSaving}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Send className="h-4 w-4" />
             Transmettre vers HSEE
@@ -479,10 +609,7 @@ export default function TransmissionEnquetesHSEEPage() {
           value: item,
           label: item === "all" ? "Tous les statuts" : item,
         }))}
-        siteOptions={[
-          { value: "all", label: "Tous les sites" },
-          ...SITES.map((item) => ({ value: item, label: item })),
-        ]}
+        siteOptions={siteOptions}
       />
 
       <section className="rounded-3xl bg-white p-2.5 shadow-sm ring-1 ring-slate-200">
@@ -495,21 +622,19 @@ export default function TransmissionEnquetesHSEEPage() {
           </p>
         </div>
 
-        {filteredTransmissions.length === 0 ? (
+        {isLoading ? (
+          <TransmissionEmptyState text="Chargement des transmissions HSEE..." />
+        ) : filteredTransmissions.length === 0 ? (
           <TransmissionEmptyState text="Aucune enquête transmise actuellement" />
         ) : (
           <TransmissionHistoryTable
             rows={filteredTransmissions}
             onPreview={handlePreviewRow}
             onDownload={handleDownloadRow}
-            onValidate={(id) => {
-              updateStatus(id, "Validée");
-              toast.success("Transmission validée.");
-            }}
-            onReject={(id) => {
-              updateStatus(id, "Rejetée");
-              toast.error("Transmission rejetée.");
-            }}
+            onValidate={(id) => updateTransmissionStatus(id, "validate", "Transmission validée.")}
+            onReject={(id) =>
+              updateTransmissionStatus(id, "reject", "Transmission rejetée.", "error")
+            }
             onLoadDraft={handleLoadDraft}
           />
         )}
@@ -517,6 +642,3 @@ export default function TransmissionEnquetesHSEEPage() {
     </div>
   );
 }
-
-
-

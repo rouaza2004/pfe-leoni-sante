@@ -12,7 +12,7 @@ import {
 import { api } from "@/controllers/api/api";
 import DossierMedical from "../medecin-traitant/DossierMedical";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
-import { SITE_FILTER_OPTIONS, matchesSiteFilter } from "@/utils/siteOptions";
+import { DEFAULT_SITE_FILTER_OPTIONS, matchesSiteFilter } from "@/utils/siteOptions";
 
 const tabs = [
   { id: "profil", label: "Profil & Administratif" },
@@ -80,6 +80,7 @@ const getInitials = (prenom, nom) =>
 export default function PatientsPage() {
   const [search, setSearch] = useState("");
   const [siteFilter, setSiteFilter] = useState("all");
+  const [siteOptions, setSiteOptions] = useState(DEFAULT_SITE_FILTER_OPTIONS);
   const [collaborateurs, setCollaborateurs] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listErr, setListErr] = useState("");
@@ -101,12 +102,41 @@ export default function PatientsPage() {
   useEffect(() => {
     let cancelled = false;
 
+    const loadSites = async () => {
+      try {
+        const res = await api.get("/sites/");
+        const sites = Array.isArray(res.data) ? res.data : [];
+        if (cancelled) return;
+        setSiteOptions([
+          ...DEFAULT_SITE_FILTER_OPTIONS.slice(0, 1),
+          ...sites
+            .map((site) => String(site?.nom || "").trim())
+            .filter(Boolean)
+            .map((site) => ({ value: site, label: site })),
+        ]);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setSiteOptions(DEFAULT_SITE_FILTER_OPTIONS);
+      }
+    };
+
+    loadSites();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const fetchCollaborateurs = async () => {
       try {
         setLoadingList(true);
         setListErr("");
 
-        const res = await api.get("/collaborateurs/");
+        const params = siteFilter !== "all" ? { params: { site: siteFilter } } : undefined;
+        const res = await api.get("/collaborateurs/", params);
         const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
 
         if (cancelled) return;
@@ -124,7 +154,7 @@ export default function PatientsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [siteFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,7 +179,13 @@ export default function PatientsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedMatricule && collaborateurs.length > 0) {
+    if (!collaborateurs.length) {
+      setSelectedMatricule("");
+      return;
+    }
+
+    const stillExists = collaborateurs.some((c) => c.matricule === selectedMatricule);
+    if (!selectedMatricule || !stillExists) {
       setSelectedMatricule(collaborateurs[0].matricule || "");
     }
   }, [collaborateurs, selectedMatricule]);
@@ -283,7 +319,7 @@ export default function PatientsPage() {
             onChange={(event) => setSiteFilter(event.target.value)}
             className="mt-3 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
           >
-            {SITE_FILTER_OPTIONS.map((option) => (
+            {siteOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

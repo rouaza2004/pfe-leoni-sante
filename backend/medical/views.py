@@ -7,7 +7,7 @@ import re
 import tempfile
 import random
 import unicodedata
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.staticfiles import finders
@@ -71,6 +71,7 @@ from .models import (
     BonChauffeur,
     SuiviTransfertUrgence,
     PlanActionHSEE,
+    TransmissionEnqueteHSEE,
     HSEEGeneratedReport,
     FicheAptitude,
     DemandeExamenLabo,
@@ -102,6 +103,7 @@ from .serializers import (
     PlanActionHSEESerializer,
     AIAnalysisRequestSerializer,
     HSEEEnqueteSerializer,
+    HSEETransmissionSerializer,
     HSEEReportTemplateSerializer,
     HSEEGeneratedReportSerializer,
     HSEEReportGenerateSerializer,
@@ -117,6 +119,8 @@ from .ai_service import (
     analyze_medical_text,
 )
 
+logger = logging.getLogger(__name__)
+
 HSEE_MONTH_LABELS = {
     1: "Jan",
     2: "Fev",
@@ -130,6 +134,13 @@ HSEE_MONTH_LABELS = {
     10: "Oct",
     11: "Nov",
     12: "Dec",
+}
+
+LEGACY_SITE_MATRICULE_BASES = {
+    "MH": 1683100000,
+    "MS": 1683200000,
+    "MT1": 1683300000,
+    "MT2": 1683400000,
 }
 
 
@@ -272,6 +283,62 @@ def _normalize_site_filter(value):
     if not site or site.lower() in {"all", "tous", "tous les sites"}:
         return ""
     return site
+
+
+def _normalize_collaborateur_lookup_matricule(value):
+    raw = str(value or "").strip().upper()
+    if not raw:
+        return ""
+
+    if re.fullmatch(r"\d{10}", raw):
+        return raw
+
+    legacy_match = re.fullmatch(r"(MH|MS|MT1|MT2)\s*-?\s*(\d{1,4})", raw)
+    if legacy_match:
+        prefix = legacy_match.group(1)
+        index = int(legacy_match.group(2))
+        return str(LEGACY_SITE_MATRICULE_BASES[prefix] + index)
+
+    digits_only = re.sub(r"\D", "", raw)
+    if re.fullmatch(r"\d{10}", digits_only):
+        return digits_only
+
+    return raw
+
+
+def _find_collaborateur_for_enquete(matricule):
+    raw = str(matricule or "").strip()
+    normalized = _normalize_collaborateur_lookup_matricule(raw)
+    attempts = [raw]
+    if normalized and normalized not in attempts:
+        attempts.append(normalized)
+
+    for candidate in attempts:
+        if not candidate:
+            continue
+        collaborateur = Collaborateur.objects.select_related("site").filter(matricule=candidate).first()
+        if collaborateur:
+            logger.info(
+                "Enquete workflow: collaborator resolved for matricule lookup",
+                extra={
+                    "workflow": "enquete_initiale",
+                    "raw_matricule": raw,
+                    "resolved_matricule": collaborateur.matricule,
+                    "collaborateur_id": collaborateur.id,
+                    "site": getattr(getattr(collaborateur, "site", None), "nom", ""),
+                },
+            )
+            return collaborateur
+
+    logger.warning(
+        "Enquete workflow: collaborator lookup failed",
+        extra={
+            "workflow": "enquete_initiale",
+            "raw_matricule": raw,
+            "normalized_matricule": normalized,
+        },
+    )
+    raise ValidationError({"victime_matricule": "Collaborateur introuvable pour cette matricule."})
 
 
 def _build_hsee_filter_meta(request):
@@ -1057,7 +1124,7 @@ class AccidentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 def _resolve_enquete_initiale_links(payload):
     matricule = str(payload.get("victime_matricule", "")).strip()
-    collaborateur = get_object_or_404(Collaborateur, matricule=matricule)
+    collaborateur = _find_collaborateur_for_enquete(matricule)
     dossier, _ = DossierMedical.objects.get_or_create(collaborateur=collaborateur)
 
     accident_queryset = AccidentTravail.objects.filter(dossier=dossier)
@@ -1066,7 +1133,17 @@ def _resolve_enquete_initiale_links(payload):
         accident_queryset = accident_queryset.filter(date_accident=date_accident)
 
     accident = accident_queryset.order_by("-date_accident", "-created_at").first()
-    return dossier, accident
+    logger.info(
+        "Enquete workflow: links resolved",
+        extra={
+            "workflow": "enquete_initiale",
+            "collaborateur_id": collaborateur.id,
+            "dossier_id": dossier.id,
+            "accident_id": getattr(accident, "id", None),
+            "matricule": collaborateur.matricule,
+        },
+    )
+    return dossier, accident, collaborateur
 
 
 class EnqueteInitialeAccidentListCreateView(APIView):
@@ -1088,13 +1165,34 @@ class EnqueteInitialeAccidentListCreateView(APIView):
         serializer = EnqueteInitialeAccidentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        dossier, accident = _resolve_enquete_initiale_links(serializer.validated_data)
+        dossier, accident, collaborateur = _resolve_enquete_initiale_links(serializer.validated_data)
 
         instance = serializer.save(
             dossier=dossier,
             accident=accident,
             created_by=request.user,
             statut="ENREGISTRE",
+            victime_matricule=collaborateur.matricule,
+            victime_nom_prenom=serializer.validated_data.get("victime_nom_prenom")
+            or f"{collaborateur.nom} {collaborateur.prenom}".strip(),
+            victime_numero_telephone=serializer.validated_data.get("victime_numero_telephone")
+            or getattr(collaborateur, "telephone", ""),
+            victime_appartenance=serializer.validated_data.get("victime_appartenance")
+            or getattr(collaborateur, "departement", ""),
+        )
+
+        logger.info(
+            "Enquete workflow: investigation created",
+            extra={
+                "workflow": "enquete_initiale",
+                "enquete_id": instance.pk,
+                "created_by_id": getattr(request.user, "id", None),
+                "created_by_role": getattr(request.user, "role", ""),
+                "collaborateur_id": collaborateur.id,
+                "matricule": collaborateur.matricule,
+                "accident_id": getattr(accident, "id", None),
+                "statut": instance.statut,
+            },
         )
 
         return Response(
@@ -1132,7 +1230,7 @@ class EnqueteInitialeAccidentDetailView(APIView):
         serializer = EnqueteInitialeAccidentSerializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
-        dossier, accident = _resolve_enquete_initiale_links(
+        dossier, accident, collaborateur = _resolve_enquete_initiale_links(
             {
                 "victime_matricule": serializer.validated_data.get(
                     "victime_matricule", instance.victime_matricule
@@ -1147,6 +1245,31 @@ class EnqueteInitialeAccidentDetailView(APIView):
             dossier=dossier,
             accident=accident,
             statut="ENVOYE_HSEE" if instance.sent_to_hsee else "ENREGISTRE",
+            victime_matricule=collaborateur.matricule,
+            victime_nom_prenom=serializer.validated_data.get("victime_nom_prenom", instance.victime_nom_prenom)
+            or f"{collaborateur.nom} {collaborateur.prenom}".strip(),
+            victime_numero_telephone=serializer.validated_data.get(
+                "victime_numero_telephone", instance.victime_numero_telephone
+            )
+            or getattr(collaborateur, "telephone", ""),
+            victime_appartenance=serializer.validated_data.get(
+                "victime_appartenance", instance.victime_appartenance
+            )
+            or getattr(collaborateur, "departement", ""),
+        )
+        logger.info(
+            "Enquete workflow: investigation updated",
+            extra={
+                "workflow": "enquete_initiale",
+                "enquete_id": saved.pk,
+                "updated_by_id": getattr(request.user, "id", None),
+                "updated_by_role": getattr(request.user, "role", ""),
+                "collaborateur_id": collaborateur.id,
+                "matricule": collaborateur.matricule,
+                "accident_id": getattr(accident, "id", None),
+                "statut": saved.statut,
+                "sent_to_hsee": saved.sent_to_hsee,
+            },
         )
         return Response(EnqueteInitialeAccidentSerializer(saved).data)
 
@@ -1165,6 +1288,14 @@ class EnqueteInitialeAccidentSendToHSEEView(APIView):
         )
 
         if enquete.sent_to_hsee:
+            logger.info(
+                "Enquete workflow: send skipped because already sent",
+                extra={
+                    "workflow": "enquete_initiale",
+                    "enquete_id": enquete.pk,
+                    "matricule": enquete.victime_matricule,
+                },
+            )
             return Response(EnqueteInitialeAccidentSerializer(enquete).data)
 
         try:
@@ -1195,6 +1326,17 @@ class EnqueteInitialeAccidentSendToHSEEView(APIView):
         data["pdf_generated"] = True
         data["pdf_filename"] = saved_pdf_path.name
         data["pdf_path"] = str(saved_pdf_path)
+        logger.info(
+            "Enquete workflow: investigation sent to HSEE",
+            extra={
+                "workflow": "enquete_initiale",
+                "enquete_id": enquete.pk,
+                "matricule": enquete.victime_matricule,
+                "sent_by_id": getattr(request.user, "id", None),
+                "sent_by_role": getattr(request.user, "role", ""),
+                "sent_to_hsee_at": enquete.sent_to_hsee_at.isoformat() if enquete.sent_to_hsee_at else "",
+            },
+        )
         return Response(data)
 
 
@@ -1223,11 +1365,256 @@ class EnqueteInitialeAccidentPdfView(APIView):
         return response
 
 
+def _serialize_hsee_transmission_row(transmission):
+    document_name = ""
+    document_url = ""
+    if getattr(transmission, "document", None):
+        document_name = transmission.document.name.rsplit("/", 1)[-1]
+        try:
+            document_url = transmission.document.url
+        except Exception:
+            document_url = ""
+
+    return {
+        "id": transmission.id,
+        "reference": transmission.numero_enquete,
+        "type": transmission.type_enquete,
+        "dateAccident": transmission.date_accident.isoformat() if transmission.date_accident else "",
+        "site": transmission.site,
+        "responsable": transmission.responsable,
+        "gravity": transmission.niveau_gravite or "",
+        "commentaire": transmission.commentaire_transmission or "",
+        "priority": transmission.priorite or "",
+        "urgent": bool(transmission.urgent),
+        "status": transmission.get_transmission_status_display(),
+        "statusCode": transmission.transmission_status,
+        "documentName": document_name,
+        "documentUrl": document_url,
+        "sentAt": transmission.sent_at.isoformat() if transmission.sent_at else "",
+        "createdAt": transmission.created_at.isoformat() if transmission.created_at else "",
+        "updatedAt": transmission.updated_at.isoformat() if transmission.updated_at else "",
+        "pdfUrl": f"/api/medical/hsee-transmissions/{transmission.pk}/pdf/",
+    }
+
+
+def _build_transmission_hsee_pdf(transmission):
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    y = height - 50
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(40, y, "Transmission des enquetes HSEE")
+    y -= 28
+
+    rows = [
+        ("Numero enquete", transmission.numero_enquete),
+        ("Type d'enquete", transmission.type_enquete),
+        ("Date accident", transmission.date_accident.strftime("%Y-%m-%d") if transmission.date_accident else ""),
+        ("Site", transmission.site),
+        ("Responsable", transmission.responsable),
+        ("Niveau de gravite", transmission.niveau_gravite or ""),
+        ("Priorite", transmission.priorite or ""),
+        ("Urgent", "Oui" if transmission.urgent else "Non"),
+        ("Statut", transmission.get_transmission_status_display()),
+        ("Envoye a HSEE", "Oui" if transmission.sent_to_hsee else "Non"),
+        ("Date d'envoi", transmission.sent_at.strftime("%Y-%m-%d %H:%M") if transmission.sent_at else ""),
+        (
+            "Document joint",
+            transmission.document.name.rsplit("/", 1)[-1] if getattr(transmission, "document", None) else "",
+        ),
+    ]
+
+    pdf.setFont("Helvetica", 11)
+    for label, value in rows:
+        pdf.drawString(40, y, f"{label} : {value or '-'}")
+        y -= 18
+        if y < 120:
+            pdf.showPage()
+            pdf.setFont("Helvetica", 11)
+            y = height - 50
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(40, y, "Commentaire de transmission")
+    y -= 18
+    pdf.setFont("Helvetica", 11)
+    for line in (transmission.commentaire_transmission or "-").splitlines() or ["-"]:
+        pdf.drawString(40, y, line[:110])
+        y -= 16
+        if y < 60:
+            pdf.showPage()
+            pdf.setFont("Helvetica", 11)
+            y = height - 50
+
+    pdf.save()
+    return buffer.getvalue()
+
+
+class HSEETransmissionListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request, *args, **kwargs):
+        queryset = TransmissionEnqueteHSEE.objects.order_by("-sent_at", "-created_at")
+        logger.info(
+            "HSEE transmission workflow: history retrieved",
+            extra={
+                "workflow": "hsee_transmission",
+                "requested_by_id": getattr(request.user, "id", None),
+                "requested_by_role": getattr(request.user, "role", ""),
+                "count": queryset.count(),
+            },
+        )
+        return Response([_serialize_hsee_transmission_row(item) for item in queryset])
+
+    def post(self, request, *args, **kwargs):
+        action = (request.data.get("action") or "save").strip().lower()
+        is_submit = action == "transmit"
+        document = request.FILES.get("document")
+
+        payload = {
+            "numero_enquete": (request.data.get("reference") or "").strip(),
+            "type_enquete": (request.data.get("type") or "").strip(),
+            "date_accident": request.data.get("dateAccident") or None,
+            "site": (request.data.get("site") or "").strip(),
+            "responsable": (request.data.get("responsable") or "").strip(),
+            "niveau_gravite": (request.data.get("gravity") or "").strip(),
+            "priorite": (request.data.get("priority") or "").strip(),
+            "urgent": str(request.data.get("urgent") or "").strip().lower() in {"1", "true", "yes", "on"},
+            "commentaire_transmission": (request.data.get("commentaire") or "").strip(),
+            "transmission_status": "EN_ATTENTE" if is_submit else "BROUILLON",
+            "sent_to_hsee": is_submit,
+            "sent_at": timezone.now() if is_submit else None,
+        }
+        if document is not None:
+            payload["document"] = document
+
+        serializer = HSEETransmissionSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        transmission = serializer.save(created_by=request.user)
+
+        logger.info(
+            "HSEE transmission workflow: transmission created",
+            extra={
+                "workflow": "hsee_transmission",
+                "transmission_id": transmission.pk,
+                "reference": transmission.numero_enquete,
+                "site": transmission.site,
+                "status": transmission.transmission_status,
+                "sent_to_hsee": transmission.sent_to_hsee,
+                "created_by_id": getattr(request.user, "id", None),
+                "created_by_role": getattr(request.user, "role", ""),
+            },
+        )
+        if transmission.sent_to_hsee:
+            logger.info(
+                "HSEE transmission workflow: transmission submitted to HSEE",
+                extra={
+                    "workflow": "hsee_transmission",
+                    "transmission_id": transmission.pk,
+                    "reference": transmission.numero_enquete,
+                    "sent_at": transmission.sent_at.isoformat() if transmission.sent_at else "",
+                },
+            )
+
+        return Response(_serialize_hsee_transmission_row(transmission), status=status.HTTP_201_CREATED)
+
+
+class HSEETransmissionDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_object(self, pk):
+        return get_object_or_404(TransmissionEnqueteHSEE, pk=pk)
+
+    def patch(self, request, pk, *args, **kwargs):
+        transmission = self.get_object(pk)
+        action = (request.data.get("action") or "").strip().lower()
+        document = request.FILES.get("document")
+
+        updates = {}
+        field_map = {
+            "reference": "numero_enquete",
+            "type": "type_enquete",
+            "dateAccident": "date_accident",
+            "site": "site",
+            "responsable": "responsable",
+            "gravity": "niveau_gravite",
+            "priority": "priorite",
+            "commentaire": "commentaire_transmission",
+        }
+        for request_key, model_key in field_map.items():
+            if request_key in request.data:
+                updates[model_key] = request.data.get(request_key)
+        if "urgent" in request.data:
+            updates["urgent"] = str(request.data.get("urgent") or "").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        if document is not None:
+            updates["document"] = document
+
+        if action == "transmit":
+            updates["transmission_status"] = "EN_ATTENTE"
+            updates["sent_to_hsee"] = True
+            updates["sent_at"] = timezone.now()
+        elif action == "save":
+            updates["transmission_status"] = "BROUILLON"
+            updates["sent_to_hsee"] = False
+            updates["sent_at"] = None
+        elif action == "validate":
+            updates["transmission_status"] = "VALIDEE"
+        elif action == "reject":
+            updates["transmission_status"] = "REJETEE"
+
+        serializer = HSEETransmissionSerializer(transmission, data=updates, partial=True)
+        serializer.is_valid(raise_exception=True)
+        saved = serializer.save()
+
+        logger.info(
+            "HSEE transmission workflow: transmission updated",
+            extra={
+                "workflow": "hsee_transmission",
+                "transmission_id": saved.pk,
+                "reference": saved.numero_enquete,
+                "status": saved.transmission_status,
+                "sent_to_hsee": saved.sent_to_hsee,
+                "updated_by_id": getattr(request.user, "id", None),
+                "updated_by_role": getattr(request.user, "role", ""),
+                "action": action or "edit",
+            },
+        )
+        return Response(_serialize_hsee_transmission_row(saved))
+
+
+class HSEETransmissionPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        transmission = get_object_or_404(TransmissionEnqueteHSEE, pk=pk)
+        pdf_bytes = _build_transmission_hsee_pdf(transmission)
+        disposition = "attachment" if request.query_params.get("download") == "1" else "inline"
+        filename = f"transmission_hsee_{transmission.pk}.pdf"
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+        return response
+
+
 class HSEEEnquetesReceivedListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        queryset = (
+        site = _normalize_site_filter(request.query_params.get("site"))
+        date_filter = (request.query_params.get("date") or "").strip()
+        search = (request.query_params.get("q") or "").strip()
+
+        enquete_queryset = (
             EnqueteInitialeAccident.objects.select_related(
                 "accident",
                 "dossier__collaborateur",
@@ -1235,9 +1622,98 @@ class HSEEEnquetesReceivedListView(APIView):
             .filter(sent_to_hsee=True)
             .order_by("-sent_to_hsee_at", "-date_accident", "-created_at")
         )
+        transmission_queryset = TransmissionEnqueteHSEE.objects.filter(sent_to_hsee=True).order_by(
+            "-sent_at",
+            "-date_accident",
+            "-created_at",
+        )
+
+        initial_enquete_count = enquete_queryset.count()
+        initial_transmission_count = transmission_queryset.count()
+
+        if site:
+            enquete_before = enquete_queryset.count()
+            transmission_before = transmission_queryset.count()
+            enquete_queryset = enquete_queryset.filter(dossier__collaborateur__site__nom__iexact=site)
+            transmission_queryset = transmission_queryset.filter(site__iexact=site)
+            logger.info(
+                "HSEE received investigations: site filter applied",
+                extra={
+                    "workflow": "enquete_initiale_hsee_received",
+                    "site": site,
+                    "before_enquete_count": enquete_before,
+                    "after_enquete_count": enquete_queryset.count(),
+                    "before_transmission_count": transmission_before,
+                    "after_transmission_count": transmission_queryset.count(),
+                },
+            )
+
+        if date_filter:
+            enquete_before = enquete_queryset.count()
+            transmission_before = transmission_queryset.count()
+            enquete_queryset = enquete_queryset.filter(date_accident=date_filter)
+            transmission_queryset = transmission_queryset.filter(date_accident=date_filter)
+            logger.info(
+                "HSEE received investigations: date filter applied",
+                extra={
+                    "workflow": "enquete_initiale_hsee_received",
+                    "date": date_filter,
+                    "before_enquete_count": enquete_before,
+                    "after_enquete_count": enquete_queryset.count(),
+                    "before_transmission_count": transmission_before,
+                    "after_transmission_count": transmission_queryset.count(),
+                },
+            )
+
+        if search:
+            enquete_before = enquete_queryset.count()
+            transmission_before = transmission_queryset.count()
+            enquete_queryset = enquete_queryset.filter(
+                Q(victime_nom_prenom__icontains=search)
+                | Q(victime_matricule__icontains=search)
+                | Q(accident__nature_lesion__icontains=search)
+                | Q(accident__cause__icontains=search)
+                | Q(dossier__collaborateur__nom__icontains=search)
+                | Q(dossier__collaborateur__prenom__icontains=search)
+                | Q(dossier__collaborateur__matricule__icontains=search)
+            )
+            transmission_queryset = transmission_queryset.filter(
+                Q(numero_enquete__icontains=search)
+                | Q(type_enquete__icontains=search)
+                | Q(site__icontains=search)
+                | Q(responsable__icontains=search)
+                | Q(commentaire_transmission__icontains=search)
+            )
+            logger.info(
+                "HSEE received investigations: search filter applied",
+                extra={
+                    "workflow": "enquete_initiale_hsee_received",
+                    "search": search,
+                    "before_enquete_count": enquete_before,
+                    "after_enquete_count": enquete_queryset.count(),
+                    "before_transmission_count": transmission_before,
+                    "after_transmission_count": transmission_queryset.count(),
+                },
+            )
+
+        logger.info(
+            "HSEE received investigations: retrieval started",
+            extra={
+                "workflow": "enquete_initiale_hsee_received",
+                "requested_by_id": getattr(request.user, "id", None),
+                "requested_by_role": getattr(request.user, "role", ""),
+                "initial_enquete_count": initial_enquete_count,
+                "initial_transmission_count": initial_transmission_count,
+                "final_enquete_count": enquete_queryset.count(),
+                "final_transmission_count": transmission_queryset.count(),
+                "site": site,
+                "date": date_filter,
+                "search": search,
+            },
+        )
 
         records = []
-        for enquete in queryset:
+        for enquete in enquete_queryset:
             collab = getattr(enquete.dossier, "collaborateur", None)
             records.append(
                 {
@@ -1254,6 +1730,7 @@ class HSEEEnquetesReceivedListView(APIView):
                         )
                     ).strip(),
                     "matricule": enquete.victime_matricule or getattr(collab, "matricule", ""),
+                    "site": getattr(getattr(collab, "site", None), "nom", "") or "",
                     "type_accident": getattr(enquete.accident, "nature_lesion", "")
                     or getattr(enquete.accident, "cause", "")
                     or "Accident",
@@ -1269,8 +1746,49 @@ class HSEEEnquetesReceivedListView(APIView):
                         "victime_appartenance": enquete.victime_appartenance,
                         "victime_horaire_travail": enquete.victime_horaire_travail,
                     },
+                    "_sort_datetime": enquete.sent_to_hsee_at or enquete.created_at,
                 }
             )
+
+        for transmission in transmission_queryset:
+            document_name = ""
+            if getattr(transmission, "document", None):
+                document_name = transmission.document.name.rsplit("/", 1)[-1]
+            records.append(
+                {
+                    "id": f"transmission-{transmission.id}",
+                    "date": transmission.date_accident,
+                    "collaborateur": transmission.responsable or transmission.numero_enquete,
+                    "matricule": transmission.numero_enquete,
+                    "site": transmission.site,
+                    "type_accident": transmission.type_enquete,
+                    "status": transmission.get_transmission_status_display(),
+                    "sent_to_hsee_at": transmission.sent_at,
+                    "pdf_url": f"/api/medical/hsee-transmissions/{transmission.pk}/pdf/",
+                    "detail": {
+                        "lieu_accident": transmission.site,
+                        "heure_accident": "",
+                        "circonstances_accident": transmission.commentaire_transmission,
+                        "siege_type_lesion": transmission.niveau_gravite or "",
+                        "lieu_transport_victime": document_name,
+                        "victime_appartenance": transmission.site,
+                        "victime_horaire_travail": (
+                            f"{transmission.priorite or ''}{' - Urgent' if transmission.urgent else ''}".strip(" -")
+                        ),
+                    },
+                    "_sort_datetime": transmission.sent_at or transmission.created_at,
+                }
+            )
+
+        records.sort(
+            key=lambda item: (
+                item.get("_sort_datetime") or timezone.make_aware(datetime(1970, 1, 1)),
+                item.get("date") or date(1970, 1, 1),
+            ),
+            reverse=True,
+        )
+        for item in records:
+            item.pop("_sort_datetime", None)
 
         return Response(records)
 

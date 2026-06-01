@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
+from django.db.models import Case, When, Value, IntegerField
 
 from .models import Collaborateur, Site, User
 from .permissions import CanViewCollaborateurList
@@ -156,7 +157,16 @@ class CollaborateurDetailAPIView(APIView):
 class SiteListAPIView(generics.ListAPIView):
     serializer_class = SiteSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Site.objects.all().order_by("nom", "localite")
+    queryset = Site.objects.annotate(
+        display_order=Case(
+            When(nom__iexact="Menzel Hayet", then=Value(1)),
+            When(nom__iexact="Messadine", then=Value(2)),
+            When(nom__iexact="Mateur 1", then=Value(3)),
+            When(nom__iexact="Mateur 2", then=Value(4)),
+            default=Value(99),
+            output_field=IntegerField(),
+        )
+    ).order_by("display_order", "nom", "localite")
 
 
 class RHKpiView(APIView):

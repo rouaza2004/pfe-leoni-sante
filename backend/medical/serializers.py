@@ -22,6 +22,7 @@ from .models import (
     BonChauffeur,
     SuiviTransfertUrgence,
     PointageMedecin,
+    TransmissionEnqueteHSEE,
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
@@ -527,6 +528,67 @@ class HSEEEnqueteSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         raise NotImplementedError
+
+
+class HSEETransmissionSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    status_code = serializers.CharField(source="transmission_status", read_only=True)
+    transmission_status = serializers.ChoiceField(
+        choices=TransmissionEnqueteHSEE.STATUS_CHOICES,
+        write_only=True,
+        required=False,
+    )
+    document_url = serializers.SerializerMethodField()
+    document_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TransmissionEnqueteHSEE
+        fields = [
+            "id",
+            "numero_enquete",
+            "type_enquete",
+            "date_accident",
+            "site",
+            "responsable",
+            "niveau_gravite",
+            "priorite",
+            "urgent",
+            "commentaire_transmission",
+            "document",
+            "document_url",
+            "document_name",
+            "status",
+            "status_code",
+            "transmission_status",
+            "sent_to_hsee",
+            "sent_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "document_url",
+            "document_name",
+            "status",
+            "status_code",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_status(self, obj):
+        return obj.get_transmission_status_display()
+
+    def get_document_url(self, obj):
+        if not getattr(obj, "document", None):
+            return ""
+        try:
+            return obj.document.url
+        except Exception:
+            return ""
+
+    def get_document_name(self, obj):
+        if not getattr(obj, "document", None):
+            return ""
+        return obj.document.name.rsplit("/", 1)[-1]
 
 
 class HSEEReportTemplateSerializer(serializers.Serializer):
