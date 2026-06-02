@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   Search,
@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const statusOptions = [
   { id: "PREVU", label: "Confirmé" },
@@ -454,7 +454,7 @@ export default function RDVMedTravailPage() {
                               {name || "Collaborateur"}
                             </p>
                             <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
-                              {item.matricule || "—"}
+                              {item.matricule || "””"}
                             </span>
                             <span
                               className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${typeBadgeClass(
@@ -497,6 +497,7 @@ export default function RDVMedTravailPage() {
     </div>
   );
 }
+
 
 
 

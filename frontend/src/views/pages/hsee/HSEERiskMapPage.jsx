@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -19,7 +19,7 @@ import {
   computeRiskKpis,
   createRiskFromForm,
   getRiskMapData,
-} from "@/models/services/hseeRiskMapService";
+} from "@/services/hseeRiskMapService";
 
 function EmptyState({ message }) {
   return (
@@ -207,4 +207,5 @@ export default function HSEERiskMapPage() {
     </div>
   );
 }
+
 

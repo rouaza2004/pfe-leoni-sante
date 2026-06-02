@@ -1,7 +1,7 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/leoni-logo.png";
-import { login } from "@/controllers/auth/auth.service";
+import { login } from "@/auth/auth.service";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -150,3 +150,4 @@ export default function Login() {
     </div>
   );
 }
+

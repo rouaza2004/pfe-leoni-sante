@@ -1,4 +1,4 @@
-import { api } from "@/controllers/api/api";
+﻿import { api } from "@/api/api";
 
 const EMPTY_DASHBOARD = {
   filters: {
@@ -103,4 +103,5 @@ export async function getHseeDashboardStats(period, department, site) {
 }
 
 export { EMPTY_DASHBOARD };
+
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ClipboardList,
   CheckCircle,
@@ -7,7 +7,7 @@ import {
   Clock3,
   Loader2,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 function normalizeText(value, fallback) {
   if (value === null || value === undefined) return fallback;
@@ -262,7 +262,7 @@ export default function HSEEPlanActionPage() {
                       <div className="min-w-0">
                         <p className="font-medium text-slate-900">{plan.action}</p>
                         <p className="mt-0.5 text-[10px] text-slate-500">
-                          Risque : {plan.risque} • Responsable : {plan.responsable}
+                          Risque : {plan.risque} ”¢ Responsable : {plan.responsable}
                         </p>
                       </div>
                       <div className="flex items-center">
@@ -347,4 +347,5 @@ export default function HSEEPlanActionPage() {
     </div>
   );
 }
+
 

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Search, ShieldCheck } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 import { EmptyState, getInitials } from "./collaborateurSearchWorkspace.helpers";
 
@@ -265,7 +265,7 @@ export default function CollaborateurSearchWorkspace({
                       </p>
                       <p className="mt-0.5 text-xs text-slate-500">{item.matricule || "--"}</p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {item.poste || "--"} {item.departement ? `• ${item.departement}` : ""}
+                        {item.poste || "--"} {item.departement ? `”¢ ${item.departement}` : ""}
                       </p>
                     </div>
                   </div>
@@ -351,4 +351,5 @@ export default function CollaborateurSearchWorkspace({
     </div>
   );
 }
+
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -13,8 +13,8 @@ import {
   XCircle,
   Clock3,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
-import { getUserRole, getUsername } from "@/controllers/auth/auth";
+import { api } from "@/api/api";
+import { getUserRole, getUsername } from "@/auth/auth";
 
 const DAILY_CAPACITY_MAX = 20;
 
@@ -311,7 +311,7 @@ export default function MedecinTraitantDashboard() {
         id: `imminent-${item.id || index}`,
         type: "imminent",
         title: "Rendez-vous imminent aujourd'hui",
-        description: `${item.heure?.slice?.(0, 5) || item.heure || "--"} • ${
+        description: `${item.heure?.slice?.(0, 5) || item.heure || "--"} ”¢ ${
           `${item.collaborateur_prenom || ""} ${item.collaborateur_nom || ""}`.trim() || "Collaborateur"
         }`,
         createdAt: new Date(now - (index + 1) * 18 * 60000),
@@ -378,7 +378,7 @@ export default function MedecinTraitantDashboard() {
           `${item.collaborateur_prenom || ""} ${item.collaborateur_nom || ""}`.trim() ||
           "Collaborateur",
         type: formatAppointmentType(item.motif),
-        heure: item.heure?.slice?.(0, 5) || item.heure || "—",
+        heure: item.heure?.slice?.(0, 5) || item.heure || "””",
         when: item.date === today ? "Aujourd'hui" : "Demain",
       }));
   }, [rdvs, today, tomorrow]);
@@ -589,7 +589,7 @@ export default function MedecinTraitantDashboard() {
                 <div className="min-w-0">
                   <p className="truncate text-[11px] font-medium text-slate-900">{r.nom}</p>
                   <p className="text-[10px] text-slate-500">
-                    {r.type} • {r.heure}
+                    {r.type} ”¢ {r.heure}
                   </p>
                 </div>
                 <Chip className="bg-slate-100 text-slate-700 ring-1 ring-slate-200">
@@ -603,4 +603,5 @@ export default function MedecinTraitantDashboard() {
     </div>
   );
 }
+
 

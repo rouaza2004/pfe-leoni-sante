@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Search, TriangleAlert } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const createInitialForm = (includeBonFields) => ({
   date_bon: "",
@@ -316,4 +316,5 @@ export default function IncidentBonManagementPage({
     </div>
   );
 }
+
 

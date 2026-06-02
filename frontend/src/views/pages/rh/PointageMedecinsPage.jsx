@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import {
   ResponsiveContainer,
@@ -23,7 +23,7 @@ import {
   Plane,
   Timer,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const STATUT_OPTIONS = [
   { value: "PRESENT", label: "Présent" },
@@ -661,7 +661,7 @@ export default function PointageMedecinsPage() {
     if (!summary) return;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     doc.setFont("helvetica", "bold");
-    doc.text("Récapitulatif annuel — Pointage Médecins", 15, 15);
+    doc.text("Récapitulatif annuel ”” Pointage Médecins", 15, 15);
     doc.setFont("helvetica", "normal");
     doc.text(`Année ${summary.year}`, 15, 22);
 
@@ -1072,11 +1072,11 @@ export default function PointageMedecinsPage() {
                     className="text-slate-700 transition hover:bg-slate-50"
                   >
                     <td className="px-4 py-3 font-medium text-slate-900">
-                      {row.medecin_nom || "—"}
+                      {row.medecin_nom || "””"}
                     </td>
-                    <td className="px-4 py-3">{row.date || "—"}</td>
-                    <td className="px-4 py-3">{row.heure_arrivee || "—"}</td>
-                    <td className="px-4 py-3">{row.heure_depart || "—"}</td>
+                    <td className="px-4 py-3">{row.date || "””"}</td>
+                    <td className="px-4 py-3">{row.heure_arrivee || "””"}</td>
+                    <td className="px-4 py-3">{row.heure_depart || "””"}</td>
                     <td className="px-4 py-3">{duration}</td>
                     <td className="px-4 py-3">
                       <span
@@ -1093,7 +1093,7 @@ export default function PointageMedecinsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-500">
-                      {row.note ? row.note.slice(0, 30) : "—"}
+                      {row.note ? row.note.slice(0, 30) : "””"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -1233,4 +1233,5 @@ export default function PointageMedecinsPage() {
     </div>
   );
 }
+
 

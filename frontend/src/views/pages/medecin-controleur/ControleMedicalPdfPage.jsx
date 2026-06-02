@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { ArrowLeft, Download, FileText } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { getUsername } from "@/controllers/auth/auth";
+import { getUsername } from "@/auth/auth";
 import { downloadControleMedicalPdf } from "@/utils/generateControleMedicalPdf";
 
 function Field({ label, children, hint }) {
@@ -218,5 +218,6 @@ export default function ControleMedicalPdfPage() {
     </div>
   );
 }
+
 
 

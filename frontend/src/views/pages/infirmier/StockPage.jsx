@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   Boxes,
@@ -14,7 +14,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const emptyMove = {
   stock_item: "",
@@ -691,7 +691,7 @@ export default function StockPage() {
           <div>
             <h1 className="text-[27px] font-bold tracking-tight text-slate-900">Gestion des médicaments</h1>
             <p className="mt-1 text-[14px] text-slate-500">
-              Inventaire complet de la pharmacie — stock, expiration, ajout, modification
+              Inventaire complet de la pharmacie ”” stock, expiration, ajout, modification
             </p>
           </div>
 
@@ -1035,7 +1035,7 @@ export default function StockPage() {
                 disabled={safePage === 1}
                 className="rounded-lg border border-slate-200 px-2.5 py-1 text-[13px] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                ‹
+                ”¹
               </button>
               {pageNumbers.map((page) => (
                 <button
@@ -1057,7 +1057,7 @@ export default function StockPage() {
                 disabled={safePage === totalPages}
                 className="rounded-lg border border-slate-200 px-2.5 py-1 text-[13px] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                ›
+                ”º
               </button>
             </div>
             </div>
@@ -1518,5 +1518,6 @@ export default function StockPage() {
     </div>
   );
 }
+
 
 

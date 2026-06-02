@@ -1,10 +1,10 @@
-import * as Dialog from "@radix-ui/react-dialog";
+﻿import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import {
   RISK_CATEGORY_OPTIONS,
   RISK_DEPARTMENT_OPTIONS,
-} from "@/models/services/hseeRiskMapService";
+} from "@/services/hseeRiskMapService";
 
 const INITIAL_VALUES = {
   title: "",
@@ -293,4 +293,5 @@ export default function AddRiskModal({ open, onOpenChange, onSubmit, saving = fa
     </Dialog.Root>
   );
 }
+
 

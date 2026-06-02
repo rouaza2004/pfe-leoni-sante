@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Bot,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const STORAGE_KEY = "assistant-ia-history";
 const MAX_HISTORY_ITEMS = 5;
@@ -699,4 +699,5 @@ export default function AssistantIA() {
     </div>
   );
 }
+
 

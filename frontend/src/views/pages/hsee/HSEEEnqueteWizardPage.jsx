@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import {
   Bell,
   Check,
@@ -9,7 +9,7 @@ import {
   Search,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import HSEEPageHeader from "@/views/components/hsee/HSEEPageHeader";
 
 const STEPS = [
@@ -563,4 +563,5 @@ export default function HSEEEnqueteWizardPage() {
     </div>
   );
 }
+
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -14,7 +14,7 @@ import {
   TriangleAlert,
   Activity,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
 const ActionCard = ({ title, desc, icon, onClick }) => (
@@ -527,4 +527,5 @@ export default function CollaborateurMedicalDetail() {
     </div>
   );
 }
+
 

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { api } from "@/controllers/api/api";
-import { isAuthenticated } from "@/controllers/auth/auth";
+import { api } from "@/api/api";
+import { isAuthenticated } from "@/auth/auth";
 import { SITE_FILTER_OPTIONS, getSiteName, matchesSiteFilter } from "@/utils/siteOptions";
 import ExamenComplementaireForm from "./ExamenComplementaireForm";
 import {
@@ -186,6 +186,28 @@ const buildExamenUlterieurConclusion = (row) => {
   return parts.join(" | ");
 };
 
+const resolveApiErrorMessage = (error, fallbackMessage) => {
+  const status = error?.response?.status;
+
+  if (status === 401) {
+    return "Votre session a expiré. Merci de vous reconnecter.";
+  }
+  if (status === 403) {
+    return "Vous n'avez pas l'autorisation d'accéder à ces données.";
+  }
+  if (status === 404) {
+    return "Les données demandées sont introuvables.";
+  }
+  if (status === 500) {
+    return "Le serveur a rencontré une erreur pendant le chargement.";
+  }
+  if (error?.message === "Network Error") {
+    return "Impossible de joindre le serveur pour charger les données.";
+  }
+
+  return fallbackMessage;
+};
+
 export default function CollaborateursMedTravail({
   forcedTarget = null,
   pageTitle = "Accueil Collaborateur",
@@ -356,30 +378,30 @@ export default function CollaborateursMedTravail({
       setLoading(true);
       setErr("");
 
-      const res = await api.get("/collaborateurs/");
-      const collabs = Array.isArray(res.data) ? res.data : [];
+      const [collaborateursResponse, dossiersResponse] = await Promise.all([
+        api.get("/collaborateurs/"),
+        api.get("/medical/dossiers/"),
+      ]);
 
-      const enriched = await Promise.all(
-        collabs.map(async (c) => {
-          try {
-            const dossierRes = await api.get(`/medical/dossier/${c.id}/`);
-            const dossier = dossierRes.data || null;
-            const dossierComplet = getDossierStatus(c, dossier);
-
-            return {
-              ...c,
-              dossier_medical_data: dossier,
-              dossier_complet: dossierComplet,
-            };
-          } catch (error) {
-            return {
-              ...c,
-              dossier_medical_data: null,
-              dossier_complet: false,
-            };
-          }
-        })
+      const collabs = Array.isArray(collaborateursResponse.data)
+        ? collaborateursResponse.data
+        : [];
+      const dossiers = Array.isArray(dossiersResponse.data) ? dossiersResponse.data : [];
+      const dossierByCollaborateurId = new Map(
+        dossiers
+          .filter((dossierItem) => Number.isFinite(Number(dossierItem?.collaborateur)))
+          .map((dossierItem) => [Number(dossierItem.collaborateur), dossierItem])
       );
+
+      const enriched = collabs.map((collab) => {
+        const dossier = dossierByCollaborateurId.get(Number(collab.id)) || null;
+
+        return {
+          ...collab,
+          dossier_medical_data: dossier,
+          dossier_complet: getDossierStatus(collab, dossier),
+        };
+      });
 
       setCollaborateurs(enriched);
     } catch (error) {
@@ -390,7 +412,7 @@ export default function CollaborateursMedTravail({
         return;
       }
       console.error(error);
-      setErr("Impossible de charger les dossiers médicaux.");
+      setErr(resolveApiErrorMessage(error, "Impossible de charger les dossiers médicaux."));
       setCollaborateurs([]);
     } finally {
       setLoading(false);
@@ -1458,7 +1480,7 @@ export default function CollaborateursMedTravail({
 
               {createTab === "tab1" && (
                 <div className="space-y-6">
-                  <SectionCard title="A — IDENTIFICATION DU TRAVAILLEUR">
+                  <SectionCard title="A ”” IDENTIFICATION DU TRAVAILLEUR">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -1588,7 +1610,7 @@ export default function CollaborateursMedTravail({
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="B — QUALIFICATION DU TRAVAILLEUR">
+                  <SectionCard title="B ”” QUALIFICATION DU TRAVAILLEUR">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -1721,7 +1743,7 @@ export default function CollaborateursMedTravail({
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="C — ANTÉCÉDENTS MÉDICAUX">
+                  <SectionCard title="C ”” ANTÉCÉDENTS MÉDICAUX">
                     <div className="grid gap-4 md:grid-cols-2">
                       <textarea
                         rows={3}
@@ -1754,7 +1776,7 @@ export default function CollaborateursMedTravail({
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="D — HABITUDES">
+                  <SectionCard title="D ”” HABITUDES">
                     <div className="grid gap-4 md:grid-cols-3">
                       <input
                         type="text"
@@ -1845,7 +1867,7 @@ export default function CollaborateursMedTravail({
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="E — VACCINATIONS">
+                  <SectionCard title="E ”” VACCINATIONS">
                     {formErrors.vaccinations && (
                       <p className="text-xs text-rose-600">{formErrors.vaccinations}</p>
                     )}
@@ -1914,7 +1936,7 @@ export default function CollaborateursMedTravail({
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="F — POSTES DE TRAVAIL AUXQUELS LE TRAVAILLEUR A ÉTÉ AFFECTÉ">
+                  <SectionCard title="F ”” POSTES DE TRAVAIL AUXQUELS LE TRAVAILLEUR A ÉTÉ AFFECTÉ">
                     <div className="flex items-center justify-between">
                       {formErrors.postesTravail && (
                         <p className="text-xs text-rose-600">{formErrors.postesTravail}</p>
@@ -1987,7 +2009,7 @@ export default function CollaborateursMedTravail({
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="G — ANTÉCÉDENTS D’ACCIDENTS DE TRAVAIL">
+                  <SectionCard title="G ”” ANTÉCÉDENTS D’ACCIDENTS DE TRAVAIL">
                     {formErrors.accidentsTravail && (
                       <p className="text-xs text-rose-600">{formErrors.accidentsTravail}</p>
                     )}
@@ -2091,7 +2113,7 @@ export default function CollaborateursMedTravail({
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="H — ANTÉCÉDENTS DE MALADIES PROFESSIONNELLES">
+                  <SectionCard title="H ”” ANTÉCÉDENTS DE MALADIES PROFESSIONNELLES">
                     {formErrors.maladiesPro && (
                       <p className="text-xs text-rose-600">{formErrors.maladiesPro}</p>
                     )}
@@ -2195,7 +2217,7 @@ export default function CollaborateursMedTravail({
 
               {createTab === "tab2" && (
                 <div className="space-y-6">
-                  <SectionCard title="I — EXAMEN MÉDICAL INITIAL">
+                  <SectionCard title="I ”” EXAMEN MÉDICAL INITIAL">
                     {formErrors.examenInitial && (
                       <p className="text-xs text-rose-600">{formErrors.examenInitial}</p>
                     )}
@@ -2454,7 +2476,7 @@ export default function CollaborateursMedTravail({
                     />
                   </SectionCard>
 
-                  <SectionCard title="J — EXAMENS MÉDICAUX ULTÉRIEURS">
+                  <SectionCard title="J ”” EXAMENS MÉDICAUX ULTÉRIEURS">
                     {formErrors.examensUlterieurs && (
                       <p className="text-xs text-rose-600">{formErrors.examensUlterieurs}</p>
                     )}
@@ -2644,4 +2666,5 @@ export default function CollaborateursMedTravail({
     </div>
   );
 }
+
 

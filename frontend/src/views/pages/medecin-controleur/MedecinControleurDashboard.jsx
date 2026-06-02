@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -14,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { getUsername } from "@/controllers/auth/auth";
+import { getUsername } from "@/auth/auth";
 
 const appointments = [
   {
@@ -23,7 +23,7 @@ const appointments = [
     name: "Sonia Ben Salem",
     matricule: "LEO-0421",
     type: "Contrôle arrêt maladie",
-    context: "Visite à domicile • Quartier industriel",
+    context: "Visite à domicile ”¢ Quartier industriel",
     status: "Terminé",
     statusTone: "success",
   },
@@ -69,14 +69,14 @@ const upcomingPatients = [
   },
   {
     name: "Hatem Gharbi",
-    time: "Demain • 09:00",
+    time: "Demain ”¢ 09:00",
     type: "Reprise travail",
     note: "Contrôle post-hospitalisation",
     tone: "warning",
   },
   {
     name: "Rim Mzoughi",
-    time: "Demain • 11:30",
+    time: "Demain ”¢ 11:30",
     type: "Arrêt maladie",
     note: "Vérification de prolongation",
     tone: "info",
@@ -516,7 +516,7 @@ export default function MedecinControleurDashboard() {
                       {appointment.name}
                     </p>
                     <p className="text-[10px] text-slate-500">
-                      {appointment.matricule} • {appointment.type}
+                      {appointment.matricule} ”¢ {appointment.type}
                     </p>
                   </div>
                   <StatusBadge label={appointment.status} tone={appointment.statusTone} />
@@ -631,5 +631,6 @@ export default function MedecinControleurDashboard() {
     </div>
   );
 }
+
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Users,
   TriangleAlert,
@@ -12,7 +12,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import { DEFAULT_SITE_FILTER_OPTIONS } from "@/utils/siteOptions";
 
 const StatCard = ({ title, value, subtitle, icon, alert = false, iconClass = "", onClick }) => (
@@ -555,4 +555,5 @@ export default function InfirmierDashboard() {
     </div>
   );
 }
+
 

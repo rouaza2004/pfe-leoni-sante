@@ -1,5 +1,5 @@
-import { Navigate } from "react-router-dom";
-import { getUserRole, isAuthenticated } from "@/controllers/auth/auth";
+﻿import { Navigate } from "react-router-dom";
+import { getUserRole, isAuthenticated } from "@/auth/auth";
 
 import AdminDashboard from "../admin/AdminDashboard";
 import MedecinTraitantDashboard from "../medecin-traitant/MedecinTraitantDashboard";
@@ -42,4 +42,5 @@ export default function Dashboard() {
       return <Navigate to="/login" replace />;
   }
 }
+
 

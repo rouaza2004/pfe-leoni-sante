@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { api } from "@/controllers/api/api";
-import { getCollaborateurs } from "@/models/collaborateurs/collaborateurs.api";
+﻿import { useEffect, useMemo, useState } from "react";
+import { api } from "@/api/api";
+import { getCollaborateurs } from "@/services/collaborateurs/collaborateurs.api";
 import {
   Search,
   User,
@@ -505,5 +505,7 @@ export default function Collaborateurs() {
     </div>
   );
 }
+
+
 
 

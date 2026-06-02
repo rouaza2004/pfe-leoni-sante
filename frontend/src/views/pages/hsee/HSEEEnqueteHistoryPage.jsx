@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+﻿import { Fragment, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ClipboardList, Search, UserRoundSearch } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import HSEEPageHeader from "@/views/components/hsee/HSEEPageHeader";
 
 function formatDate(value) {
@@ -257,4 +257,5 @@ export default function HSEEEnqueteHistoryPage() {
     </div>
   );
 }
+
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   User,
@@ -9,7 +9,7 @@ import {
   Building2,
   ShieldCheck,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import DossierMedical from "../medecin-traitant/DossierMedical";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 import { DEFAULT_SITE_FILTER_OPTIONS, matchesSiteFilter } from "@/utils/siteOptions";
@@ -628,5 +628,6 @@ export default function PatientsPage() {
     </div>
   );
 }
+
 
 

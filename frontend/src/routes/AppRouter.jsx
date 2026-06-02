@@ -1,9 +1,10 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+﻿import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "@/views/layouts/AppLayout";
 import LoginPage from "@/views/pages/shared/LoginPage";
 import Dashboard from "@/views/pages/shared/Dashboard";
 import AssistantIA from "@/views/pages/shared/AssistantIA";
 import CollaborateurProfilePage from "@/views/pages/shared/CollaborateurProfilePage";
+import ProfilePage from "@/views/pages/shared/ProfilePage";
 import FicheAptitudeForm from "@/views/pages/medecin-travail/FicheAptitudeForm";
 import AnalysesLaboPage from "@/views/pages/medecin-travail/AnalysesLaboPage";
 import ExamenComplementaireForm from "@/views/pages/medecin-travail/ExamenComplementaireForm";
@@ -76,9 +77,9 @@ import HSEEEnqueteWizardPage from "@/views/pages/hsee/HSEEEnqueteWizardPage";
 import HSEEReceivedInvestigationsPage from "@/views/pages/hsee/HSEEReceivedInvestigationsPage";
 import HSEEReportsPage from "@/views/pages/hsee/HSEEReportsPage";
 
-import ProtectedRoute from "@/controllers/auth/ProtectedRoute";
-import RoleRoute from "@/controllers/auth/RoleRoute";
-import { getUserRole, isAuthenticated } from "@/controllers/auth/auth";
+import ProtectedRoute from "@/auth/ProtectedRoute";
+import RoleRoute from "@/auth/RoleRoute";
+import { getUserRole, isAuthenticated } from "@/auth/auth";
 
 function UnauthorizedPage() {
   return (
@@ -113,6 +114,7 @@ export default function AppRouter() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<ProfilePage />} />
 
         <Route
           path="/assistant-ia"
@@ -821,6 +823,7 @@ export default function AppRouter() {
     </Routes>
   );
 }
+
 
 
 

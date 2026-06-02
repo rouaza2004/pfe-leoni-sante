@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, LogOut, UserRound } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import leoniLogo from "../../assets/leoni-logo.png";
 
@@ -177,6 +177,20 @@ export default function AppSidebar({
           ) : null}
 
           <div className={`flex items-center ${collapsed ? "w-full flex-col gap-1.5" : "gap-1.5"}`}>
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                [
+                  "rounded-lg p-2 transition",
+                  isActive
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-200 hover:bg-slate-800/60 hover:text-white",
+                ].join(" ")
+              }
+              title="Mon profil"
+            >
+              <UserRound size={17} />
+            </NavLink>
             <button
               type="button"
               onClick={onLogout}

@@ -23,6 +23,15 @@ class User(AbstractUser):
 
     role = models.CharField(max_length=30, choices=ROLE_CHOICES, default="INFIRMIER")
     nom_ar = models.CharField(max_length=255, blank=True, null=True)
+    telephone = models.CharField(max_length=30, blank=True, null=True)
+    date_naissance = models.DateField(blank=True, null=True)
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="users",
+    )
 
     def __str__(self):
         return f"{self.username} ({self.role})"

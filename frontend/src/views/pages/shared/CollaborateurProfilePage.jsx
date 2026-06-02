@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import {
   BadgeCheck,
   CalendarDays,
@@ -11,9 +11,9 @@ import {
   UserCircle2,
 } from "lucide-react";
 
-import { getUserRole } from "@/controllers/auth/auth";
+import { getUserRole } from "@/auth/auth";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
-import { getCollaborateurProfilByMatricule } from "@/models/collaborateurs/collaborateurProfile.api";
+import { getCollaborateurProfilByMatricule } from "@/services/collaborateurs/collaborateurProfile.api";
 
 function Section({ title, children }) {
   return (
@@ -76,8 +76,8 @@ function AdminProfilePage() {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  const summaryName = profileForm.fullName.trim() || "—";
-  const summaryEmail = profileForm.email.trim() || "—";
+  const summaryName = profileForm.fullName.trim() || "””";
+  const summaryEmail = profileForm.email.trim() || "””";
   const summaryInitials = useMemo(() => {
     if (!profileForm.fullName.trim()) return "--";
 
@@ -199,7 +199,7 @@ function AdminProfilePage() {
               icon={UserCircle2}
               value={profileForm.fullName}
               onChange={handleProfileChange("fullName")}
-              placeholder="—"
+              placeholder="””"
             />
             <Field
               label="Email"
@@ -477,5 +477,7 @@ export default function CollaborateurProfilePage() {
 
   return <CollaborateurSearchProfilePage />;
 }
+
+
 
 

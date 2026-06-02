@@ -1,4 +1,4 @@
-import { api } from "@/controllers/api/api";
+﻿import { api } from "@/api/api";
 
 export const RISK_CATEGORY_OPTIONS = [
   "Risque physique",
@@ -34,7 +34,7 @@ function hashValue(input) {
 
 function normalizeStatus(statut) {
   if (statut === "TERMINE") {
-    return { key: "maitrise", label: "Maîtrisé" };
+    return { key: "maitrise", label: "Maitrisé" };
   }
 
   if (statut === "EN_COURS") {
@@ -177,4 +177,5 @@ export async function getRiskMapData() {
     kpis: computeRiskKpis(risks),
   };
 }
+
 

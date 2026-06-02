@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Eye, Printer, PencilLine, Loader2 } from "lucide-react";
-import { api } from "@/controllers/api/api";
-import { getCollaborateurProfilByMatricule } from "@/models/collaborateurs/collaborateurProfile.api";
+import { api } from "@/api/api";
+import { getCollaborateurProfilByMatricule } from "@/services/collaborateurs/collaborateurProfile.api";
 
 const emptyForm = {
   matricule: "",
@@ -52,7 +52,7 @@ const emptyTravail = { entreprise: "", nature_travail: "", materiaux: "", date_d
 
 const selectOptions = {
   sexe: [
-    { value: "", label: "—" },
+    { value: "", label: "””" },
     { value: "HOMME", label: "Homme" },
     { value: "FEMME", label: "Femme" },
   ],
@@ -667,5 +667,7 @@ function Info({ label, value }) {
     </div>
   );
 }
+
+
 
 

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, ShieldCheck } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const Input = ({ label, ...props }) => (
   <div>
@@ -448,4 +448,5 @@ export default function FicheAptitudeForm() {
     </div>
   );
 }
+
 

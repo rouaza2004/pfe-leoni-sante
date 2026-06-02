@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Clock3, User, Loader2 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 function Badge({ children, color = "slate" }) {
   const styles = {
@@ -30,7 +30,7 @@ function formatStatus(statut) {
   if (statut === "TERMINE") return "Terminé";
   if (statut === "REPORTE") return "Reporté";
   if (statut === "ANNULE") return "Annulé";
-  return statut || "—";
+  return statut || "””";
 }
 
 export default function RDV() {
@@ -158,17 +158,17 @@ export default function RDV() {
                   <td className="py-4">
                     <div className="flex items-center gap-2 font-medium text-slate-800">
                       <User className="h-4 w-4 text-slate-400" />
-                      {`${item.collaborateur_prenom || ""} ${item.collaborateur_nom || ""}`.trim() || "—"}
+                      {`${item.collaborateur_prenom || ""} ${item.collaborateur_nom || ""}`.trim() || "””"}
                     </div>
                   </td>
-                  <td className="py-4 text-slate-600">{item.date || "—"}</td>
+                  <td className="py-4 text-slate-600">{item.date || "””"}</td>
                   <td className="py-4 text-slate-600">
                     <div className="flex items-center gap-2">
                       <Clock3 className="h-4 w-4 text-slate-400" />
-                      {item.heure || "—"}
+                      {item.heure || "””"}
                     </div>
                   </td>
-                  <td className="py-4 text-slate-600">{item.motif || "—"}</td>
+                  <td className="py-4 text-slate-600">{item.motif || "””"}</td>
                   <td className="py-4">
                     <Badge color={statusColor(item.statut)}>
                       {formatStatus(item.statut)}
@@ -189,3 +189,4 @@ export default function RDV() {
     </div>
   );
 }
+

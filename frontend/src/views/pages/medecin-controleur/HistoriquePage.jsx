@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+﻿import { Fragment, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ClipboardList, FileText, Search } from "lucide-react";
 
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const filters = [
   { id: "all", label: "Tous" },
@@ -417,4 +417,5 @@ export default function HistoriquePage() {
     </div>
   );
 }
+
 

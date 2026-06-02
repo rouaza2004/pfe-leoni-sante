@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api } from "@/controllers/api/api";
+﻿import { useState } from "react";
+import { api } from "@/api/api";
 
 function Input({ label, type = "text", value, onChange, disabled }) {
   return (
@@ -83,7 +83,7 @@ export default function CrudList({
         <h3 className="text-lg font-bold text-slate-900">{title}</h3>
         {readOnly && (
           <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">
-            Lecture فقط
+            Lecture ÙÙ‚Ø·
           </span>
         )}
       </div>
@@ -133,7 +133,7 @@ export default function CrudList({
                 {fields.map((f) => (
                   <span key={f.name} className="mr-3">
                     <span className="text-slate-500">{f.label}:</span>{" "}
-                    {String(it[f.name] ?? "—")}
+                    {String(it[f.name] ?? "””")}
                   </span>
                 ))}
               </div>
@@ -154,3 +154,4 @@ export default function CrudList({
     </div>
   );
 }
+

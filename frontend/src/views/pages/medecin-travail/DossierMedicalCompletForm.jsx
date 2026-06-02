@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, FileText, Plus, Trash2 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
 const controlBaseClassName =
@@ -52,6 +52,28 @@ const Section = ({ title, children }) => (
     {children}
   </div>
 );
+
+const resolveApiErrorMessage = (error, fallbackMessage) => {
+  const status = error?.response?.status;
+
+  if (status === 401) {
+    return "Votre session a expiré. Merci de vous reconnecter.";
+  }
+  if (status === 403) {
+    return "Vous n'avez pas l'autorisation d'accéder à ce dossier médical.";
+  }
+  if (status === 404) {
+    return "Aucune donnée trouvée pour ce collaborateur.";
+  }
+  if (status === 500) {
+    return "Le serveur a rencontré une erreur pendant le chargement du dossier.";
+  }
+  if (error?.message === "Network Error") {
+    return "Impossible de joindre le serveur pour charger le dossier médical.";
+  }
+
+  return fallbackMessage;
+};
 
 const emptyVaccin = () => ({
   id: null,
@@ -271,7 +293,7 @@ export default function DossierMedicalCompletForm({
         });
       } catch (e) {
         console.error(e);
-        setErr("Impossible de charger le dossier médical complet.");
+        setErr(resolveApiErrorMessage(e, "Impossible de charger le dossier médical complet."));
       } finally {
         setLoading(false);
       }
@@ -281,6 +303,14 @@ export default function DossierMedicalCompletForm({
     let cancelled = false;
 
     const load = async () => {
+      if (!Number.isFinite(collaborateurId) || collaborateurId <= 0) {
+        if (!cancelled) {
+          setErr("Collaborateur introuvable.");
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
         setLoading(true);
         setErr("");
@@ -394,7 +424,7 @@ export default function DossierMedicalCompletForm({
       } catch (e) {
         console.error(e);
         if (!cancelled) {
-          setErr("Impossible de charger le dossier médical complet.");
+          setErr(resolveApiErrorMessage(e, "Impossible de charger le dossier médical complet."));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -775,6 +805,60 @@ export default function DossierMedicalCompletForm({
           </div>
         </Section>
 
+        <Section title="Historique des examens complémentaires">
+          {dossier?.examens_complementaires_history?.length ? (
+            <div className="space-y-4">
+              {dossier.examens_complementaires_history.map((examen) => {
+                const examensSelectionnes = [
+                  examen.visiotest ? "Visiotest" : null,
+                  examen.audiogramme ? "Audiogramme" : null,
+                  examen.ecg ? "ECG" : null,
+                  examen.efr ? "EFR" : null,
+                ].filter(Boolean);
+
+                return (
+                  <div key={examen.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Date</p>
+                        <p className="mt-1 text-sm text-slate-800">{examen.date || "Non renseignée"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nom et prénom</p>
+                        <p className="mt-1 text-sm text-slate-800">{examen.nom_prenom || "Non renseigné"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Entreprise</p>
+                        <p className="mt-1 text-sm text-slate-800">{examen.entreprise || "Non renseignée"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Poste de travail</p>
+                        <p className="mt-1 text-sm text-slate-800">{examen.poste_travail || "Non renseigné"}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Examens demandés</p>
+                        <p className="mt-1 text-sm text-slate-800">
+                          {examensSelectionnes.length ? examensSelectionnes.join(", ") : "Aucun examen coché"}
+                        </p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Renseignements cliniques</p>
+                        <p className="mt-1 whitespace-pre-line text-sm text-slate-800">
+                          {examen.renseignements_cliniques || "Non renseignés"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+              Aucun examen complémentaire enregistré pour ce collaborateur.
+            </div>
+          )}
+        </Section>
+
         <Section title="Vaccinations">
           <div className="space-y-5">
             {vaccinations.map((v, index) => (
@@ -1047,4 +1131,5 @@ export default function DossierMedicalCompletForm({
     </div>
   );
 }
+
 

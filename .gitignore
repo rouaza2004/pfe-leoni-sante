@@ -20,6 +20,12 @@ dist-ssr/
 # Environment
 # -----------------
 .env
+backend/.env
+frontend/.env
+.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 *.local
 
 # -----------------

@@ -1,6 +1,6 @@
-import axios from "axios";
-import { logout } from "@/controllers/auth/auth";
-import { isAdminReadOnlyPath, isMutationMethod } from "@/controllers/auth/readOnlyAccess";
+﻿import axios from "axios";
+import { logout } from "@/auth/auth";
+import { isAdminReadOnlyPath, isMutationMethod } from "@/auth/readOnlyAccess";
 
 const BASE_URL = "http://127.0.0.1:8000/api";
 let isRedirectingToLogin = false;
@@ -49,7 +49,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error("API ERROR =", error?.response?.status, error?.response?.data);
+    const method = error?.config?.method?.toUpperCase?.() || "UNKNOWN";
+    const url = error?.config?.url || "unknown-url";
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+    const code = error?.code || "NO_CODE";
+    const message = error?.message || "Unknown network error";
+
+    if (typeof status === "number") {
+      console.error("API ERROR =", status, data, { method, url, code });
+    } else {
+      console.error("API NETWORK ERROR =", { method, url, code, message });
+    }
 
     if (error?.response?.status === 401) {
       logout();
@@ -63,4 +74,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 

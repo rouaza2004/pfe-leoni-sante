@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -14,8 +14,8 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { api } from "@/controllers/api/api";
-import { getUsername } from "@/controllers/auth/auth";
+import { api } from "@/api/api";
+import { getUsername } from "@/auth/auth";
 
 const fallbackAppointments = [
   {
@@ -621,7 +621,7 @@ export default function RHDashboard() {
                       {appointment.collaborateur}
                     </p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
-                      {appointment.matricule} • {appointment.typeVisite}
+                      {appointment.matricule} ”¢ {appointment.typeVisite}
                     </p>
                   </div>
                   <StatusBadge label={appointment.statut} tone={appointment.statutTone} />
@@ -669,7 +669,7 @@ export default function RHDashboard() {
                   <div>
                     <p className="text-[13px] font-medium text-slate-900">{item.collaborateur}</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
-                      {item.matricule} • {item.motif}
+                      {item.matricule} ”¢ {item.motif}
                     </p>
                   </div>
                   <span
@@ -707,7 +707,7 @@ export default function RHDashboard() {
                   <div>
                     <p className="text-[13px] font-medium text-slate-900">{doc.titre}</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
-                      {doc.collaborateur} • {doc.matricule}
+                      {doc.collaborateur} ”¢ {doc.matricule}
                     </p>
                   </div>
                   <span
@@ -784,5 +784,6 @@ export default function RHDashboard() {
     </div>
   );
 }
+
 
 

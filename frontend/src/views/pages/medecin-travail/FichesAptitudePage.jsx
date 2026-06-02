@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
@@ -8,7 +8,7 @@ import {
   X,
   Trash2,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const BACKEND_URL = "http://127.0.0.1:8000";
 
@@ -504,4 +504,5 @@ export default function FichesAptitudePage() {
     </div>
   );
 }
+
 

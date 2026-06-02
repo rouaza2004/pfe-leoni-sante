@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CalendarRange,
@@ -8,7 +8,7 @@ import {
   Search,
 } from "lucide-react";
 
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const VISIT_TYPES = ["Périodique", "Pré-visite", "Contrôle", "Suivi", "Spontanée"];
 const STATUS_TYPES = ["Confirmé", "En attente", "Annulé", "Réalisé"];
@@ -411,7 +411,7 @@ export default function RendezVousPage() {
                           {appointment.collaborateur}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {appointment.time || "--:--"} • {appointment.visitType}
+                          {appointment.time || "--:--"} ”¢ {appointment.visitType}
                         </p>
                         <p className="mt-2 text-sm text-slate-600">{appointment.notes}</p>
                       </div>
@@ -433,4 +433,5 @@ export default function RendezVousPage() {
     </div>
   );
 }
+
 

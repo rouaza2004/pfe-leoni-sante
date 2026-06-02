@@ -1,4 +1,4 @@
-import { api } from "@/controllers/api/api";
+﻿import { api } from "@/api/api";
 
 function getBlobUrl(blob) {
   return URL.createObjectURL(blob);
@@ -82,4 +82,5 @@ export async function printReport(reportId) {
   }
   return url;
 }
+
 

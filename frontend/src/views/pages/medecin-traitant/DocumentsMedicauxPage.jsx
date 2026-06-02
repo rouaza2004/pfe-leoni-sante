@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const TabBtn = ({ active, children, onClick }) => (
   <button
@@ -251,7 +251,7 @@ export default function DocumentsMedicauxPage() {
                       Date:{" "}
                       {c.date
                         ? new Date(c.date).toLocaleDateString("fr-FR")
-                        : "—"}{" "}
+                        : "””"}{" "}
                       · Repos: {c.nb_jours_repos ?? 0} jour(s)
                     </div>
                   </div>
@@ -311,7 +311,7 @@ export default function DocumentsMedicauxPage() {
                       Date:{" "}
                       {o.date
                         ? new Date(o.date).toLocaleDateString("fr-FR")
-                        : "—"}
+                        : "””"}
                     </div>
                   </div>
 
@@ -331,3 +331,4 @@ export default function DocumentsMedicauxPage() {
     </div>
   );
 }
+

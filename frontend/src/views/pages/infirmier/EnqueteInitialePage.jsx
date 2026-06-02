@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Download, Eye, FileText, Loader2, RotateCcw, Send } from "lucide-react";
 import { jsPDF } from "jspdf";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import { useSearchParams } from "react-router-dom";
 
 const Input = ({ label, required = false, error = "", ...props }) => (
@@ -856,4 +856,5 @@ export default function EnqueteInitialePage() {
     </div>
   );
 }
+
 

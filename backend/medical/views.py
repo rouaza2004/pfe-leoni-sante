@@ -113,7 +113,20 @@ from .serializers import (
     ControleMedicalRecordSerializer,
     DemandeExpertiseRecordSerializer,
 )
-from .ai_service import (
+from .services import pdf_services as medical_pdf_services
+from .services.pdf_services import (
+    generate_aptitude_fiche_pdf,
+    generate_certificate_pdf,
+    generate_complementary_exam_pdf,
+    generate_contre_visite_pdf,
+    generate_dossier_medical_pdf,
+    generate_expertise_pdf,
+    generate_fiche_medicale_pdf,
+    generate_lab_request_pdf,
+    generate_occupational_disease_pdf,
+    generate_voucher_pdf,
+)
+from .services.ai_service import (
     AIServiceConfigurationError,
     AIServiceRequestError,
     analyze_medical_text,
@@ -3392,6 +3405,20 @@ class ExamenComplementaireListCreateByCollaborateurView(APIView):
 
 
 
+class ExamenComplementaireListByDossierView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, dossier_id):
+        dossier = get_object_or_404(DossierMedical, pk=dossier_id)
+        qs = (
+            ExamenComplementaire.objects.filter(collaborateur=dossier.collaborateur)
+            .select_related("collaborateur")
+            .order_by("-date", "-created_at")
+        )
+        serializer = ExamenComplementaireSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
 class FicheAptitudeListCreateByCollaborateurView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -4175,6 +4202,11 @@ def generate_complementary_exam_pdf(comp_req):
     return buffer.getvalue()
 
 
+generate_aptitude_fiche_pdf = medical_pdf_services.generate_aptitude_fiche_pdf
+generate_lab_request_pdf = medical_pdf_services.generate_lab_request_pdf
+generate_complementary_exam_pdf = medical_pdf_services.generate_complementary_exam_pdf
+
+
 class FicheAptitudePdfView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -4208,39 +4240,81 @@ class ExamenComplementairePdfView(APIView):
         return response
 
 
+def _inline_pdf_response(pdf_bytes, filename):
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
 class DossierMedicalPdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        dossier = get_object_or_404(DossierMedical.objects.select_related("collaborateur"), pk=pk)
-        collab = dossier.collaborateur
+        dossier = get_object_or_404(
+            DossierMedical.objects.select_related("collaborateur__site"),
+            pk=pk,
+        )
+        pdf_bytes = generate_dossier_medical_pdf(dossier)
+        return _inline_pdf_response(
+            pdf_bytes,
+            f"dossier_medical_{dossier.collaborateur.matricule}.pdf",
+        )
 
-        buffer = BytesIO()
-        p = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-        margin = 2.0 * cm
-        y = height - margin
 
-        p.setFont("Times-Bold", 16)
-        p.drawString(margin, y, "DOSSIER M?DICAL")
-        y -= 1.0 * cm
+class FicheMedicalePdfView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        p.setFont("Times-Roman", 11)
-        p.drawString(margin, y, f"Collaborateur : {collab.nom} {collab.prenom}")
-        y -= 0.6 * cm
-        p.drawString(margin, y, f"Matricule : {collab.matricule}")
-        y -= 0.6 * cm
-        p.drawString(margin, y, f"Entreprise : {dossier.entreprise or ''}")
-        y -= 0.6 * cm
-        p.drawString(margin, y, f"Localit? : {dossier.localite or ''}")
-        y -= 0.6 * cm
-        p.drawString(margin, y, f"Poste actuel : {dossier.poste_travail_actuel or ''}")
+    def get(self, request, collaborateur_id):
+        collaborateur = get_object_or_404(
+            Collaborateur.objects.select_related("site"),
+            pk=collaborateur_id,
+        )
+        fiche, _ = FicheMedicale.objects.get_or_create(collaborateur=collaborateur)
+        pdf_bytes = generate_fiche_medicale_pdf(fiche)
+        return _inline_pdf_response(
+            pdf_bytes,
+            f"fiche_medicale_{collaborateur.matricule}.pdf",
+        )
 
-        p.showPage()
-        p.save()
-        response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="dossier_medical_{collab.matricule}.pdf"'
-        return response
+
+class BonChauffeurPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        bon = get_object_or_404(BonChauffeur, pk=pk)
+        pdf_bytes = generate_voucher_pdf(bon)
+        return _inline_pdf_response(
+            pdf_bytes,
+            f"bon_chauffeur_{bon.numero_ordre or bon.pk}.pdf",
+        )
+
+
+class ControleMedicalRecordPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        require_medecin_controleur(request)
+        ensure_medecin_controleur_history_tables()
+        record = get_object_or_404(ControleMedicalRecord, pk=pk)
+        pdf_bytes = generate_contre_visite_pdf(record)
+        return _inline_pdf_response(
+            pdf_bytes,
+            f"controle_medical_{record.pk}.pdf",
+        )
+
+
+class DemandeExpertiseRecordPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        require_medecin_controleur(request)
+        ensure_medecin_controleur_history_tables()
+        record = get_object_or_404(DemandeExpertiseRecord, pk=pk)
+        pdf_bytes = generate_expertise_pdf(record)
+        return _inline_pdf_response(
+            pdf_bytes,
+            f"demande_expertise_{record.pk}.pdf",
+        )
 
 
 
@@ -4548,46 +4622,11 @@ class CertificatMedicalPdfView(APIView):
             CertificatMedical.objects.select_related("collaborateur", "created_by"),
             pk=pk,
         )
-        collab = certificat.collaborateur
-        user = certificat.created_by
-
-        medecin_nom = ""
-        if user:
-            full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
-            medecin_nom = full_name or user.username
-
-        context = {
-            "arabic_medecine": shape_arabic("?? ???"),
-            "date_du_jour": _fmt_date(date.today()),
-            "medecin_nom": medecin_nom or "Docteur",
-            "collaborateur_nom_complet": f"{collab.nom} {collab.prenom}",
-            "nb_jours": certificat.nb_jours_repos,
-            "date_debut_repos": _fmt_date(certificat.date_debut_repos),
-        }
-
-        html_string = render_to_string("medical/certificat_pdf.html", context)
-
-        result = BytesIO()
-        ensure_temp_dir()
-        patch_xhtml2pdf_tempfile()
-        pdf = pisa.CreatePDF(
-            src=html_string,
-            dest=result,
-            encoding="utf-8",
-            link_callback=link_callback,
+        pdf_bytes = generate_certificate_pdf(certificat)
+        return _inline_pdf_response(
+            pdf_bytes,
+            f"certificat_{certificat.collaborateur.matricule}_{pk}.pdf",
         )
-
-        if pdf.err:
-            return Response(
-                {"detail": "Erreur g?n?ration PDF certificat."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        response = HttpResponse(result.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'inline; filename="certificat_{collab.matricule}_{pk}.pdf"'
-        )
-        return response
 
 
 class OrdonnancePdfView(APIView):
@@ -4740,63 +4779,8 @@ class MaladieProfessionnellePdfView(APIView):
             MaladieProfessionnelle.objects.select_related("dossier__collaborateur"),
             pk=pk,
         )
-        collab = maladie.dossier.collaborateur
-        dossier = maladie.dossier
-
-        context = {
-            "maladie": maladie,
-            "collab": collab,
-            "matricule": getattr(collab, "matricule", ""),
-            "employeur_nom": maladie.employeur_nom
-            or getattr(dossier, "entreprise", "")
-            or getattr(getattr(collab, "site", None), "nom", ""),
-            "employeur_adresse": maladie.employeur_adresse
-            or getattr(dossier, "localite", "")
-            or getattr(getattr(collab, "site", None), "localite", ""),
-            "victime_nom": maladie.victime_nom or getattr(collab, "nom", ""),
-            "victime_prenom": maladie.victime_prenom or getattr(collab, "prenom", ""),
-            "victime_cin": maladie.victime_cin or getattr(collab, "cin", ""),
-            "victime_date_naissance": _fmt_date(
-                maladie.victime_date_naissance or getattr(collab, "date_naissance", None)
-            ),
-            "victime_adresse": maladie.victime_adresse or getattr(collab, "adresse", ""),
-            "date_decouverte": _fmt_date(maladie.date_decouverte),
-            "date_constat": _fmt_date(maladie.date_constat),
-            "date_debut_exposition": _fmt_date(maladie.date_debut_exposition),
-            "date_fin_exposition": _fmt_date(maladie.date_fin_exposition),
-            "date_arret_exposition": _fmt_date(maladie.date_arret_exposition),
-            "date_arret": _fmt_date(maladie.date_arret),
-            "signature_date": _fmt_date(maladie.signature_date),
-            "statut_declaration_display": _declaration_status_label(
-                getattr(maladie, "statut_declaration", "")
-            ),
-            "date_generation": _fmt_datetime_as_date(
-                getattr(maladie, "generated_at", None)
-                or getattr(maladie, "printed_at", None)
-                or getattr(maladie, "created_at", None)
-            ),
-        }
-
-        html_string = render_to_string("medical/maladie_professionnelle_pdf.html", context)
-
-        result = BytesIO()
-        ensure_temp_dir()
-        patch_xhtml2pdf_tempfile()
-        pdf = pisa.CreatePDF(
-            src=html_string,
-            dest=result,
-            encoding="utf-8",
-            link_callback=link_callback,
+        pdf_bytes = generate_occupational_disease_pdf(maladie)
+        return _inline_pdf_response(
+            pdf_bytes,
+            f"declaration_maladie_{maladie.dossier.collaborateur.matricule}.pdf",
         )
-
-        if pdf.err:
-            return Response(
-                {"detail": "Erreur génération PDF maladie professionnelle."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        response = HttpResponse(result.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'inline; filename="declaration_maladie_{collab.matricule}.pdf"'
-        )
-        return response

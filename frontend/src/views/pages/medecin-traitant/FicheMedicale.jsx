@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { api } from "@/controllers/api/api";
-import { getUserRole } from "@/controllers/auth/auth";
+import { api } from "@/api/api";
+import { getUserRole } from "@/auth/auth";
 
 function Field({ label, value, onChange, type = "text", disabled }) {
   return (
@@ -168,4 +168,5 @@ export default function FicheMedicale() {
     </div>
   );
 }
+
 

@@ -1,4 +1,4 @@
-import { api } from "@/controllers/api/api";
+﻿import { api } from "@/api/api";
 
 export const login = async (username, password) => {
   const res = await api.post("/auth/login/", { username, password });
@@ -11,7 +11,7 @@ export const login = async (username, password) => {
   const role = data.role || "";
   const apiUsername = data.username || username;
 
-  // ✅ نخزنو الصحيح
+  // âœ… Ù†Ø®Ø²Ù†Ùˆ Ø§Ù„ØµØ­ÙŠØ­
   localStorage.setItem("access", access);
   localStorage.setItem("refresh", refresh);
   localStorage.setItem("role", role);
@@ -36,3 +36,4 @@ export const login = async (username, password) => {
     username: localStorage.getItem("username") || apiUsername || username,
   };
 };
+

@@ -1,4 +1,4 @@
-import { api } from "@/controllers/api/api";
+﻿import { api } from "@/api/api";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 
 export const getCollaborateurs = async (search = "") => {
@@ -7,4 +7,5 @@ export const getCollaborateurs = async (search = "") => {
   });
   return fixFrenchTextDeep(res.data);
 };
+
 

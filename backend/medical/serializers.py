@@ -856,6 +856,15 @@ class DossierMedicalSerializer(serializers.ModelSerializer):
     accidents = AccidentTravailSerializer(many=True, read_only=True)
     maladies_professionnelles = MaladieProfessionnelleSerializer(many=True, read_only=True)
     vaccinations = VaccinationSerializer(many=True, read_only=True)
+    examens_complementaires_history = serializers.SerializerMethodField()
+
+    def get_examens_complementaires_history(self, obj):
+        qs = (
+            ExamenComplementaire.objects.filter(collaborateur=obj.collaborateur)
+            .select_related("collaborateur")
+            .order_by("-date", "-created_at")
+        )
+        return ExamenComplementaireSerializer(qs, many=True).data
 
     class Meta:
         model = DossierMedical
@@ -988,6 +997,7 @@ class ExamenComplementaireSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamenComplementaire
         fields = "__all__"
+        read_only_fields = ("created_by", "date", "created_at")
 
 
 class IncidentAvecBonSerializer(serializers.ModelSerializer):

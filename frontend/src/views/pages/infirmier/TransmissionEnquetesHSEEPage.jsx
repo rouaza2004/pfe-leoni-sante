@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -15,7 +15,7 @@ import {
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import HSEEPageHeader from "@/views/components/hsee/HSEEPageHeader";
 import TransmissionEmptyState from "@/views/components/infirmier/transmission-hsee/TransmissionEmptyState";
 import TransmissionFilters from "@/views/components/infirmier/transmission-hsee/TransmissionFilters";
@@ -642,3 +642,4 @@ export default function TransmissionEnquetesHSEEPage() {
     </div>
   );
 }
+

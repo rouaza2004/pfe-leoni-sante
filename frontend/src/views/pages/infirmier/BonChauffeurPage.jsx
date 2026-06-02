@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { api } from "@/controllers/api/api";
+﻿import { useEffect, useMemo, useState } from "react";
+import { api } from "@/api/api";
 import { FileText, FileDown, Eye, Trash2, Plus } from "lucide-react";
 import { jsPDF } from "jspdf";
 
@@ -197,7 +197,7 @@ export default function BonChauffeurPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Bon Chauffeur</h1>
             <p className="mt-2 text-sm text-slate-500">
-              Ordre de transport — enregistrement et génération PDF
+              Ordre de transport ”” enregistrement et génération PDF
             </p>
           </div>
         </div>
@@ -504,4 +504,5 @@ export default function BonChauffeurPage() {
     </div>
   );
 }
+
 

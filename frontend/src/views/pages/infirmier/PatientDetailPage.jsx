@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 import DossierMedical from "../medecin-traitant/DossierMedical";
 
@@ -51,7 +51,7 @@ export default function PatientDetailPage() {
 
   const siteLabel = collab.site
     ? `${collab.site.nom} - ${collab.site.localite}`
-    : "—";
+    : "””";
 
   return (
     <div className="p-6 space-y-4">
@@ -72,7 +72,7 @@ export default function PatientDetailPage() {
         </h1>
 
         <p className="text-sm text-slate-500">
-          {collab.matricule} · {collab.email || "—"}
+          {collab.matricule} · {collab.email || "””"}
         </p>
       </div>
 
@@ -92,7 +92,7 @@ export default function PatientDetailPage() {
             <p className="font-medium">
               {collab.created_at
                 ? new Date(collab.created_at).toLocaleString()
-                : "—"}
+                : "””"}
             </p>
           </div>
 
@@ -105,3 +105,4 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+

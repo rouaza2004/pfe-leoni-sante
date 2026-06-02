@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -21,7 +21,7 @@ import {
   Pill,
   Loader2,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const LINE_COLORS = ["#3b82f6", "#22c55e", "#f97316", "#ef4444"];
 
@@ -392,4 +392,5 @@ export default function DashboardPharmacie() {
     </div>
   );
 }
+
 

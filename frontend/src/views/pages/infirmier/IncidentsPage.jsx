@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, TriangleAlert, Eye, Loader2 } from "lucide-react";
-import { api } from "@/controllers/api/api";
-import { getCollaborateurProfilByMatricule } from "@/models/collaborateurs/collaborateurProfile.api";
+import { api } from "@/api/api";
+import { getCollaborateurProfilByMatricule } from "@/services/collaborateurs/collaborateurProfile.api";
 import { SITE_FILTER_OPTIONS, getSiteName, matchesSiteFilter } from "@/utils/siteOptions";
 
 const emptyForm = {
@@ -63,7 +63,7 @@ export default function IncidentsPage() {
         ...item,
         collaborateur:
           `${item.collaborateur_prenom || ""} ${item.collaborateur_nom || ""}`.trim() ||
-          "—",
+          "””",
       }));
 
       setIncidents(enriched);
@@ -570,5 +570,7 @@ function Info({ label, value }) {
     </div>
   );
 }
+
+
 
 

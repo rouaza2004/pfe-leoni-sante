@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,9 +10,9 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import leoniLogo from "../../assets/leoni-logo.png";
-import { getUsername } from "@/controllers/auth/auth";
+import { getUsername } from "@/auth/auth";
 import { downloadDemandeExpertisePdf } from "@/utils/generateDemandeExpertisePdf";
 
 const SOCIETE_PAR_DEFAUT = "SOCIETE LEONI WIRING SYSTEMS TUNISIA SARL";
@@ -818,6 +818,7 @@ export default function DemandeExpertiseForm() {
     </div>
   );
 }
+
 
 
 

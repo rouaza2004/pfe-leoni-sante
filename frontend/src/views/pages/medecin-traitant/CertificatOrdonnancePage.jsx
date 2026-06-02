@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, FileText, Pill, Plus, Printer, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getUserRole, getUsername } from "@/controllers/auth/auth";
+import { getUserRole, getUsername } from "@/auth/auth";
 import {
   buildCertificatPrintHtml,
   buildOrdonnancePrintHtml,
 } from "./CertificatOrdonnancePrintTemplate";
-import { getCollaborateurs } from "@/models/collaborateurs/collaborateurs.api";
+import { getCollaborateurs } from "@/services/collaborateurs/collaborateurs.api";
 
 const STORAGE_KEY = "medecin-traitant-certificat-ordonnance-draft";
 
@@ -52,9 +52,9 @@ const specialityByRole = {
 };
 
 const arabicSpecialityByRole = {
-  MEDECIN_TRAITANT: "طب عام",
-  MEDECIN_TRAVAIL: "طب الشغل",
-  MEDECIN_CONTROLEUR: "طب المراقبة",
+  MEDECIN_TRAITANT: "Ø·Ø¨ Ø¹Ø§Ù…",
+  MEDECIN_TRAVAIL: "Ø·Ø¨ Ø§Ù„Ø´ØºÙ„",
+  MEDECIN_CONTROLEUR: "Ø·Ø¨ Ø§Ù„Ù…Ø±Ø§Ù‚Ø¨Ø©",
 };
 
 const tryParseStorage = (key) => {
@@ -171,7 +171,7 @@ function getDoctorIdentity(role) {
     name: fullName,
     speciality,
     arabicName,
-    arabicSpeciality: arabicSpecialityByRole[role] || "طب",
+    arabicSpeciality: arabicSpecialityByRole[role] || "Ø·Ø¨",
   };
 }
 
@@ -1038,5 +1038,7 @@ export default function CertificatOrdonnancePage() {
     </div>
   );
 }
+
+
 
 

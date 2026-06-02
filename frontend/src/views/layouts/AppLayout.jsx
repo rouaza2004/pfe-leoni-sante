@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+﻿import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -19,8 +19,8 @@ import {
   UserRoundSearch,
 } from "lucide-react";
 
-import { getUserRole, logout as doLogout } from "@/controllers/auth/auth";
-import { isAdminReadOnlyPath } from "@/controllers/auth/readOnlyAccess";
+import { getUserRole, logout as doLogout } from "@/auth/auth";
+import { isAdminReadOnlyPath } from "@/auth/readOnlyAccess";
 import AppSidebar from "../components/layout/AppSidebar.jsx";
 import { getSidebarSections, roleLabel } from "./sidebarConfig.jsx";
 
@@ -486,4 +486,5 @@ export default function AppLayout() {
     </div>
   );
 }
+
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -11,7 +11,7 @@ import {
   Stethoscope,
   TriangleAlert,
 } from "lucide-react";
-import { getUsername } from "@/controllers/auth/auth";
+import { getUsername } from "@/auth/auth";
 import { toast } from "sonner";
 
 import GeneratedReportCard from "@/views/components/hsee/reports/GeneratedReportCard";
@@ -32,7 +32,7 @@ import {
   previewReport,
   printReport,
   sendReport,
-} from "@/models/services/hseeReportsService";
+} from "@/services/hseeReportsService";
 
 const TEMPLATE_VISUALS = {
   accidents: {
@@ -606,4 +606,6 @@ export default function HSEEReportsPage() {
     </>
   );
 }
+
+
 

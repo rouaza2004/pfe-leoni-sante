@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -18,7 +18,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 
 const COLORS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6"];
 
@@ -376,4 +376,5 @@ export default function HSEEStatsPage() {
     </div>
   );
 }
+
 

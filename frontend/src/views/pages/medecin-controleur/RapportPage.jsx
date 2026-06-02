@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Download,
@@ -21,8 +21,8 @@ import {
 } from "recharts";
 import { jsPDF } from "jspdf";
 
-import { api } from "@/controllers/api/api";
-import { getUsername } from "@/controllers/auth/auth";
+import { api } from "@/api/api";
+import { getUsername } from "@/auth/auth";
 
 const emptyReportData = {
   summary: {
@@ -450,5 +450,6 @@ export default function RapportPage() {
     </div>
   );
 }
+
 
 

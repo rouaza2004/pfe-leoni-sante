@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -7,8 +7,8 @@ import {
   Loader2,
   PencilLine,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
-import { getCollaborateurProfilByMatricule } from "@/models/collaborateurs/collaborateurProfile.api";
+import { api } from "@/api/api";
+import { getCollaborateurProfilByMatricule } from "@/services/collaborateurs/collaborateurProfile.api";
 import { SITE_FILTER_OPTIONS, getSiteName, matchesSiteFilter } from "@/utils/siteOptions";
 
 const defaultEmployeurValues = {
@@ -91,31 +91,31 @@ const emptyForm = {
 
 const selectOptions = {
   sexe: [
-    { value: "", label: "—" },
+    { value: "", label: "””" },
     { value: "HOMME", label: "Homme" },
     { value: "FEMME", label: "Femme" },
   ],
   activite: [
-    { value: "", label: "—" },
+    { value: "", label: "””" },
     { value: "CHANTIER", label: "Chantier" },
     { value: "ATELIER", label: "Atelier" },
     { value: "BUREAU", label: "Bureau" },
     { value: "AUTRE", label: "Autre" },
   ],
   resultat: [
-    { value: "", label: "—" },
+    { value: "", label: "””" },
     { value: "SANS_ARRET", label: "Sans arrêt" },
     { value: "ARRET", label: "Arrêt de travail" },
     { value: "DECES", label: "Décès" },
   ],
   gravite: [
-    { value: "", label: "—" },
+    { value: "", label: "””" },
     { value: "FAIBLE", label: "Faible" },
     { value: "MOYENNE", label: "Moyenne" },
     { value: "GRAVE", label: "Grave" },
   ],
   statut: [
-    { value: "", label: "—" },
+    { value: "", label: "””" },
     { value: "EN_ATTENTE", label: "En attente" },
     { value: "EN_COURS", label: "En cours" },
     { value: "TERMINEE", label: "Terminée" },
@@ -514,10 +514,10 @@ export default function AccidentsPage() {
                     {selectedProfile.collaborateur.nom}
                   </p>
                   <p className="text-slate-600">
-                    Poste: {selectedProfile.collaborateur.poste || "—"} · Segment:{" "}
+                    Poste: {selectedProfile.collaborateur.poste || "””"} · Segment:{" "}
                     {selectedProfile.collaborateur.segment_nom ||
                       selectedProfile.collaborateur.segment?.nom ||
-                      "—"}
+                      "””"}
                   </p>
                   <p className="text-slate-600">
                     Site: {getSiteName(selectedProfile.collaborateur.site)}
@@ -897,5 +897,7 @@ function Info({ label, value }) {
     </div>
   );
 }
+
+
 
 

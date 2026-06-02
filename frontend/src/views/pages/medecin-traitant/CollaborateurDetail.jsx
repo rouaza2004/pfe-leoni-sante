@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import DossierMedical from "./DossierMedical";
 
 export default function CollaborateurDetail() {
@@ -28,7 +28,7 @@ export default function CollaborateurDetail() {
       } catch (e) {
         if (cancelled) return;
         console.error(e);
-        setErr("Erreur: ما نجمناش نجيبو détails collaborateur.");
+        setErr("Erreur: Ù…Ø§ Ù†Ø¬Ù…Ù†Ø§Ø´ Ù†Ø¬ÙŠØ¨Ùˆ détails collaborateur.");
         setCollab(null);
       } finally {
         if (!cancelled) setLoading(false);
@@ -36,7 +36,7 @@ export default function CollaborateurDetail() {
     };
 
     if (!Number.isFinite(collaborateurId) || collaborateurId <= 0) {
-      setErr("ID غير صالح");
+      setErr("ID ØºÙŠØ± ØµØ§Ù„Ø­");
       setLoading(false);
       return;
     }
@@ -51,11 +51,11 @@ export default function CollaborateurDetail() {
   if (err) return <div className="p-6 text-red-600">{err}</div>;
   if (!collab) return <div className="p-6">Collaborateur non trouvé</div>;
 
-  const siteLabel = collab.site ? `${collab.site.nom} - ${collab.site.localite}` : "—";
+  const siteLabel = collab.site ? `${collab.site.nom} - ${collab.site.localite}` : "””";
 
   return (
     <div className="p-6 space-y-4">
-      {/* ✅ رجّعنا كان زر Retour */}
+      {/* âœ… Ø±Ø¬Ù‘Ø¹Ù†Ø§ ÙƒØ§Ù† Ø²Ø± Retour */}
       <button
         type="button"
         onClick={() => navigate("/medecin-traitant/collaborateurs")}
@@ -64,17 +64,17 @@ export default function CollaborateurDetail() {
         <ArrowLeft size={16} /> Retour
       </button>
 
-      {/* ✅ Card collaborateur */}
+      {/* âœ… Card collaborateur */}
       <div className="bg-white rounded-xl border p-5">
         <h1 className="text-xl font-bold">
           {collab.prenom} {collab.nom}
         </h1>
         <p className="text-sm text-slate-500">
-          {collab.matricule} · {collab.email || "—"}
+          {collab.matricule} · {collab.email || "””"}
         </p>
       </div>
 
-      {/* ✅ Infos collaborateur */}
+      {/* âœ… Infos collaborateur */}
       <div className="bg-white rounded-xl border p-5">
         <h2 className="font-semibold">Informations collaborateur</h2>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -85,14 +85,15 @@ export default function CollaborateurDetail() {
           <div>
             <p className="text-slate-500">Créé le</p>
             <p className="font-medium">
-              {collab.created_at ? new Date(collab.created_at).toLocaleString() : "—"}
+              {collab.created_at ? new Date(collab.created_at).toLocaleString() : "””"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* ✅ Tabs dossier كامل */}
+      {/* âœ… Tabs dossier ÙƒØ§Ù…Ù„ */}
       <DossierMedical collaborateurId={collaborateurId} />
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -9,8 +9,8 @@ import {
   Stethoscope,
   Activity,
 } from "lucide-react";
-import { api } from "@/controllers/api/api";
-import { getUserRole, getUsername } from "@/controllers/auth/auth";
+import { api } from "@/api/api";
+import { getUserRole, getUsername } from "@/auth/auth";
 
 const getGreetingByTime = (date = new Date()) => {
   const hour = date.getHours();
@@ -236,7 +236,7 @@ export default function MedecinTravailDashboard() {
           id: item.id,
           time: normalizeTime(item.heure),
           name: name || "Collaborateur",
-          reference: item.matricule || "—",
+          reference: item.matricule || "””",
           description,
           status,
           statusTone,
@@ -271,10 +271,10 @@ export default function MedecinTravailDashboard() {
     const inProgress =
       rdvsDuJour.find((item) => item.statut === "EN_COURS") ||
       rdvsDuJour.find((item) => item.statut === "PREVU");
-    if (!inProgress) return "—";
+    if (!inProgress) return "””";
     return (
       `${inProgress.collaborateur_prenom || ""} ${inProgress.collaborateur_nom || ""}`.trim() ||
-      "—"
+      "””"
     );
   }, [rdvsDuJour]);
 
@@ -315,7 +315,7 @@ export default function MedecinTravailDashboard() {
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-slate-900">
             {headerTitle}
           </h1>
-          <p className="mt-0.5 text-xs text-slate-500">Tableau de bord • {subtitleDate}</p>
+          <p className="mt-0.5 text-xs text-slate-500">Tableau de bord ”¢ {subtitleDate}</p>
         </div>
       </div>
 
@@ -498,7 +498,7 @@ export default function MedecinTravailDashboard() {
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-slate-900">Dossier médical mis à jour</p>
                 <p className="mt-0.5 text-[10px] text-slate-500">
-                  Collaborateur 1056538197 — aujourd'hui
+                  Collaborateur 1056538197 ”” aujourd'hui
                 </p>
               </div>
             </div>
@@ -510,7 +510,7 @@ export default function MedecinTravailDashboard() {
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-slate-900">Examen initial enregistré</p>
                 <p className="mt-0.5 text-[10px] text-slate-500">
-                  Collaborateur 1694416702 — aujourd'hui
+                  Collaborateur 1694416702 ”” aujourd'hui
                 </p>
               </div>
             </div>
@@ -522,7 +522,7 @@ export default function MedecinTravailDashboard() {
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-slate-900">Examen complémentaire demandé</p>
                 <p className="mt-0.5 text-[10px] text-slate-500">
-                  Collaborateur 1683114410 — hier
+                  Collaborateur 1683114410 ”” hier
                 </p>
               </div>
             </div>
@@ -568,4 +568,5 @@ export default function MedecinTravailDashboard() {
     </div>
   );
 }
+
 

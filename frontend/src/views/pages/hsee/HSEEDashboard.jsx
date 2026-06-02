@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -13,11 +13,11 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import hseeLogo from "@/views/assets/hsee-new-logo.svg";
-import { api } from "@/controllers/api/api";
+import { api } from "@/api/api";
 import {
   EMPTY_DASHBOARD,
   getHseeDashboardStats,
-} from "@/models/services/hseeDashboardService";
+} from "@/services/hseeDashboardService";
 import { SITE_FILTER_OPTIONS } from "@/utils/siteOptions";
 
 const PERIOD_OPTIONS = [
@@ -685,4 +685,6 @@ export default function HSEEDashboard() {
     </div>
   );
 }
+
+
 
