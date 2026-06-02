@@ -503,6 +503,45 @@ class EnqueteInitialeAccident(models.Model):
         return f"Enquete initiale {self.victime_matricule} - {self.date_accident}"
 
 
+class TransmissionEnqueteHSEE(models.Model):
+    STATUS_CHOICES = [
+        ("BROUILLON", "Brouillon"),
+        ("EN_ATTENTE", "En attente"),
+        ("VALIDEE", "Validée"),
+        ("REJETEE", "Rejetée"),
+    ]
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transmissions_hsee_creees",
+    )
+    numero_enquete = models.CharField(max_length=120)
+    type_enquete = models.CharField(max_length=120)
+    date_accident = models.DateField()
+    site = models.CharField(max_length=120)
+    responsable = models.CharField(max_length=255)
+    niveau_gravite = models.CharField(max_length=50, blank=True, null=True)
+    priorite = models.CharField(max_length=50, blank=True, null=True)
+    urgent = models.BooleanField(default=False)
+    commentaire_transmission = models.TextField()
+    document = models.FileField(upload_to="hsee_transmissions/", blank=True, null=True)
+    transmission_status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="BROUILLON",
+    )
+    sent_to_hsee = models.BooleanField(default=False)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Transmission HSEE {self.numero_enquete} - {self.site}"
+
+
 # =====================================================
 # PLAN ACTION HSEE
 # =====================================================

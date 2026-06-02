@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -5,14 +7,19 @@ from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
+from django.db.models import Case, When, Value, IntegerField
 
+from .services.email_service import send_new_user_credentials_email
 from .models import Collaborateur, Site, User
 from .permissions import CanViewCollaborateurList
 from .serializers import (
     CollaborateurSerializer,
     MyTokenObtainPairSerializer,
     SiteSerializer,
+    UserAdminSerializer,
     UserMedecinSerializer,
+    UserPasswordChangeSerializer,
+    UserProfileSerializer,
 )
 from .permissions_map import ROLE_PERMISSIONS
 from medical.models import (
@@ -40,6 +47,18 @@ from medical.serializers import (
     DemandeExamenLaboSerializer,
     ExamenComplementaireSerializer,
 )
+
+
+logger = logging.getLogger(__name__)
+
+
+ADMIN_USER_MANAGER_ROLES = {"ADMIN", "RESPONSABLE_RH"}
+
+
+def _has_user_admin_access(user):
+    return ((getattr(user, "role", "") or "").strip().upper() in ADMIN_USER_MANAGER_ROLES)
+
+
 class CollaborateurProfilAPIView(APIView):
     permission_classes = [IsAuthenticated, CanViewCollaborateurList]
 
@@ -122,6 +141,33 @@ class MeView(APIView):
         )
 
 
+class UserProfileAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserPasswordChangeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = UserPasswordChangeSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "Mot de passe mis a jour avec succes."})
+
+
 class CollaborateurListAPIView(generics.ListAPIView):
     queryset = Collaborateur.objects.select_related("site").all().order_by("nom", "prenom")
     serializer_class = CollaborateurSerializer
@@ -156,7 +202,16 @@ class CollaborateurDetailAPIView(APIView):
 class SiteListAPIView(generics.ListAPIView):
     serializer_class = SiteSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Site.objects.all().order_by("nom", "localite")
+    queryset = Site.objects.annotate(
+        display_order=Case(
+            When(nom__iexact="Menzel Hayet", then=Value(1)),
+            When(nom__iexact="Messadine", then=Value(2)),
+            When(nom__iexact="Mateur 1", then=Value(3)),
+            When(nom__iexact="Mateur 2", then=Value(4)),
+            default=Value(99),
+            output_field=IntegerField(),
+        )
+    ).order_by("display_order", "nom", "localite")
 
 
 class RHKpiView(APIView):
@@ -186,3 +241,80 @@ class MedecinListAPIView(generics.ListAPIView):
         return User.objects.filter(
             role__in=["MEDECIN_TRAITANT", "MEDECIN_TRAVAIL", "MEDECIN_CONTROLEUR"]
         ).order_by("first_name", "last_name", "username")
+
+
+class AdminUserListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _has_user_admin_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        queryset = User.objects.select_related("site").all().order_by("-date_joined", "username")
+        serializer = UserAdminSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        if not _has_user_admin_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UserAdminSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        generated_password = getattr(user, "_generated_password", "")
+        email_sent = True
+        warning = ""
+
+        try:
+            send_new_user_credentials_email(user, generated_password)
+        except Exception as exc:  # pragma: no cover
+            email_sent = False
+            warning = "Utilisateur créé, mais l'email n'a pas pu être envoyé."
+            logger.exception("Impossible d'envoyer l'email de création utilisateur %s", user.pk)
+
+        response_data = UserAdminSerializer(user).data
+        response_data["email_sent"] = email_sent
+        if warning:
+            response_data["warning"] = warning
+            response_data["temporary_password"] = generated_password
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+class AdminUserDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk):
+        return get_object_or_404(User.objects.select_related("site"), pk=pk)
+
+    def get(self, request, pk):
+        if not _has_user_admin_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UserAdminSerializer(self.get_object(pk))
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        if not _has_user_admin_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        user = self.get_object(pk)
+        serializer = UserAdminSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        if not _has_user_admin_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        user = self.get_object(pk)
+        if user.pk == request.user.pk:
+            return Response(
+                {"detail": "Vous ne pouvez pas supprimer votre propre compte."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

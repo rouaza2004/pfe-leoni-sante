@@ -1,6 +1,6 @@
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
-import AppRouter from "./router/AppRouter.jsx";
+import AppRouter from "./routes/AppRouter.jsx";
 
 export default function App() {
   return (
@@ -10,3 +10,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+

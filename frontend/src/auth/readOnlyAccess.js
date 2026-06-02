@@ -83,3 +83,4 @@ export function isMutationActionElement(element) {
 
   return MUTATION_KEYWORDS.some((keyword) => attributesText.includes(keyword));
 }
+

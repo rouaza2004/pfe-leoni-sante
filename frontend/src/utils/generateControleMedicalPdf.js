@@ -126,3 +126,4 @@ export function downloadControleMedicalPdf(formData) {
   openPdfPreview(doc, filename);
   return filename;
 }
+

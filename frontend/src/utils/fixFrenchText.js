@@ -1,4 +1,4 @@
-const MOJIBAKE_MARKERS = ["Ã", "Â", "â", "├", "⌐", "�"];
+const MOJIBAKE_MARKERS = ["?", "?", "?", "?", "?", "?"];
 
 const looksCorrupted = (value) =>
   typeof value === "string" && MOJIBAKE_MARKERS.some((marker) => value.includes(marker));
@@ -11,18 +11,18 @@ const score = (value) =>
 
 const repairOnce = (value) => {
   const directMap = {
-    "Op├rateur": "Opérateur",
-    "Op├⌐rateur": "Opérateur",
-    "Qualit├": "Qualité",
-    "Qualit├⌐": "Qualité",
-    "Agent qualit├": "Agent qualité",
-    "Agent qualit├⌐": "Agent qualité",
-    "R├sidence": "Résidence",
-    "R├⌐sidence": "Résidence",
-    "N├ant": "Néant",
-    "N├⌐ant": "Néant",
-    "H├patite": "Hépatite",
-    "H├⌐patite": "Hépatite",
+    "Op?rateur": "Op?rateur",
+    "Op??rateur": "Op?rateur",
+    "Qualit?": "Qualit?",
+    "Qualit??": "Qualit?",
+    "Agent qualit?": "Agent qualit?",
+    "Agent qualit??": "Agent qualit?",
+    "R?sidence": "R?sidence",
+    "R??sidence": "R?sidence",
+    "N?ant": "N?ant",
+    "N??ant": "N?ant",
+    "H?patite": "H?patite",
+    "H??patite": "H?patite",
   };
 
   if (directMap[value]) {
@@ -39,13 +39,13 @@ const repairOnce = (value) => {
   }
 
   const cp437Map = {
-    "├⌐": "é",
-    "├¿": "à",
-    "├ê": "è",
-    "├®": "î",
-    "├┤": "ô",
-    "├╣": "ù",
-    "├ç": "ç",
+    "??": "?",
+    "??": "?",
+    "??": "?",
+    "??": "?",
+    "??": "?",
+    "??": "?",
+    "??": "?",
   };
 
   return Object.entries(cp437Map).reduce(
@@ -76,3 +76,4 @@ export const fixFrenchTextDeep = (value) => {
   }
   return value;
 };
+
