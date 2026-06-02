@@ -1,51 +1,13 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ClipboardList, FileText, Search } from "lucide-react";
 
-import { api } from "../../api/api";
+import { getMedecinControleurHistory } from "../../services/medecinControleurHistoryService";
 
 const filters = [
   { id: "all", label: "Tous" },
   { id: "controle", label: "Contrôle médical" },
   { id: "expertise", label: "Demande d'expertise" },
 ];
-
-const HISTORY_ENDPOINT = "/statistiques/";
-
-function firstArray(...values) {
-  return values.find((value) => Array.isArray(value)) || [];
-}
-
-function extractHistoryRecords(payload, type) {
-  const combined = firstArray(
-    payload,
-    payload?.records,
-    payload?.history,
-    payload?.historique,
-    payload?.dossiers
-  );
-
-  if (type === "controle") {
-    return firstArray(
-      payload?.controles,
-      payload?.controles_medicaux,
-      payload?.controle_medical_history,
-      payload?.history?.controles,
-      payload?.historique?.controles,
-      payload?.records?.controles,
-      combined.filter?.((item) => item.type === "controle")
-    );
-  }
-
-  return firstArray(
-    payload?.expertises,
-    payload?.demandes_expertise,
-    payload?.demande_expertise_history,
-    payload?.history?.expertises,
-    payload?.historique?.expertises,
-    payload?.records?.expertises,
-    combined.filter?.((item) => item.type === "expertise")
-  );
-}
 
 function EmptyState({ text }) {
   return (
@@ -87,11 +49,11 @@ export default function HistoriquePage() {
         setIsLoading(true);
         setErrorMessage("");
 
-        const historyResponse = await api.get(HISTORY_ENDPOINT);
+        const history = await getMedecinControleurHistory();
 
         if (cancelled) return;
 
-        const controles = extractHistoryRecords(historyResponse.data, "controle").map(
+        const controles = (Array.isArray(history.controles) ? history.controles : []).map(
           (item) => ({
             ...item,
             id: `controle-${item.id}`,
@@ -103,7 +65,7 @@ export default function HistoriquePage() {
           })
         );
 
-        const expertises = extractHistoryRecords(historyResponse.data, "expertise").map(
+        const expertises = (Array.isArray(history.expertises) ? history.expertises : []).map(
           (item) => ({
             ...item,
             id: `expertise-${item.id}`,
@@ -124,7 +86,7 @@ export default function HistoriquePage() {
         setRecords(combined);
       } catch (error) {
         console.error("Erreur chargement historique médecin contrôleur", {
-          historyEndpoint: "/api/statistiques/",
+          historyEndpoint: "/api/medical/medecin-controleur/",
           message: error?.message,
           status: error?.response?.status,
           data: error?.response?.data,
@@ -169,6 +131,7 @@ export default function HistoriquePage() {
         record.matricule,
         record.matricule_leoni,
         record.medecin_identifiant,
+        record.pdf_filename,
         record.destinataire,
         buildSummary(record),
       ]
@@ -323,6 +286,10 @@ export default function HistoriquePage() {
                                       Médecin contrôleur :
                                     </span>{" "}
                                     {record.medecin_identifiant || "--"}
+                                  </p>
+                                  <p>
+                                    <span className="font-semibold text-slate-900">PDF :</span>{" "}
+                                    {record.pdf_filename || "--"}
                                   </p>
                                 </div>
 

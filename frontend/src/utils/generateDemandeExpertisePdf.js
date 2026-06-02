@@ -1,18 +1,13 @@
 import { jsPDF } from "jspdf";
 
-import leoniLogoUrl from "../assets/leoni-logo.png";
-
 const COMPANY_NAME = "SOCIETE LEONI WIRING SYSTEMS TUNISIA SARL";
 const HONORAIRES_TEXT =
   "Afin de permettre le règlement de vos honoraires dans les meilleures conditions, nous vous prions de bien vouloir accompagner votre rapport par un mémoire de règlement d'honoraires établi en deux exemplaires selon le modèle ci-joint.";
-
-const DEFAULT_MISSION_ITEMS = [
-  "Examiner l'intéressé(e)",
-  "Préciser si le repos prescrit par son médecin traitant est justifié par son état de santé actuel et la date éventuelle de la reprise du travail",
-];
+const FOOTER_NOTE =
+  "NB : Prière de ne donner à la personne examinée aucune indication sur les chances de succès de sa demande.";
 
 function formatDate(value) {
-  if (!value) return "____________";
+  if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("fr-FR");
@@ -34,120 +29,61 @@ function sanitizeFilenamePart(value, fallback) {
   return normalized || fallback;
 }
 
-function truncateLines(lines, maxLines) {
-  if (lines.length <= maxLines) return lines;
-  const nextLines = lines.slice(0, maxLines);
-  nextLines[maxLines - 1] = `${nextLines[maxLines - 1].replace(/\s+$/g, "")}...`;
-  return nextLines;
+function withPeriod(value) {
+  const cleaned = normalize(value);
+  if (!cleaned) return "";
+  return /[.;:]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
 
-async function imageUrlToDataUrl(url) {
-  if (!url || url.startsWith("data:image/")) return url || null;
+function drawDottedLine(doc, x1, y, x2) {
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.25);
 
-  const response = await fetch(url);
-  const blob = await response.blob();
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  for (let x = x1; x < x2; x += 2.2) {
+    doc.line(x, y, Math.min(x + 0.55, x2), y);
+  }
 }
 
-async function drawHeader(doc, margin, rightEdge, dateLabel, companyName) {
-  const logoX = margin;
-  const logoY = 11;
-  const logoWidth = 30;
-  const logoHeight = 7.1;
-
-  try {
-    const logoDataUrl = await imageUrlToDataUrl(leoniLogoUrl);
-    if (logoDataUrl) {
-      doc.addImage(logoDataUrl, "PNG", logoX, logoY, logoWidth, logoHeight);
-    }
-  } catch (error) {
-    console.warn("Logo LEONI non charge dans le PDF", error);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("LEONI", logoX, logoY + 6);
+function drawTextOnDottedLine(doc, value, x1, y, x2) {
+  const text = normalize(value);
+  if (!text) {
+    drawDottedLine(doc, x1, y, x2);
+    return;
   }
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.8);
-  doc.text(doc.splitTextToSize(companyName, 55), logoX, 22);
-
-  doc.setFont("times", "normal");
-  doc.setFontSize(11);
-  doc.text(dateLabel, rightEdge, 18, { align: "right" });
+  doc.text(text, x1, y - 1.1);
 }
 
-function drawInlineField(doc, label, value, x, y, width, labelWidth = 34) {
-  const valueX = x + labelWidth;
-  const valueWidth = width - labelWidth;
-  const normalized = normalize(value);
-
-  doc.setFont("times", "bold");
-  doc.setFontSize(11.5);
+function drawLabeledDottedField(doc, label, value, x, y, lineStart, lineEnd) {
   doc.text(label, x, y);
+  drawTextOnDottedLine(doc, value, lineStart, y + 0.4, lineEnd);
+}
 
-  doc.setFont("times", "normal");
-  doc.setFontSize(11.5);
-  if (normalized) {
-    const lines = truncateLines(doc.splitTextToSize(normalized, valueWidth), 2);
-    doc.text(lines, valueX, y);
-    return y + Math.max(7, lines.length * 5.2);
+function drawWrappedText(doc, text, x, y, width, lineHeight = 5) {
+  const lines = doc.splitTextToSize(text, width);
+  doc.text(lines, x, y);
+  return y + lines.length * lineHeight;
+}
+
+function drawSquareBullet(doc, text, x, y, width) {
+  doc.rect(x, y - 2.6, 1.7, 1.7, "F");
+  return drawWrappedText(doc, text, x + 5, y, width - 5, 5) + 1.2;
+}
+
+function openPdfPreview(doc, filename) {
+  doc.setProperties({ title: filename });
+
+  const pdfBlob = doc.output("blob");
+  const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+  const blobUrl = URL.createObjectURL(pdfFile);
+  const previewWindow = window.open(blobUrl, "_blank");
+
+  if (!previewWindow) {
+    URL.revokeObjectURL(blobUrl);
+    throw new Error("PDF preview popup blocked");
   }
 
-  doc.setDrawColor(90, 90, 90);
-  doc.setLineWidth(0.2);
-  doc.line(valueX, y + 1.4, x + width, y + 1.4);
-  return y + 7;
-}
-
-function drawTextArea(doc, label, value, x, y, width, maxLines = 3) {
-  doc.setFont("times", "bold");
-  doc.setFontSize(11.5);
-  doc.text(label, x, y);
-
-  const textY = y + 7;
-  const normalized = normalize(value);
-  doc.setFont("times", "normal");
-  doc.setFontSize(11);
-
-  if (normalized) {
-    const lines = truncateLines(doc.splitTextToSize(normalized, width), maxLines);
-    doc.text(lines, x, textY);
-    return textY + lines.length * 5.2 + 4;
-  }
-
-  doc.setDrawColor(90, 90, 90);
-  doc.setLineWidth(0.2);
-  doc.line(x, textY + 1, x + width, textY + 1);
-  return textY + 8;
-}
-
-function buildMissionItems(missionText) {
-  const items = String(missionText ?? "")
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => item.replace(/^[-•]\s*/, "").replace(/[;.:]+$/g, "").trim());
-
-  return items.length ? items.slice(0, 2) : DEFAULT_MISSION_ITEMS;
-}
-
-function drawMissionItem(doc, text, x, y, width) {
-  const bulletX = x + 2;
-  const textX = x + 8;
-  const lines = truncateLines(doc.splitTextToSize(text, width - 8), 3);
-
-  doc.setFont("times", "normal");
-  doc.setFontSize(11);
-  doc.circle(bulletX, y - 1.1, 0.8, "F");
-  doc.text(lines, textX, y);
-
-  return y + Math.max(6, lines.length * 5.1) + 1;
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }
 
 export async function downloadDemandeExpertisePdf(formData) {
@@ -158,105 +94,130 @@ export async function downloadDemandeExpertisePdf(formData) {
   });
 
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 18;
+  const margin = 20;
   const rightEdge = pageWidth - margin;
   const contentWidth = pageWidth - margin * 2;
 
-  const ville = normalize(formData.ville);
   const date = formatDate(formData.date);
-  const dateLabel = `${ville ? `${ville}, ` : ""}Le ${date}`;
   const companyName = normalize(formData.societe, COMPANY_NAME);
-  const doctorName = normalize(formData.medecinControleur, "Dr. ____________");
-  const destination = normalize(formData.destinataire || formData.destination);
+  const controllerDoctorName = normalize(formData.medecinControleur);
+  const expertDoctorName = normalize(formData.destinataire || formData.destination);
   const attachmentNames = Array.isArray(formData.attachmentNames)
     ? formData.attachmentNames.map((name) => String(name).trim()).filter(Boolean)
     : [];
-  const piecesJointes = normalize(
-    [attachmentNames.join(", "), formData.piecesJointes].filter(Boolean).join("\n")
-  );
+  const piecesJointes = [attachmentNames.join(", "), formData.piecesJointes]
+    .filter(Boolean)
+    .join("\n")
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const firstAttachmentLine = piecesJointes[0] || "";
+  const secondAttachmentLine = piecesJointes.slice(1).join(", ");
   const aptitudePoste = normalize(formData.aptitudePoste);
   const autresMissions = normalize(formData.autresMissions);
-  const missionItems = buildMissionItems(formData.mission);
 
   doc.setTextColor(0, 0, 0);
-  await drawHeader(doc, margin, rightEdge, dateLabel, companyName);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
 
-  doc.setFont("times", "bold");
-  doc.setFontSize(14);
-  doc.text("DEMANDE D'EXPERTISE MÉDICALE", pageWidth / 2, 45, { align: "center" });
-  doc.setLineWidth(0.25);
-  doc.line(pageWidth / 2 - 43, 47, pageWidth / 2 + 43, 47);
-
-  let cursorY = 60;
-  cursorY = drawInlineField(doc, "DR :", doctorName, margin, cursorY, contentWidth, 22);
-  if (destination) {
-    cursorY = drawInlineField(doc, "À :", destination, margin, cursorY, contentWidth, 22);
-  }
-
-  cursorY += 4;
-  doc.setFont("times", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(11.5);
-  doc.text("Cher Confrère,", margin, cursorY);
-  cursorY += 9;
+  doc.text(companyName, pageWidth / 2, 22, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text("…………Le :", rightEdge - 47, 38);
+  drawTextOnDottedLine(doc, date, rightEdge - 19, 38.4, rightEdge);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13.5);
+  doc.text("DEMANDE D'EXPERTISE MEDICALE", pageWidth / 2, 56, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11.2);
+  const doctorBlockX = 140;
+  drawLabeledDottedField(doc, "DR :", expertDoctorName, doctorBlockX, 75, doctorBlockX + 10, rightEdge);
+
+  let cursorY = 101;
+  doc.text("Cher Confrère", margin, cursorY);
+  cursorY += 11;
   doc.text("J'ai l'honneur de vous adresser pour expertise médicale :", margin, cursorY);
 
   cursorY += 13;
-  cursorY = drawInlineField(doc, "Nom :", normalize(formData.nom), margin, cursorY, contentWidth, 35);
-  cursorY = drawInlineField(doc, "Prénom :", normalize(formData.prenom), margin, cursorY, contentWidth, 35);
-  cursorY = drawInlineField(
+  drawLabeledDottedField(doc, "Nom :", normalize(formData.nom), margin, cursorY, 57, rightEdge);
+  cursorY += 9;
+  drawLabeledDottedField(doc, "Prénom :", normalize(formData.prenom), margin, cursorY, 57, rightEdge);
+  cursorY += 9;
+  drawLabeledDottedField(
     doc,
     "Matricule Leoni :",
     normalize(formData.matriculeLeoni),
     margin,
     cursorY,
-    contentWidth,
-    35
+    57,
+    rightEdge
   );
 
-  cursorY += 5;
-  cursorY = drawTextArea(doc, "Pièces jointes :", piecesJointes, margin, cursorY, contentWidth, 2);
+  cursorY += 15;
+  doc.setFont("helvetica", "bold");
+  doc.text("Pièce jointes :", margin, cursorY);
+  doc.line(margin, cursorY + 1, margin + 31, cursorY + 1);
 
-  cursorY += 4;
-  doc.setFont("times", "bold");
-  doc.setFontSize(11.5);
-  doc.text("Mission objet de l'expertise :", margin, cursorY);
+  doc.setFont("helvetica", "normal");
   cursorY += 9;
+  drawTextOnDottedLine(doc, firstAttachmentLine, margin, cursorY, rightEdge);
+  cursorY += 8;
+  drawTextOnDottedLine(doc, secondAttachmentLine, margin, cursorY, rightEdge);
 
-  missionItems.forEach((item) => {
-    cursorY = drawMissionItem(doc, item, margin, cursorY, contentWidth);
-  });
+  cursorY += 15;
+  doc.setFont("helvetica", "bold");
+  doc.text("Mission objet de l'expertise :", margin, cursorY);
+  doc.line(margin, cursorY + 1, margin + 53, cursorY + 1);
 
-  cursorY = drawMissionItem(
+  doc.setFont("helvetica", "normal");
+  cursorY += 11;
+  cursorY = drawSquareBullet(doc, "Examiner L'intéressé (e) ;", margin + 2, cursorY, contentWidth - 4);
+  cursorY = drawSquareBullet(
     doc,
-    `Préciser son aptitude médicale actuelle au poste de ${aptitudePoste || "____________________"}`,
-    margin,
+    "Préciser si le repos prescrit par son médecin traitant est justifié par son état de santé actuel et la date éventuelle de la reprise du travail.",
+    margin + 2,
     cursorY,
-    contentWidth
+    contentWidth - 4
   );
-  cursorY = drawMissionItem(
+  cursorY = drawSquareBullet(
     doc,
-    `Autres missions : ${autresMissions || "____________________________"}`,
-    margin,
+    `Préciser son aptitude médicale actuelle au poste de ${aptitudePoste || "………………………"}`,
+    margin + 2,
     cursorY,
-    contentWidth
+    contentWidth - 4
+  );
+  cursorY = drawSquareBullet(
+    doc,
+    `Autres missions : ${withPeriod(autresMissions) || "………………………"}`,
+    margin + 2,
+    cursorY,
+    contentWidth - 4
   );
 
   cursorY += 5;
-  doc.setFont("times", "normal");
-  doc.setFontSize(10.5);
-  doc.text(truncateLines(doc.splitTextToSize(HONORAIRES_TEXT, contentWidth), 4), margin, cursorY);
+  doc.setFontSize(10.8);
+  cursorY = drawWrappedText(doc, HONORAIRES_TEXT, margin, cursorY, contentWidth, 4.8);
 
   doc.setFontSize(11);
-  doc.text("Bien confraternellement", rightEdge, 252, { align: "right" });
-  doc.setFont("times", "bold");
-  doc.text("Le médecin contrôleur de la société Leoni", rightEdge, 261, { align: "right" });
-  doc.setFont("times", "normal");
-  doc.text(doctorName, rightEdge, 270, { align: "right" });
+  doc.text("Bien confraternellement", rightEdge, 262, { align: "right" });
+  doc.text("Le médecin contrôleur de la société Leoni", rightEdge, 271, { align: "right" });
+  if (controllerDoctorName) {
+    doc.text(controllerDoctorName, rightEdge, 280, { align: "right" });
+  }
+
+  doc.setFontSize(9.2);
+  drawWrappedText(doc, FOOTER_NOTE, margin, 289, contentWidth, 4.2);
 
   const filename = `demande_expertise_${sanitizeFilenamePart(
     formData.nom,
     "Nom"
   )}_${sanitizeFilenamePart(formData.prenom, "Prenom")}.pdf`;
 
-  doc.save(filename);
+  openPdfPreview(doc, filename);
+  return filename;
 }

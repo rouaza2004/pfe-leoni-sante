@@ -81,6 +81,8 @@ from .views import (
     OrdonnancePdfView,
     AccidentTravailPdfView,
     MaladieProfessionnellePdfView,
+    ControleMedicalRecordListCreateView,
+    DemandeExpertiseRecordListCreateView,
 )
 
 urlpatterns = [
@@ -178,4 +180,6 @@ urlpatterns = [
     path("pointage-medecins/", PointageMedecinListCreateView.as_view()),
     path("pointage-medecins/summary/", PointageMedecinAnnualSummaryView.as_view()),
     path("pointage-medecins/<int:pk>/", PointageMedecinDetailView.as_view()),
+    path("medecin-controleur/controles-medicaux/", ControleMedicalRecordListCreateView.as_view()),
+    path("medecin-controleur/demandes-expertise/", DemandeExpertiseRecordListCreateView.as_view()),
 ]

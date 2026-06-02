@@ -14,44 +14,34 @@ import {
   Users,
 } from "lucide-react";
 
+import { api } from "@/api/api";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 import { getUsername } from "../../auth/auth";
 
-const appointments = [
+const appointmentTemplates = [
   {
-    id: 1,
     time: "08:30",
-    name: "Sonia Ben Salem",
-    matricule: "LEO-0421",
     type: "Contrôle arrêt maladie",
     context: "Visite à domicile • Quartier industriel",
     status: "Terminé",
     statusTone: "success",
   },
   {
-    id: 2,
     time: "10:15",
-    name: "Walid Mansouri",
-    matricule: "LEO-1178",
     type: "Reprise travail",
     context: "Validation après 21 jours d'arrêt",
     status: "En cours",
     statusTone: "inProgress",
   },
   {
-    id: 3,
     time: "13:45",
-    name: "Asma Jlassi",
-    matricule: "LEO-0882",
     type: "Accident de travail",
     context: "Contrôle suite à accident avec arrêt",
     status: "En attente",
     statusTone: "warning",
   },
   {
-    id: 4,
     time: "15:30",
-    name: "Karim Trabelsi",
-    matricule: "LEO-1544",
     type: "Contrôle périodique",
     context: "Suivi d'un dossier récurrent",
     status: "Suivant",
@@ -224,6 +214,37 @@ const notificationTypeConfig = {
   },
 };
 
+function normalizeCollaborateurList(payload) {
+  return fixFrenchTextDeep(Array.isArray(payload) ? payload : payload?.results || []);
+}
+
+function buildAppointmentFromCollaborateur(collaborateur, index) {
+  const template = appointmentTemplates[index % appointmentTemplates.length];
+  const name = `${collaborateur.prenom || ""} ${collaborateur.nom || ""}`.trim() || "--";
+
+  return {
+    ...template,
+    id: `collaborateur-${collaborateur.id}`,
+    collaborateurId: collaborateur.id,
+    name,
+    matricule: collaborateur.matricule || "--",
+  };
+}
+
+function getAppointmentCollaborateurId(appointment) {
+  const candidate =
+    appointment?.collaborateur?.id ??
+    appointment?.collaborateur_id ??
+    appointment?.collaborateurId ??
+    appointment?.employe?.id ??
+    appointment?.employe_id ??
+    appointment?.employeId ??
+    appointment?.collaborateur ??
+    null;
+
+  return ["number", "string"].includes(typeof candidate) ? candidate : null;
+}
+
 function SummaryCard({ title, value, detail, icon, tone = "info" }) {
   const toneClass = accentClasses[tone] || accentClasses.info;
 
@@ -274,6 +295,9 @@ export default function MedecinControleurDashboard() {
   const sessionIdentifier = username || "medecin-controleur";
   const [currentHour, setCurrentHour] = useState(() => new Date().getHours());
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [collaborateurs, setCollaborateurs] = useState([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [appointmentsError, setAppointmentsError] = useState("");
   const notificationRef = useRef(null);
 
   useEffect(() => {
@@ -305,6 +329,36 @@ export default function MedecinControleurDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCollaborateurs = async () => {
+      try {
+        setAppointmentsLoading(true);
+        setAppointmentsError("");
+        const response = await api.get("/collaborateurs/");
+        if (cancelled) return;
+        setCollaborateurs(normalizeCollaborateurList(response.data));
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setCollaborateurs([]);
+          setAppointmentsError("Impossible de charger les collaborateurs.");
+        }
+      } finally {
+        if (!cancelled) {
+          setAppointmentsLoading(false);
+        }
+      }
+    };
+
+    fetchCollaborateurs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const currentDate = useMemo(
     () =>
       new Intl.DateTimeFormat("fr-FR", {
@@ -327,8 +381,36 @@ export default function MedecinControleurDashboard() {
   const capacityRemaining = 1;
   const capacityCurrent = capacityCompleted + capacityRemaining;
   const progressWidth = `${(capacityCurrent / capacityTotal) * 100}%`;
-  const activeConsultation = "Mahdi Ayadi";
+  const appointments = useMemo(
+    () =>
+      collaborateurs
+        .filter((collaborateur) => collaborateur?.id)
+        .slice(0, appointmentTemplates.length)
+        .map(buildAppointmentFromCollaborateur),
+    [collaborateurs]
+  );
+  const activeConsultation =
+    appointments.find((appointment) => appointment.statusTone === "inProgress")?.name || "--";
   const unreadNotificationsCount = notificationsSeed.length;
+
+  const handleOpenDossier = (appointment) => {
+    const params = new URLSearchParams({ tab: "dossier" });
+    const collaborateurId = getAppointmentCollaborateurId(appointment);
+
+    if (collaborateurId) {
+      params.set("collaborateurId", String(collaborateurId));
+    }
+
+    if (appointment.matricule) {
+      params.set("matricule", appointment.matricule);
+    }
+
+    if (appointment.name) {
+      params.set("search", appointment.name);
+    }
+
+    navigate(`/medecin-controleur/recherche?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-2">
@@ -495,7 +577,20 @@ export default function MedecinControleurDashboard() {
         }
       >
         <div className="space-y-1.5">
-          {appointments.map((appointment) => (
+          {appointmentsLoading ? (
+            <p className="rounded-2xl border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-500">
+              Chargement des collaborateurs...
+            </p>
+          ) : appointmentsError ? (
+            <p className="rounded-2xl border border-rose-200 bg-rose-50 p-2 text-[11px] text-rose-700">
+              {appointmentsError}
+            </p>
+          ) : appointments.length === 0 ? (
+            <p className="rounded-2xl border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-500">
+              Aucun collaborateur disponible pour afficher les rendez-vous.
+            </p>
+          ) : (
+          appointments.map((appointment) => (
             <div
               key={appointment.id}
               className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 transition hover:border-slate-300 md:grid-cols-[64px_minmax(0,1fr)_auto]"
@@ -531,7 +626,7 @@ export default function MedecinControleurDashboard() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate("/medecin-controleur/recherche")}
+                  onClick={() => handleOpenDossier(appointment)}
                   className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                 >
                   Ouvrir dossier
@@ -539,7 +634,8 @@ export default function MedecinControleurDashboard() {
                 </button>
               </div>
             </div>
-          ))}
+          ))
+          )}
         </div>
       </SectionShell>
 

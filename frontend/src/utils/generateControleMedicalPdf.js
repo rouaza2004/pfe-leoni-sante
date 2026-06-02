@@ -35,6 +35,22 @@ function drawField(doc, label, value, x, y, offset = 28) {
   }
 }
 
+function openPdfPreview(doc, filename) {
+  doc.setProperties({ title: filename });
+
+  const pdfBlob = doc.output("blob");
+  const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+  const blobUrl = URL.createObjectURL(pdfFile);
+  const previewWindow = window.open(blobUrl, "_blank");
+
+  if (!previewWindow) {
+    URL.revokeObjectURL(blobUrl);
+    throw new Error("PDF preview popup blocked");
+  }
+
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+}
+
 export function downloadControleMedicalPdf(formData) {
   const doc = new jsPDF({
     orientation: "portrait",
@@ -107,5 +123,6 @@ export function downloadControleMedicalPdf(formData) {
     "Nom"
   )}_${sanitizeFilenamePart(formData.prenom, "Prenom")}.pdf`;
 
-  doc.save(filename);
+  openPdfPreview(doc, filename);
+  return filename;
 }

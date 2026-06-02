@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 
 import { api } from "@/api/api";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 import leoniLogo from "../../assets/leoni-logo.png";
 import { getUsername } from "../../auth/auth";
 import { downloadDemandeExpertisePdf } from "../../utils/generateDemandeExpertisePdf";
+import { saveDemandeExpertiseHistory } from "../../services/medecinControleurHistoryService";
 
 const SOCIETE_PAR_DEFAUT = "SOCIETE LEONI WIRING SYSTEMS TUNISIA SARL";
 
@@ -22,6 +24,56 @@ const MISSION_PAR_DEFAUT = [
   "Préciser si le repos prescrit par son médecin traitant est justifié par son état de santé actuel et la date éventuelle de la reprise du travail.",
   "Préciser son aptitude médicale actuelle au poste de [poste].",
 ].join("\n");
+
+function normalizeCollaborateurList(payload) {
+  return fixFrenchTextDeep(Array.isArray(payload) ? payload : payload?.results || []);
+}
+
+function getCollaborateurKey(collaborateur) {
+  return String(
+    collaborateur?.id ??
+      collaborateur?.matricule ??
+      `${collaborateur?.nom || ""}-${collaborateur?.prenom || ""}`
+  );
+}
+
+function mergeCollaborateurs(previous, incoming) {
+  const merged = new Map(previous.map((item) => [getCollaborateurKey(item), item]));
+
+  incoming.forEach((item) => {
+    const key = getCollaborateurKey(item);
+    merged.set(key, {
+      ...(merged.get(key) || {}),
+      ...item,
+    });
+  });
+
+  return Array.from(merged.values());
+}
+
+function normalizeSearchValue(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function matchesCollaborateur(collaborateur, query) {
+  const normalizedQuery = normalizeSearchValue(query.trim());
+  if (!normalizedQuery) return false;
+
+  const searchText = [
+    collaborateur?.nom,
+    collaborateur?.prenom,
+    collaborateur?.matricule,
+    `${collaborateur?.prenom || ""} ${collaborateur?.nom || ""}`,
+    `${collaborateur?.nom || ""} ${collaborateur?.prenom || ""}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return normalizeSearchValue(searchText).includes(normalizedQuery);
+}
 
 function Field({ label, children, hint }) {
   return (
@@ -399,6 +451,212 @@ function buildDocumentHtml(payload) {
   </html>`;
 }
 
+function buildReferenceDocumentHtml(payload) {
+  const attachmentLines = payload.attachments?.trim()
+    ? payload.attachments
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+  const firstAttachmentLine = attachmentLines[0] || "";
+  const secondAttachmentLine = attachmentLines.slice(1).join(", ");
+  const posteLine = normalizeDocumentValue(payload.poste, "………………………");
+  const autresMissionsLine = normalizeDocumentValue(payload.autresMissions, "………………………");
+
+  return `<!DOCTYPE html>
+  <html lang="fr">
+    <head>
+      <meta charset="utf-8" />
+      <title>Demande d'expertise médicale</title>
+      <style>
+        @page { size: A4 portrait; margin: 0; }
+        * { box-sizing: border-box; }
+        html,
+        body {
+          margin: 0;
+          background: #fff;
+          color: #000;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 11.2pt;
+          line-height: 1.25;
+        }
+        .page {
+          width: 210mm;
+          height: 297mm;
+          overflow: hidden;
+          padding: 17mm 20mm 13mm;
+          display: flex;
+          flex-direction: column;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 10mm;
+        }
+        .company {
+          font-weight: 700;
+          font-size: 11.5pt;
+          text-transform: uppercase;
+        }
+        .date-line {
+          margin-top: 8mm;
+          text-align: right;
+          white-space: nowrap;
+        }
+        .title {
+          margin: 0 0 13mm;
+          text-align: center;
+          font-size: 13.5pt;
+          font-weight: 700;
+        }
+        .doctor-section {
+          width: 72mm;
+          margin: 0 0 14mm auto;
+        }
+        .field-row {
+          display: flex;
+          align-items: flex-end;
+          margin-bottom: 4.5mm;
+        }
+        .field-label {
+          flex: 0 0 auto;
+          margin-right: 3mm;
+          white-space: nowrap;
+        }
+        .dotted-line {
+          flex: 1 1 auto;
+          min-height: 5.2mm;
+          padding: 0 1mm 0.7mm;
+          border-bottom: 1px dotted #000;
+        }
+        .content p {
+          margin: 0 0 5.5mm;
+        }
+        .person-fields {
+          margin: 8mm 0 9mm;
+        }
+        .section-heading {
+          display: inline-block;
+          margin: 0 0 6mm;
+          font-weight: 700;
+          text-decoration: underline;
+        }
+        .full-line {
+          min-height: 6.5mm;
+          border-bottom: 1px dotted #000;
+          padding: 0 1mm 0.7mm;
+          margin-bottom: 2.5mm;
+        }
+        .attachments-area {
+          margin-bottom: 9mm;
+        }
+        .mission-block {
+          margin-bottom: 8mm;
+        }
+        .mission-list {
+          list-style: none;
+          margin: 0;
+          padding: 0 0 0 2mm;
+        }
+        .mission-list li {
+          position: relative;
+          margin: 0 0 3.4mm;
+          padding-left: 6mm;
+        }
+        .mission-list li::before {
+          content: "▪";
+          position: absolute;
+          left: 0;
+          top: 0;
+        }
+        .honoraires {
+          margin: 0;
+          font-size: 10.8pt;
+        }
+        .closing-block {
+          margin-top: auto;
+          text-align: center;
+        }
+        .closing-block p {
+          margin: 0 0 4mm;
+        }
+        .footer-note {
+          margin-top: 15mm;
+          font-size: 9pt;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="page">
+        <div class="header">
+          <div class="company">${escapeHtml(payload.societe)}</div>
+          <div class="date-line">…………Le : <span class="dotted-line">${escapeHtml(payload.dateDisplay)}</span></div>
+        </div>
+
+        <div class="title">DEMANDE D'EXPERTISE MEDICALE</div>
+
+        <div class="doctor-section">
+          <div class="field-row">
+            <span class="field-label">DR :</span>
+            <span class="dotted-line">${escapeHtml(payload.medecin || "")}</span>
+          </div>
+          <div class="field-row">
+            <span class="dotted-line">${escapeHtml(payload.destination || "")}</span>
+          </div>
+        </div>
+
+        <div class="content">
+          <p>Cher Confrère</p>
+          <p>J'ai l'honneur de vous adresser pour expertise médicale :</p>
+        </div>
+
+        <div class="person-fields">
+          <div class="field-row">
+            <span class="field-label">Nom :</span>
+            <span class="dotted-line">${escapeHtml(normalizeDocumentValue(payload.nom))}</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Prénom :</span>
+            <span class="dotted-line">${escapeHtml(normalizeDocumentValue(payload.prenom))}</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Matricule Leoni :</span>
+            <span class="dotted-line">${escapeHtml(normalizeDocumentValue(payload.matricule))}</span>
+          </div>
+        </div>
+
+        <div class="attachments-area">
+          <p class="section-heading">Pièce jointes :</p>
+          <div class="full-line">${escapeHtml(firstAttachmentLine)}</div>
+          <div class="full-line">${escapeHtml(secondAttachmentLine)}</div>
+        </div>
+
+        <div class="mission-block">
+          <p class="section-heading">Mission objet de l'expertise :</p>
+          <ul class="mission-list">
+            <li>Examiner L'intéressé (e) ;</li>
+            <li>Préciser si le repos prescrit par son médecin traitant est justifié par son état de santé actuel et la date éventuelle de la reprise du travail.</li>
+            <li>Préciser son aptitude médicale actuelle au poste de ${escapeHtml(posteLine)}</li>
+            <li>Autres missions : ${escapeHtml(autresMissionsLine)}</li>
+          </ul>
+        </div>
+
+        <p class="honoraires">
+          Afin de permettre le règlement de vos honoraires dans les meilleures conditions, nous vous prions de bien vouloir accompagner votre rapport par un mémoire de règlement d'honoraires établi en deux exemplaires selon le modèle ci-joint.
+        </p>
+
+        <div class="closing-block">
+          <p>Bien confraternellement</p>
+          <p>Le médecin contrôleur de la société Leoni</p>
+        </div>
+
+        <div class="footer-note">
+          NB : Prière de ne donner à la personne examinée aucune indication sur les chances de succès de sa demande.
+        </div>
+      </div>
+    </body>
+  </html>`;
+}
+
 export default function DemandeExpertiseForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -410,6 +668,10 @@ export default function DemandeExpertiseForm() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [files, setFiles] = useState([]);
+  const [collaborateurs, setCollaborateurs] = useState([]);
+  const [loadingCollaborateurs, setLoadingCollaborateurs] = useState(false);
+  const [collaborateursError, setCollaborateursError] = useState("");
+  const [isNomFocused, setIsNomFocused] = useState(false);
 
   const [form, setForm] = useState({
     date_demande: today,
@@ -426,6 +688,72 @@ export default function DemandeExpertiseForm() {
   });
 
   useEffect(() => {
+    let cancelled = false;
+
+    const fetchCollaborateurs = async () => {
+      try {
+        setLoadingCollaborateurs(true);
+        setCollaborateursError("");
+        const res = await api.get("/collaborateurs/");
+        const data = normalizeCollaborateurList(res.data);
+
+        if (!cancelled) {
+          setCollaborateurs(data);
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setCollaborateurs([]);
+          setCollaborateursError("Impossible de charger les collaborateurs.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCollaborateurs(false);
+        }
+      }
+    };
+
+    fetchCollaborateurs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const query = form.nom.trim();
+    if (query.length < 2) return undefined;
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setLoadingCollaborateurs(true);
+        setCollaborateursError("");
+        const res = await api.get(`/collaborateurs/?search=${encodeURIComponent(query)}`);
+        const data = normalizeCollaborateurList(res.data);
+
+        if (!cancelled) {
+          setCollaborateurs((prev) => mergeCollaborateurs(prev, data));
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setCollaborateursError("Impossible de charger les collaborateurs.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCollaborateurs(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [form.nom]);
+
+  useEffect(() => {
     if (!id) {
       setCollaborateur(null);
       setLoading(false);
@@ -437,7 +765,7 @@ export default function DemandeExpertiseForm() {
         setLoading(true);
         setErr("");
         const res = await api.get(`/collaborateurs/${id}/`);
-        const data = res.data || null;
+        const data = fixFrenchTextDeep(res.data || null);
         setCollaborateur(data);
         setForm((prev) => ({
           ...prev,
@@ -464,12 +792,30 @@ export default function DemandeExpertiseForm() {
     }));
   }, [username]);
 
+  const filteredCollaborateurs = useMemo(() => {
+    const query = form.nom.trim();
+    if (!query) return [];
+
+    return collaborateurs.filter((item) => matchesCollaborateur(item, query)).slice(0, 8);
+  }, [collaborateurs, form.nom]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleSelectCollaborateur = (selectedCollaborateur) => {
+    setForm((prev) => ({
+      ...prev,
+      nom: selectedCollaborateur?.nom || "",
+      prenom: selectedCollaborateur?.prenom || "",
+      matricule_leoni: selectedCollaborateur?.matricule || "",
+    }));
+    setCollaborateur(selectedCollaborateur || null);
+    setIsNomFocused(false);
   };
 
   const buildPayload = () => {
@@ -499,7 +845,7 @@ export default function DemandeExpertiseForm() {
       return;
     }
 
-    const html = buildDocumentHtml(payload);
+    const html = buildReferenceDocumentHtml(payload);
     popup.document.open();
     popup.document.write(html);
     popup.document.close();
@@ -512,7 +858,7 @@ export default function DemandeExpertiseForm() {
 
     try {
       setErr("");
-      await downloadDemandeExpertisePdf({
+      const pdfData = {
         date: form.date_demande,
         societe: payload.societe,
         medecinControleur: payload.medecin,
@@ -524,7 +870,28 @@ export default function DemandeExpertiseForm() {
         mission: payload.mission,
         aptitudePoste: payload.poste,
         autresMissions: payload.autresMissions,
-      });
+      };
+      const pdfFilename = await downloadDemandeExpertisePdf(pdfData);
+
+      try {
+        await saveDemandeExpertiseHistory({
+          date: pdfData.date,
+          destinataire: pdfData.destination,
+          nom: pdfData.nom,
+          prenom: pdfData.prenom,
+          matricule_leoni: pdfData.matriculeLeoni,
+          pieces_jointes: pdfData.piecesJointes,
+          attachment_names: [],
+          aptitude_poste: pdfData.aptitudePoste,
+          autres_missions: pdfData.autresMissions,
+          medecin_identifiant: pdfData.medecinControleur,
+          pdf_filename: pdfFilename,
+          statut: "VALIDE",
+        });
+      } catch (saveError) {
+        console.error("Erreur sauvegarde historique demande expertise", saveError);
+        setErr("PDF généré, mais impossible d'enregistrer la demande dans l'historique.");
+      }
     } catch (error) {
       console.error("Erreur generation demande expertise PDF", error);
       setErr("Impossible de générer le PDF de la demande d'expertise.");
@@ -609,13 +976,58 @@ export default function DemandeExpertiseForm() {
           >
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Nom">
-                <input
-                  type="text"
-                  name="nom"
-                  value={form.nom}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="nom"
+                    value={form.nom}
+                    onChange={handleChange}
+                    onFocus={() => setIsNomFocused(true)}
+                    onBlur={() => window.setTimeout(() => setIsNomFocused(false), 120)}
+                    autoComplete="off"
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  />
+
+                  {isNomFocused && form.nom.trim() ? (
+                    <div className="absolute z-30 mt-2 max-h-56 w-full overflow-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-200/60">
+                      {loadingCollaborateurs ? (
+                        <p className="px-3 py-2 text-sm text-slate-500">Chargement...</p>
+                      ) : null}
+
+                      {!loadingCollaborateurs && collaborateursError ? (
+                        <p className="px-3 py-2 text-sm text-rose-600">{collaborateursError}</p>
+                      ) : null}
+
+                      {!loadingCollaborateurs &&
+                        !collaborateursError &&
+                        filteredCollaborateurs.map((item) => (
+                          <button
+                            key={getCollaborateurKey(item)}
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleSelectCollaborateur(item)}
+                            className="w-full rounded-xl px-3 py-2 text-left transition hover:bg-sky-50"
+                          >
+                            <span className="block text-sm font-medium text-slate-900">
+                              {item?.nom || "--"} {item?.prenom || ""}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-slate-500">
+                              Prénom : {item?.prenom || "--"} | Matricule :{" "}
+                              {item?.matricule || "--"}
+                            </span>
+                          </button>
+                        ))}
+
+                      {!loadingCollaborateurs &&
+                      !collaborateursError &&
+                      filteredCollaborateurs.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-slate-500">
+                          Aucun collaborateur trouvé.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </Field>
 
               <Field label="Prénom">

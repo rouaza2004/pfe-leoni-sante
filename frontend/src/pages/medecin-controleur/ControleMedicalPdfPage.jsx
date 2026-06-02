@@ -1,9 +1,77 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Download, FileText } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { api } from "@/api/api";
+import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 import { getUsername } from "../../auth/auth";
 import { downloadControleMedicalPdf } from "../../utils/generateControleMedicalPdf";
+import { saveControleMedicalHistory } from "../../services/medecinControleurHistoryService";
+
+function normalizeCollaborateurList(payload) {
+  return fixFrenchTextDeep(Array.isArray(payload) ? payload : payload?.results || []);
+}
+
+function getCollaborateurKey(collaborateur) {
+  return String(
+    collaborateur?.id ??
+      collaborateur?.matricule ??
+      `${collaborateur?.nom || ""}-${collaborateur?.prenom || ""}`
+  );
+}
+
+function mergeCollaborateurs(previous, incoming) {
+  const merged = new Map(previous.map((item) => [getCollaborateurKey(item), item]));
+
+  incoming.forEach((item) => {
+    const key = getCollaborateurKey(item);
+    merged.set(key, {
+      ...(merged.get(key) || {}),
+      ...item,
+    });
+  });
+
+  return Array.from(merged.values());
+}
+
+function getSegmentLabel(collaborateur) {
+  const segment = collaborateur?.segment;
+
+  return (
+    collaborateur?.segment_nom ||
+    collaborateur?.departement ||
+    (typeof segment === "string" ? segment : segment?.nom || segment?.libelle) ||
+    ""
+  );
+}
+
+function normalizeSearchValue(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function matchesCollaborateur(collaborateur, query) {
+  const normalizedQuery = normalizeSearchValue(query.trim());
+  if (!normalizedQuery) return false;
+
+  const searchText = [
+    collaborateur?.nom,
+    collaborateur?.prenom,
+    collaborateur?.matricule,
+    `${collaborateur?.prenom || ""} ${collaborateur?.nom || ""}`,
+    `${collaborateur?.nom || ""} ${collaborateur?.prenom || ""}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return normalizeSearchValue(searchText).includes(normalizedQuery);
+}
+
+function getCollaborateurDisplayName(collaborateur) {
+  return `${collaborateur?.prenom || ""} ${collaborateur?.nom || ""}`.trim() || "--";
+}
 
 function Field({ label, children, hint }) {
   return (
@@ -49,6 +117,83 @@ export default function ControleMedicalPdfPage() {
     avisMedecinControleur: prefill.avisMedecinControleur || "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [collaborateurs, setCollaborateurs] = useState([]);
+  const [loadingCollaborateurs, setLoadingCollaborateurs] = useState(false);
+  const [collaborateursError, setCollaborateursError] = useState("");
+  const [isNomFocused, setIsNomFocused] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCollaborateurs = async () => {
+      try {
+        setLoadingCollaborateurs(true);
+        setCollaborateursError("");
+        const response = await api.get("/collaborateurs/");
+        const data = normalizeCollaborateurList(response.data);
+
+        if (!cancelled) {
+          setCollaborateurs(data);
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setCollaborateurs([]);
+          setCollaborateursError("Impossible de charger les collaborateurs.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCollaborateurs(false);
+        }
+      }
+    };
+
+    fetchCollaborateurs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const query = form.nom.trim();
+    if (query.length < 2) return undefined;
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setLoadingCollaborateurs(true);
+        setCollaborateursError("");
+        const response = await api.get(`/collaborateurs/?search=${encodeURIComponent(query)}`);
+        const data = normalizeCollaborateurList(response.data);
+
+        if (!cancelled) {
+          setCollaborateurs((prev) => mergeCollaborateurs(prev, data));
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setCollaborateursError("Impossible de charger les collaborateurs.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCollaborateurs(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [form.nom]);
+
+  const filteredCollaborateurs = useMemo(() => {
+    const query = form.nom.trim();
+    if (!query) return [];
+
+    return collaborateurs.filter((item) => matchesCollaborateur(item, query)).slice(0, 8);
+  }, [collaborateurs, form.nom]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -58,14 +203,44 @@ export default function ControleMedicalPdfPage() {
     }));
   };
 
+  const handleSelectCollaborateur = (collaborateur) => {
+    setForm((prev) => ({
+      ...prev,
+      matricule: collaborateur?.matricule || "",
+      segment: getSegmentLabel(collaborateur),
+      nom: collaborateur?.nom || "",
+      prenom: collaborateur?.prenom || "",
+    }));
+    setIsNomFocused(false);
+  };
+
   const handleGeneratePdf = async () => {
     try {
       setIsSaving(true);
 
-      downloadControleMedicalPdf({
+      const pdfData = {
         ...form,
         medecinControleur: doctorIdentifier,
-      });
+      };
+      const pdfFilename = downloadControleMedicalPdf(pdfData);
+
+      try {
+        await saveControleMedicalHistory({
+          date: pdfData.date,
+          matricule: pdfData.matricule,
+          segment: pdfData.segment,
+          nom: pdfData.nom,
+          prenom: pdfData.prenom,
+          repos_prescrit: pdfData.reposPrescrit,
+          avis_medecin_controleur: pdfData.avisMedecinControleur,
+          medecin_identifiant: pdfData.medecinControleur,
+          pdf_filename: pdfFilename,
+          statut: "VALIDE",
+        });
+      } catch (saveError) {
+        console.error("Erreur sauvegarde historique controle medical", saveError);
+        window.alert("PDF genere, mais impossible d'enregistrer le controle dans l'historique.");
+      }
     } catch (error) {
       console.error("Erreur generation controle medical PDF", error);
       window.alert("Impossible de generer le PDF du controle medical.");
@@ -145,13 +320,57 @@ export default function ControleMedicalPdfPage() {
               </Field>
 
               <Field label="Nom">
-                <input
-                  type="text"
-                  name="nom"
-                  value={form.nom}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="nom"
+                    value={form.nom}
+                    onChange={handleChange}
+                    onFocus={() => setIsNomFocused(true)}
+                    onBlur={() => window.setTimeout(() => setIsNomFocused(false), 120)}
+                    autoComplete="off"
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  />
+
+                  {isNomFocused && form.nom.trim() ? (
+                    <div className="absolute z-30 mt-2 max-h-56 w-full overflow-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-200/60">
+                      {loadingCollaborateurs ? (
+                        <p className="px-3 py-2 text-sm text-slate-500">Chargement...</p>
+                      ) : null}
+
+                      {!loadingCollaborateurs && collaborateursError ? (
+                        <p className="px-3 py-2 text-sm text-rose-600">{collaborateursError}</p>
+                      ) : null}
+
+                      {!loadingCollaborateurs &&
+                        !collaborateursError &&
+                        filteredCollaborateurs.map((collaborateur) => (
+                          <button
+                            key={getCollaborateurKey(collaborateur)}
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleSelectCollaborateur(collaborateur)}
+                            className="w-full rounded-xl px-3 py-2 text-left transition hover:bg-sky-50"
+                          >
+                            <span className="block text-sm font-medium text-slate-900">
+                              {getCollaborateurDisplayName(collaborateur)}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-slate-500">
+                              Matricule : {collaborateur?.matricule || "--"}
+                            </span>
+                          </button>
+                        ))}
+
+                      {!loadingCollaborateurs &&
+                      !collaborateursError &&
+                      filteredCollaborateurs.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-slate-500">
+                          Aucun collaborateur trouvé.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </Field>
 
               <Field label="Prénom">

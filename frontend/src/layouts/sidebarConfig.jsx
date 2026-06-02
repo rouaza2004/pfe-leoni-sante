@@ -16,8 +16,8 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Stethoscope,
   Users,
-  UserRound,
   Zap,
 } from "lucide-react";
 
@@ -339,11 +339,6 @@ export const getSidebarSections = (role) => {
               to: "/medecin-controleur/notifications",
               label: "Notifications",
               icon: <Bell size={18} />,
-            },
-            {
-              to: "/collaborateur-profile",
-              label: "Profil collaborateur",
-              icon: <UserRound size={18} />,
             },
           ],
         },

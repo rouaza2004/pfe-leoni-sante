@@ -4,7 +4,10 @@ import unicodedata
 
 from django.conf import settings
 
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except ImportError:  # pragma: no cover
+    genai = None
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +49,14 @@ def _mask_api_key(value):
     if len(value) <= 8:
         return "detectee"
     return f"{value[:4]}...{value[-4:]}"
+
+
+def _ensure_gemini_client_available():
+    if genai is None:
+        raise AIServiceConfigurationError(
+            "Le package google-generativeai n'est pas installe. "
+            "Installez-le avec: pip install google-generativeai"
+        )
 
 
 def _normalize_model_name(model_name):
@@ -173,6 +184,8 @@ def _candidate_models():
 
 def list_available_models():
     # DEBUG TEMPORAIRE
+    _ensure_gemini_client_available()
+
     api_key = getattr(settings, "GEMINI_API_KEY", "").strip()
     if not api_key:
         raise AIServiceConfigurationError(
@@ -201,6 +214,8 @@ def list_available_models():
 
 
 def _call_gemini_with_model(model_name, prompt):
+    _ensure_gemini_client_available()
+
     normalized_model_name = _normalize_model_name(model_name)
     model = genai.GenerativeModel(model_name=normalized_model_name)
     response = model.generate_content(
@@ -444,6 +459,8 @@ def _build_fallback_local_analysis(description):
 
 def analyze_medical_text(description, analysis_type="accident"):
     # DEBUG TEMPORAIRE
+    _ensure_gemini_client_available()
+
     api_key = getattr(settings, "GEMINI_API_KEY", "").strip()
     configured_model = getattr(settings, "GEMINI_MODEL", "gemini-2.0-flash").strip() or "gemini-2.0-flash"
 

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { getUsername } from "../../auth/auth";
 import { downloadDemandeExpertisePdf } from "../../utils/generateDemandeExpertisePdf";
+import { saveDemandeExpertiseHistory } from "../../services/medecinControleurHistoryService";
 
 function Field({ label, children, hint }) {
   return (
@@ -70,11 +71,33 @@ export default function DemandeExpertisePdfPage() {
     try {
       setIsSaving(true);
 
-      await downloadDemandeExpertisePdf({
+      const pdfData = {
         ...form,
         medecinControleur: doctorDisplay,
         attachmentNames: selectedFiles.map((file) => file.name),
-      });
+      };
+      const pdfFilename = await downloadDemandeExpertisePdf(pdfData);
+
+      try {
+        await saveDemandeExpertiseHistory({
+          ville: pdfData.ville,
+          date: pdfData.date,
+          destinataire: pdfData.destinataire,
+          nom: pdfData.nom,
+          prenom: pdfData.prenom,
+          matricule_leoni: pdfData.matriculeLeoni,
+          pieces_jointes: pdfData.piecesJointes,
+          attachment_names: pdfData.attachmentNames,
+          aptitude_poste: pdfData.aptitudePoste,
+          autres_missions: pdfData.autresMissions,
+          medecin_identifiant: pdfData.medecinControleur,
+          pdf_filename: pdfFilename,
+          statut: "VALIDE",
+        });
+      } catch (saveError) {
+        console.error("Erreur sauvegarde historique demande expertise", saveError);
+        window.alert("PDF genere, mais impossible d'enregistrer la demande dans l'historique.");
+      }
     } catch (error) {
       console.error("Erreur generation demande expertise PDF", error);
       window.alert("Impossible de generer le PDF de la demande d'expertise.");

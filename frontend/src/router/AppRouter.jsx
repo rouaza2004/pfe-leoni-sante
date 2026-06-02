@@ -142,7 +142,6 @@ export default function AppRouter() {
                 "INFIRMIER",
                 "MEDECIN_TRAITANT",
                 "MEDECIN_TRAVAIL",
-                "MEDECIN_CONTROLEUR",
                 "AGENT_HSEE",
               ]}
             >

@@ -1,25 +1,8 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  Boxes,
-  Bell,
-  LogOut,
-  ShieldAlert,
-  BarChart3,
-  ClipboardList,
-  FileText,
-  Activity,
-  FlaskConical,
-  ShieldCheck,
-  Zap,
-  Clock,
-  UserRoundSearch,
-} from "lucide-react";
 
 import { getUserRole, logout as doLogout } from "../auth/auth.js";
+import { isAdminReadOnlyPath } from "../auth/readOnlyAccess.js";
 import AppSidebar from "../components/layout/AppSidebar.jsx";
 import { getSidebarSections, roleLabel } from "./sidebarConfig.jsx";
 
@@ -31,31 +14,22 @@ export default function AppLayout() {
   const location = useLocation();
   const role = getUserRole();
 
+  const storageKey = `sidebar-collapsed:${role || "default"}`;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    const storageKey = `sidebar-collapsed:${getUserRole() || "default"}`;
     return window.localStorage.getItem(storageKey) === "true";
   });
-  const [incidentsOpen, setIncidentsOpen] = useState(false);
-  const [accidentsOpen, setAccidentsOpen] = useState(false);
-  const [mpOpen, setMpOpen] = useState(false);
-  const [cnamOpen, setCnamOpen] = useState(false);
+  const [submenuOpen, setSubmenuOpen] = useState({
+    incidents: false,
+    accidents: false,
+  });
+
   const incidentType = new URLSearchParams(location.search).get("type") || "with_bon";
-  const incidentsRouteActive = location.pathname.startsWith("/infirmier/incidents");
-  const accidentsRouteActive =
-    location.pathname.startsWith("/infirmier/accidents") ||
-    location.pathname.startsWith("/bon-chauffeur") ||
-    location.pathname.startsWith("/suivi-transferts");
+  const sidebarSections = useMemo(() => getSidebarSections(role), [role]);
   const isAdminReadOnly = isAdminReadOnlyPath(location.pathname, role);
-  const currentDateLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat("fr-FR", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }).format(new Date()),
-    [],
-  );
+
+  useEffect(() => {
+    window.localStorage.setItem(storageKey, String(isSidebarCollapsed));
+  }, [isSidebarCollapsed, storageKey]);
 
   useEffect(() => {
     if (location.pathname.startsWith("/infirmier/incidents")) {
@@ -67,6 +41,7 @@ export default function AppLayout() {
     if (
       location.pathname.startsWith("/infirmier/accidents") ||
       location.pathname.startsWith("/infirmier/enquete-initiale") ||
+      location.pathname.startsWith("/infirmier/transmission-enquetes-hsee") ||
       location.pathname.startsWith("/bon-chauffeur") ||
       location.pathname.startsWith("/suivi-transferts")
     ) {
@@ -74,362 +49,9 @@ export default function AppLayout() {
     }
   }, [location.pathname]);
 
-  const homePath = useMemo(() => {
-    switch (role) {
-      case "ADMIN":
-        return "/admin";
-      case "MEDECIN_TRAITANT":
-        return "/medecin-traitant";
-      case "MEDECIN_TRAVAIL":
-        return "/medecin-travail";
-      case "MEDECIN_CONTROLEUR":
-        return "/medecin-controleur";
-      case "INFIRMIER":
-        return "/infirmier";
-      case "RESPONSABLE_RH":
-        return "/rh";
-      case "AGENT_HSEE":
-        return "/hsee";
-      default:
-        return "/dashboard";
-    }
-  }, [role]);
-
-  const navItems = useMemo(() => {
-    const dashboardLabel = role === "MEDECIN_CONTROLEUR" ? "Tableau de bord" : "Dashboard";
-    const common = [
-      { to: homePath, label: dashboardLabel, icon: <LayoutDashboard size={18} /> },
-    ];
-
-    if (role === "MEDECIN_TRAITANT") {
-      return [
-        ...common,
-        {
-          to: "/medecin-traitant/collaborateurs",
-          label: "Collaborateurs",
-          icon: <Users size={18} />,
-        },
-        {
-          to: "/medecin-traitant/rdv",
-          label: "Rendez-vous",
-          icon: <Calendar size={18} />,
-        },
-      ];
-    }
-
-    if (role === "MEDECIN_TRAVAIL") {
-      return [
-        ...common,
-        {
-          to: "/medecin-travail/collaborateurs",
-          label: "Collaborateurs",
-          icon: <Users size={18} />,
-        },
-        {
-          to: "/medecin-travail/collaborateurs?target=dossier",
-          label: "Dossiers m\u00E9dicaux",
-          icon: <FileText size={18} />,
-        },
-        {
-          to: "/medecin-travail/rdv",
-          label: "Rendez-vous",
-          icon: <Calendar size={18} />,
-        },
-        {
-          to: "/medecin-travail/collaborateurs?target=examen-complementaire",
-          label: "Examens compl\u00E9mentaires",
-          icon: <Activity size={18} />,
-        },
-        {
-          to: "/medecin-travail/analyses-labo",
-          label: "Analyses labo",
-          icon: <FlaskConical size={18} />,
-        },
-        {
-          to: "/medecin-travail/fiches-aptitude",
-          label: "Fiches aptitude",
-          icon: <ShieldCheck size={18} />,
-        },
-      ];
-    }
-
-    if (role === "MEDECIN_CONTROLEUR") {
-      return [
-        ...common,
-        {
-          to: "/medecin-controleur/recherche",
-          label: "Recherche collaborateur",
-          icon: <Users size={18} />,
-        },
-        {
-          to: "/medecin-controleur/controle-medical",
-          label: "Contrôle médical",
-          icon: <FileText size={18} />,
-        },
-        {
-          to: "/medecin-controleur/demande-expertise",
-          label: "Demande d'expertise",
-          icon: <ClipboardList size={18} />,
-        },
-        {
-          to: "/medecin-controleur/historique",
-          label: "Historique",
-          icon: <FileText size={18} />,
-        },
-        {
-          to: "/collaborateur-profile",
-          label: "Profil collaborateur",
-          icon: <UserRoundSearch size={18} />,
-        },
-      ];
-    }
-
-    if (role === "INFIRMIER") {
-      return [
-        ...common,
-        {
-          to: "/pointage",
-          label: "Pointage",
-          icon: <Clock size={18} />,
-        },
-        {
-          to: "/infirmier/patients",
-          label: "Patients",
-          icon: <Users size={18} />,
-        },
-        {
-          type: "submenu",
-          submenuKey: "incidents",
-          label: "Incidents",
-          icon: <Bell size={18} />,
-          basePath: "/infirmier/incidents",
-          children: [
-            {
-              to: "/infirmier/incidents?type=with_bon",
-              label: "Incidents + Bon",
-              icon: <FileText size={16} />,
-              type: "with_bon",
-            },
-            {
-              to: "/infirmier/incidents?type=without_bon",
-              label: "Incidents sans Bon",
-              icon: <Zap size={16} />,
-              type: "without_bon",
-            },
-          ],
-        },
-        {
-          type: "submenu",
-          submenuKey: "accidents",
-          label: "Accidents",
-          icon: <ShieldAlert size={18} />,
-          isActive: (loc) =>
-            [
-              "/infirmier/accidents",
-              "/infirmier/enquete-initiale",
-              "/bon-chauffeur",
-              "/suivi-transferts",
-            ].some((path) => loc.pathname.startsWith(path)),
-          children: [
-            {
-              to: "/infirmier/accidents",
-              label: "Déclaration d'accident",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/infirmier/accidents"),
-            },
-            {
-              to: "/infirmier/enquete-initiale",
-              label: "Enquête initiale",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/infirmier/enquete-initiale"),
-            },
-            {
-              to: "/bon-chauffeur",
-              label: "Bon Chauffeur",
-              icon: <ClipboardList size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/bon-chauffeur"),
-            },
-            {
-              to: "/suivi-transferts",
-              label: "Suivi des transferts",
-              icon: <Activity size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/suivi-transferts"),
-            },
-          ],
-        },
-        {
-          to: "/infirmier/maladies-professionnelles",
-          label: "Maladies pro.",
-          icon: <FileText size={18} />,
-        },
-        {
-          to: "/infirmier/stock",
-          label: "Stock",
-          icon: <Boxes size={18} />,
-        },
-        {
-          to: "/dashboard-pharmacie",
-          label: "Dashboard Pharmacie",
-          icon: <BarChart3 size={18} />,
-        },
-        {
-          to: "/infirmier/rdv",
-          label: "Rendez-vous",
-          icon: <Calendar size={18} />,
-        },
-      ];
-    }
-
-    if (role === "RESPONSABLE_RH") {
-      return [
-        ...common,
-        {
-          to: "/rh/absences-ponctualite",
-          label: "Absences & ponctualité",
-          icon: <BarChart3 size={18} />,
-        },
-        {
-          to: "/rh/nouveaux-operateurs",
-          label: "Nouveaux opérateurs",
-          icon: <Users size={18} />,
-        },
-        {
-          to: "/rh/pointage-medecins",
-          label: "Pointage médecins",
-          icon: <Clock size={18} />,
-        },
-        {
-          to: "/rh/rapports",
-          label: "Rapports RH",
-          icon: <FileText size={18} />,
-        },
-      ];
-    }
-
-    if (role === "AGENT_HSEE") {
-      return [
-        ...common,
-        {
-          to: "/pointage",
-          label: "Pointage",
-          icon: <Clock size={18} />,
-        },
-        {
-          to: "/hsee",
-          label: "Supervision",
-          icon: <ShieldAlert size={18} />,
-        },
-        {
-          to: "/hsee/statistiques",
-          label: "Statistiques",
-          icon: <BarChart3 size={18} />,
-        },
-        {
-          to: "/hsee/plan-action",
-          label: "Plan d'action",
-          icon: <ClipboardList size={18} />,
-        },
-        {
-          type: "submenu",
-          submenuKey: "incidents",
-          label: "Incidents",
-          icon: <Bell size={18} />,
-          basePath: "/infirmier/incidents",
-          children: [
-            {
-              to: "/infirmier/incidents?type=with_bon",
-              label: "Incidents + Bon",
-              icon: <FileText size={16} />,
-              type: "with_bon",
-            },
-            {
-              to: "/infirmier/incidents?type=without_bon",
-              label: "Incidents sans Bon",
-              icon: <Zap size={16} />,
-              type: "without_bon",
-            },
-          ],
-        },
-        {
-          type: "submenu",
-          submenuKey: "accidents",
-          label: "Accidents",
-          icon: <ShieldAlert size={18} />,
-          isActive: (loc) =>
-            [
-              "/infirmier/accidents",
-              "/infirmier/enquete-initiale",
-              "/bon-chauffeur",
-              "/suivi-transferts",
-            ].some((path) => loc.pathname.startsWith(path)),
-          children: [
-            {
-              to: "/infirmier/accidents",
-              label: "Déclaration d'accident",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/infirmier/accidents"),
-            },
-            {
-              to: "/infirmier/enquete-initiale",
-              label: "Enquête initiale",
-              icon: <FileText size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/infirmier/enquete-initiale"),
-            },
-            {
-              to: "/bon-chauffeur",
-              label: "Bon Chauffeur",
-              icon: <ClipboardList size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/bon-chauffeur"),
-            },
-            {
-              to: "/suivi-transferts",
-              label: "Suivi des transferts",
-              icon: <Activity size={16} />,
-              isActive: (loc) => loc.pathname.startsWith("/suivi-transferts"),
-            },
-          ],
-        },
-        {
-          to: "/infirmier/maladies-professionnelles",
-          label: "Maladies pro.",
-          icon: <FileText size={18} />,
-        },
-        {
-          to: "/infirmier/stock",
-          label: "Stock",
-          icon: <Boxes size={18} />,
-        },
-        {
-          to: "/infirmier/rdv",
-          label: "Rendez-vous",
-          icon: <Calendar size={18} />,
-        },
-        {
-          to: "/medecin-travail/fiches-aptitude",
-          label: "Fiches aptitude",
-          icon: <ShieldCheck size={18} />,
-        },
-        {
-          to: "/medecin-travail/collaborateurs",
-          label: "Dossiers mÃ©dicaux",
-          icon: <FileText size={18} />,
-        },
-      ];
-    }
-
-    if (role === "ADMIN") {
-      return [
-        ...common,
-        {
-          to: "/pointage",
-          label: "Pointage",
-          icon: <Clock size={18} />,
-        },
-      ];
-    }
-
-    return common;
-  }, [role, homePath]);
+  const handleToggleCollapse = () => {
+    setIsSidebarCollapsed((current) => !current);
+  };
 
   const handleLogout = () => {
     doLogout();
@@ -461,6 +83,11 @@ export default function AppLayout() {
           isSidebarCollapsed ? SIDEBAR_COLLAPSED_CLASS : SIDEBAR_EXPANDED_CLASS
         }`}
       >
+        {isAdminReadOnly ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
+            Mode administrateur lecture seule sur cet espace.
+          </div>
+        ) : null}
         <div className="p-4 xl:p-5">
           <Outlet />
         </div>

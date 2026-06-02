@@ -1,8 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, ShieldCheck } from "lucide-react";
 import { api } from "@/api/api";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
 import { EmptyState, getInitials } from "./collaborateurSearchWorkspace.helpers";
+
+function normalizeCollaborateurList(payload) {
+  return fixFrenchTextDeep(Array.isArray(payload) ? payload : payload?.results || []);
+}
+
+function matchesCollaborateurQuery(item, query) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const matricule = item.matricule?.toLowerCase() || "";
+  const fullName = `${item.prenom || ""} ${item.nom || ""}`.trim().toLowerCase();
+  const reversedName = `${item.nom || ""} ${item.prenom || ""}`.trim().toLowerCase();
+
+  return (
+    Boolean(normalizedQuery) &&
+    (matricule === normalizedQuery ||
+      fullName === normalizedQuery ||
+      reversedName === normalizedQuery)
+  );
+}
 
 export default function CollaborateurSearchWorkspace({
   headerTitle,
@@ -25,6 +44,26 @@ export default function CollaborateurSearchWorkspace({
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [initialSelectionDone, setInitialSelectionDone] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const queryMatricule = useMemo(
+    () => searchParams.get("matricule")?.trim() || "",
+    [searchParams]
+  );
+  const querySearch = useMemo(
+    () => searchParams.get("search")?.trim() || "",
+    [searchParams]
+  );
+  const queryCollaborateurId = useMemo(
+    () => searchParams.get("collaborateurId")?.trim() || "",
+    [searchParams]
+  );
+  const queryTab = useMemo(
+    () => searchParams.get("tab")?.trim() || searchParams.get("target")?.trim() || "",
+    [searchParams]
+  );
+  const hasInitialQuery = Boolean(queryCollaborateurId || queryMatricule || querySearch);
   const [err, setErr] = useState("");
   const [listErr, setListErr] = useState("");
 
@@ -40,13 +79,11 @@ export default function CollaborateurSearchWorkspace({
         setLoadingList(true);
         setListErr("");
         const res = await api.get("/collaborateurs/");
-        const data = fixFrenchTextDeep(
-          Array.isArray(res.data) ? res.data : res.data?.results || []
-        );
+        const data = normalizeCollaborateurList(res.data);
 
         if (cancelled) return;
         setCollaborateurs(data);
-        if (data.length > 0) {
+        if (data.length > 0 && !hasInitialQuery) {
           setSelectedId((prev) => prev ?? data[0].id);
         }
       } catch (error) {
@@ -62,7 +99,19 @@ export default function CollaborateurSearchWorkspace({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hasInitialQuery]);
+
+  useEffect(() => {
+    if (!queryTab) return;
+    if (!tabs.some((tab) => tab.id === queryTab)) return;
+    setActiveTab(queryTab);
+  }, [queryTab, tabs]);
+
+  useEffect(() => {
+    if (!queryCollaborateurId) return;
+    setSelectedId(Number(queryCollaborateurId));
+    setInitialSelectionDone(true);
+  }, [queryCollaborateurId]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -93,6 +142,78 @@ export default function CollaborateurSearchWorkspace({
       cancelled = true;
     };
   }, [selectedId]);
+
+  useEffect(() => {
+    const initialQuery = queryMatricule || querySearch;
+    if (!initialQuery) return;
+    setMatricule(initialQuery);
+  }, [queryMatricule, querySearch]);
+
+  useEffect(() => {
+    const lookupQueries = [queryMatricule, querySearch].filter(Boolean);
+    if (queryCollaborateurId || lookupQueries.length === 0 || initialSelectionDone || loadingList) {
+      return;
+    }
+
+    const localExact = collaborateurs.find((item) =>
+      lookupQueries.some((query) => matchesCollaborateurQuery(item, query))
+    );
+
+    if (localExact) {
+      setSelectedId(localExact.id);
+      setInitialSelectionDone(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchExactMatch = async () => {
+      try {
+        setLoadingSearch(true);
+        setErr("");
+
+        const responses = await Promise.all(
+          lookupQueries.map((query) =>
+            api.get(`/collaborateurs/?search=${encodeURIComponent(query)}`)
+          )
+        );
+        const data = responses.flatMap((response) => normalizeCollaborateurList(response.data));
+        const exactMatch = data.find((item) =>
+          lookupQueries.some((query) => matchesCollaborateurQuery(item, query))
+        );
+
+        if (cancelled) return;
+
+        if (exactMatch) {
+          setSelectedId(exactMatch.id);
+          setCollaborateurs((prev) => {
+            const exists = prev.some((item) => item.id === exactMatch.id);
+            return exists ? prev : [exactMatch, ...prev];
+          });
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) {
+          setLoadingSearch(false);
+          setInitialSelectionDone(true);
+        }
+      }
+    };
+
+    fetchExactMatch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    queryCollaborateurId,
+    queryMatricule,
+    querySearch,
+    collaborateurs,
+    loadingList,
+    initialSelectionDone,
+  ]);
 
   useEffect(() => {
     if (!loadSupplementalData || !collaborateur?.matricule) {
@@ -164,10 +285,8 @@ export default function CollaborateurSearchWorkspace({
       setErr("");
 
       const res = await api.get(`/collaborateurs/?search=${query}`);
-      const data = fixFrenchTextDeep(Array.isArray(res.data) ? res.data : []);
-      const exactMatch = data.find(
-        (item) => item.matricule?.toLowerCase() === query.toLowerCase()
-      );
+      const data = normalizeCollaborateurList(res.data);
+      const exactMatch = data.find((item) => matchesCollaborateurQuery(item, query));
 
       if (!exactMatch) {
         setErr("Aucun collaborateur trouvé avec ce matricule.");
