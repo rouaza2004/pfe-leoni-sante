@@ -1,7 +1,8 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../../assets/leoni-logo.png";
 import { login } from "@/auth/auth.service";
+
+const LEONI_LOGO_SRC = "/leoni-logo.png";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -60,7 +61,7 @@ export default function Login() {
           <div className="absolute inset-0 bg-gradient-to-br from-[#123C6B] via-[#0F2F57] to-[#0A2545]" />
 
           <div className="relative z-10 max-w-md px-10 text-white flex flex-col justify-center">
-            <img src={logo} alt="LEONI Logo" className="h-16 w-auto mb-6" />
+            <img src={LEONI_LOGO_SRC} alt="LEONI Logo" className="h-16 w-auto mb-6" />
 
             <h2 className="text-2xl font-semibold">Health Management System</h2>
 

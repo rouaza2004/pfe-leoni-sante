@@ -178,6 +178,7 @@ export default function MedecinTraitantDashboard() {
   const notificationRef = useRef(null);
 
   const [rdvs, setRdvs] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -189,28 +190,24 @@ export default function MedecinTraitantDashboard() {
 
     const loadDashboard = async () => {
       try {
-        const [rdvRes, meRes] = await Promise.all([api.get("/appointments/rdv/"), api.get("/me/")]);
+        const [dashboardRes, meRes] = await Promise.all([
+          api.get("/appointments/rdv/medecin-traitant-dashboard/"),
+          api.get("/me/"),
+        ]);
 
         if (cancelled) return;
 
-        const allAppointments = Array.isArray(rdvRes.data) ? rdvRes.data : [];
+        const data = dashboardRes?.data || {};
         const me = meRes?.data || null;
-        const currentUserId = Number(me?.id);
-
-        const traitantAppointments = allAppointments.filter(
-          (item) => item.type_medecin === "TRAITANT"
-        );
-
-        const scopedAppointments = Number.isFinite(currentUserId)
-          ? traitantAppointments.filter((item) => Number(item.medecin) === currentUserId)
-          : traitantAppointments;
 
         setCurrentUser(me);
-        setRdvs(scopedAppointments);
+        setDashboardData(data);
+        setRdvs(Array.isArray(data.next_appointments) ? data.next_appointments : []);
       } catch (error) {
         console.error(error);
         if (!cancelled) {
           setCurrentUser(null);
+          setDashboardData(null);
           setRdvs([]);
         }
       }
@@ -273,12 +270,13 @@ export default function MedecinTraitantDashboard() {
   }, []);
 
   const dailyCapacity = useMemo(() => {
-    const todayAppointments = rdvs.filter((item) => item.date === today);
-    const completed = todayAppointments.filter((item) => item.statut === "TERMINE").length;
-    const inConsultation = 0;
-    const remaining = todayAppointments.filter((item) => item.statut === "PREVU").length;
-    const total = completed + inConsultation + remaining;
-    const progress = Math.min((total / DAILY_CAPACITY_MAX) * 100, 100);
+    const capacity = dashboardData?.daily_capacity || {};
+    const completed = Number(capacity.completed ?? 0);
+    const inConsultation = Number(capacity.in_consultation ?? 0);
+    const remaining = Number(capacity.remaining ?? 0);
+    const total = Number(capacity.total ?? 0);
+    const capacityMax = Number(capacity.capacity_max ?? DAILY_CAPACITY_MAX) || DAILY_CAPACITY_MAX;
+    const progress = Math.min((total / capacityMax) * 100, 100);
 
     return {
       completed,
@@ -286,9 +284,9 @@ export default function MedecinTraitantDashboard() {
       remaining,
       total,
       progress,
-      capacityMax: DAILY_CAPACITY_MAX,
+      capacityMax,
     };
-  }, [rdvs, today]);
+  }, [dashboardData]);
 
   const notifications = useMemo(() => {
     const now = Date.now();
@@ -355,22 +353,20 @@ export default function MedecinTraitantDashboard() {
 
   const kpi = useMemo(
     () => ({
-      rdvToday: dailyCapacity.total,
-      rdvWeek: 4,
-      collaborateursSuivis: 38,
-      docsGenerated: 3,
+      rdvToday: Number(dashboardData?.rdv_today_count ?? 0),
+      rdvWeek: Number(dashboardData?.rdv_week_count ?? 0),
+      collaborateursSuivis: Number(dashboardData?.collaborateurs_suivis_count ?? 0),
+      docsGenerated: Number(dashboardData?.documents_generated_count ?? 0),
     }),
-    [dailyCapacity.total]
+    [dashboardData]
   );
 
   const prochainsRdv = useMemo(() => {
-    return rdvs
-      .filter((item) => item.date === today || item.date === tomorrow)
-      .sort((a, b) => {
-        const left = `${a.date || ""}T${a.heure || "00:00:00"}`;
-        const right = `${b.date || ""}T${b.heure || "00:00:00"}`;
-        return left.localeCompare(right);
-      })
+    const appointments = Array.isArray(dashboardData?.next_appointments)
+      ? dashboardData.next_appointments
+      : [];
+
+    return appointments
       .slice(0, 4)
       .map((item) => ({
         id: item.id,
@@ -381,7 +377,7 @@ export default function MedecinTraitantDashboard() {
         heure: item.heure?.slice?.(0, 5) || item.heure || "””",
         when: item.date === today ? "Aujourd'hui" : "Demain",
       }));
-  }, [rdvs, today, tomorrow]);
+  }, [dashboardData, today]);
 
   return (
     <div className="space-y-2">

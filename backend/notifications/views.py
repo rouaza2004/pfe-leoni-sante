@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,12 +8,43 @@ from .serializers import NotificationSerializer, SMSNotificationSerializer, SMST
 from .services.sms_service import send_sms_notification
 
 
-class NotificationListAPIView(generics.ListAPIView):
-    serializer_class = NotificationSerializer
+class NotificationListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by("-created_at")
+    def get(self, request):
+        notifications = Notification.objects.filter(user=request.user).order_by("-created_at")
+        filter_type = request.query_params.get("filter", "all")
+
+        if filter_type == "unread":
+            notifications = notifications.filter(is_read=False)
+        elif filter_type == "rendez-vous":
+            notifications = notifications.filter(type=Notification.TYPE_RENDEZ_VOUS)
+        elif filter_type == "documents":
+            notifications = notifications.filter(type=Notification.TYPE_DOCUMENT)
+
+        unread_count = Notification.objects.filter(
+            user=request.user,
+            is_read=False,
+        ).count()
+
+        return Response(
+            {
+                "notifications": NotificationSerializer(notifications, many=True).data,
+                "unread_count": unread_count,
+                "active_filter": filter_type,
+            }
+        )
+
+
+class NotificationMarkAllReadAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        updated = Notification.objects.filter(
+            user=request.user,
+            is_read=False,
+        ).update(is_read=True)
+        return Response({"updated": updated, "unread_count": 0})
 
 
 class SMSTestAPIView(APIView):
