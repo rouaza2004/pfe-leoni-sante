@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Activity,
   ArrowRight,
@@ -105,28 +106,27 @@ const quickActions = [
     label: "Utilisateurs",
     icon: Users,
     iconStyle: "bg-cyan-50 text-cyan-700",
-    onClickTarget: "admin-kpis",
+    path: "/admin/utilisateurs",
   },
   {
     label: "Rôles",
     icon: Shield,
     iconStyle: "bg-violet-50 text-violet-700",
-    onClickTarget: "admin-roles",
+    path: "/admin/roles-permissions",
   },
   {
     label: "Configuration",
     icon: Settings2,
     iconStyle: "bg-amber-50 text-amber-700",
-    onClickTarget: "admin-alerts",
+    path: "/admin/parametres",
   },
   {
     label: "Audit",
     icon: ShieldAlert,
     iconStyle: "bg-rose-50 text-rose-700",
-    onClickTarget: "admin-actions",
+    path: "/admin/audit",
   },
 ];
-
 const alerts = [
   {
     title: "3 rendez-vous en attente de validation",
@@ -135,19 +135,18 @@ const alerts = [
     iconStyle: "bg-amber-50 text-amber-700",
   },
   {
-    title: "Nouveau médecin inscrit: Dr. Amina Fassi",
+    title: "Nouveau médecin inscrit",
     time: "Il y a 2h",
     icon: UserPlus,
     iconStyle: "bg-emerald-50 text-emerald-700",
   },
   {
-    title: "Échec de connexion détecté pour Omar Tazi",
+    title: "Échec de connexion détecté",
     time: "Il y a 5h",
     icon: ShieldAlert,
     iconStyle: "bg-rose-50 text-rose-700",
   },
 ];
-
 const recentActions = [
   {
     title: "Création utilisateur",
@@ -230,6 +229,8 @@ function KpiCard({ title, value, icon: Icon, iconStyle }) {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+
   const subtitle = useMemo(
     () => "Supervision de la plateforme · Dimanche 12 Avril 2026",
     [],
@@ -250,24 +251,7 @@ export default function AdminDashboard() {
             <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => scrollToSection("admin-actions")}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
-            >
-              <ShieldAlert size={16} />
-              Audit
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("admin-kpis")}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
-            >
-              <UserPlus size={16} />
-              Nouvel Utilisateur
-            </button>
-          </div>
+          
         </div>
       </section>
 
@@ -337,7 +321,7 @@ export default function AdminDashboard() {
                 <button
                   key={action.label}
                   type="button"
-                  onClick={() => scrollToSection(action.onClickTarget)}
+                  onClick={() => navigate(action.path)}
                   className="rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div

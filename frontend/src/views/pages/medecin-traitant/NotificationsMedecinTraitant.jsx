@@ -1,71 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Calendar,
-  CalendarClock,
   ClipboardList,
   FileText,
   Filter,
   UserRound,
   XCircle,
 } from "lucide-react";
-
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: "notif-1",
-    category: "rendez-vous",
-    type: "Nouveau rendez-vous",
-    title: "Nouveau rendez-vous ajouté aujourd'hui",
-    description: "Un collaborateur a été ajouté au planning de consultation du jour.",
-    timestamp: "Il y a 5 min",
-    read: false,
-  },
-  {
-    id: "notif-2",
-    category: "rendez-vous",
-    type: "Rendez-vous imminent",
-    title: "Rendez-vous imminent avec un collaborateur",
-    description: "Consultation prévue dans moins de 30 minutes.",
-    timestamp: "Il y a 18 min",
-    read: false,
-  },
-  {
-    id: "notif-3",
-    category: "documents",
-    type: "Certificat",
-    title: "Certificat médical généré",
-    description: "Le document a été préparé et peut être consulté ou imprimé.",
-    timestamp: "Il y a 1 h",
-    read: true,
-  },
-  {
-    id: "notif-4",
-    category: "documents",
-    type: "Ordonnance",
-    title: "Ordonnance créée",
-    description: "Une nouvelle ordonnance a été enregistrée pour un collaborateur suivi.",
-    timestamp: "Il y a 2 h",
-    read: true,
-  },
-  {
-    id: "notif-5",
-    category: "rendez-vous",
-    type: "Annulation",
-    title: "Rendez-vous annulé",
-    description: "Un rendez-vous a été annulé et retiré du planning actif.",
-    timestamp: "Il y a 4 h",
-    read: false,
-  },
-  {
-    id: "notif-6",
-    category: "documents",
-    type: "Dossier médical",
-    title: "Dossier médical mis à jour",
-    description: "Une fiche collaborateur a été modifiée récemment.",
-    timestamp: "Hier",
-    read: true,
-  },
-];
+import { api } from "@/api/api";
 
 const FILTERS = [
   { id: "all", label: "Tous" },
@@ -74,30 +17,33 @@ const FILTERS = [
   { id: "documents", label: "Documents" },
 ];
 
+const TYPE_LABELS = {
+  RENDEZ_VOUS: "Rendez-vous",
+  DOCUMENT: "Document",
+  ALERTE: "Alerte",
+  SYSTEME: "Systeme",
+};
+
 const NOTIFICATION_ICON = {
-  "Nouveau rendez-vous": {
+  RENDEZ_VOUS: {
     icon: Calendar,
     className: "bg-blue-50 text-blue-600",
   },
-  "Rendez-vous imminent": {
-    icon: CalendarClock,
-    className: "bg-amber-50 text-amber-600",
-  },
-  Certificat: {
+  DOCUMENT: {
     icon: FileText,
     className: "bg-emerald-50 text-emerald-600",
   },
-  Ordonnance: {
-    icon: ClipboardList,
-    className: "bg-indigo-50 text-indigo-600",
-  },
-  Annulation: {
+  ALERTE: {
     icon: XCircle,
     className: "bg-rose-50 text-rose-600",
   },
-  "Dossier médical": {
+  SYSTEME: {
     icon: UserRound,
     className: "bg-slate-100 text-slate-700",
+  },
+  DEFAULT: {
+    icon: ClipboardList,
+    className: "bg-indigo-50 text-indigo-600",
   },
 };
 
@@ -116,32 +62,78 @@ function SectionShell({ title, subtitle, action, children, className = "" }) {
   );
 }
 
+const formatRelativeTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.max(1, Math.round(diffMs / 60000));
+
+  if (diffMin < 60) return `Il y a ${diffMin} min`;
+  const diffHours = Math.round(diffMin / 60);
+  if (diffHours < 24) return `Il y a ${diffHours} h`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays === 1) return "Hier";
+  return `Il y a ${diffDays} j`;
+};
+
+const normalizeNotification = (notification) => ({
+  id: notification.id,
+  type: notification.type || "SYSTEME",
+  typeLabel:
+    notification.type_display ||
+    TYPE_LABELS[notification.type] ||
+    TYPE_LABELS.SYSTEME,
+  title: notification.title || "Notification",
+  description: notification.message || "",
+  timestamp: formatRelativeTime(notification.created_at),
+  read: Boolean(notification.is_read),
+});
+
 export default function NotificationsMedecinTraitant() {
   const [activeFilter, setActiveFilter] = useState("all");
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read).length,
-    [notifications]
-  );
+  const loadNotifications = async (filter = activeFilter) => {
+    try {
+      setLoading(true);
+      setErr("");
+      const response = await api.get("/notifications/", {
+        params: { filter },
+      });
 
-  const filteredNotifications = useMemo(() => {
-    switch (activeFilter) {
-      case "unread":
-        return notifications.filter((notification) => !notification.read);
-      case "rendez-vous":
-        return notifications.filter((notification) => notification.category === "rendez-vous");
-      case "documents":
-        return notifications.filter((notification) => notification.category === "documents");
-      default:
-        return notifications;
+      const payload = response?.data || {};
+      const items = Array.isArray(payload.notifications) ? payload.notifications : [];
+      setNotifications(items.map(normalizeNotification));
+      setUnreadCount(Number(payload.unread_count ?? 0));
+    } catch (error) {
+      console.error(error);
+      setNotifications([]);
+      setUnreadCount(0);
+      setErr("Impossible de charger les notifications.");
+    } finally {
+      setLoading(false);
     }
-  }, [activeFilter, notifications]);
+  };
 
-  const markAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, read: true }))
-    );
+  useEffect(() => {
+    loadNotifications(activeFilter);
+  }, [activeFilter]);
+
+  const filteredNotifications = useMemo(() => notifications, [notifications]);
+
+  const markAllAsRead = async () => {
+    try {
+      setErr("");
+      await api.post("/notifications/mark-all-read/");
+      await loadNotifications(activeFilter);
+    } catch (error) {
+      console.error(error);
+      setErr("Impossible de marquer les notifications comme lues.");
+    }
   };
 
   return (
@@ -172,7 +164,8 @@ export default function NotificationsMedecinTraitant() {
           <button
             type="button"
             onClick={markAllAsRead}
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+            disabled={unreadCount === 0}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Marquer tout comme lu
           </button>
@@ -199,7 +192,17 @@ export default function NotificationsMedecinTraitant() {
           })}
         </div>
 
-        {filteredNotifications.length === 0 ? (
+        {err ? (
+          <div className="mb-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+            {err}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center">
+            <p className="text-sm font-medium text-slate-700">Chargement des notifications...</p>
+          </div>
+        ) : filteredNotifications.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center">
             <p className="text-sm font-medium text-slate-700">Aucune notification</p>
             <p className="mt-1 text-xs text-slate-500">
@@ -210,7 +213,7 @@ export default function NotificationsMedecinTraitant() {
           <div className="space-y-1.5">
             {filteredNotifications.map((notification) => {
               const iconConfig =
-                NOTIFICATION_ICON[notification.type] || NOTIFICATION_ICON["Dossier médical"];
+                NOTIFICATION_ICON[notification.type] || NOTIFICATION_ICON.DEFAULT;
               const Icon = iconConfig.icon;
 
               return (
@@ -232,7 +235,7 @@ export default function NotificationsMedecinTraitant() {
                             {notification.title}
                           </p>
                           <p className="mt-0.5 text-[10px] text-slate-500">
-                            {notification.type}
+                            {notification.typeLabel}
                           </p>
                         </div>
 
@@ -250,7 +253,9 @@ export default function NotificationsMedecinTraitant() {
                       <p className="mt-1 text-[11px] text-slate-600">
                         {notification.description}
                       </p>
-                      <p className="mt-1 text-[10px] text-slate-400">{notification.timestamp}</p>
+                      <p className="mt-1 text-[10px] text-slate-400">
+                        {notification.timestamp}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -262,4 +267,3 @@ export default function NotificationsMedecinTraitant() {
     </div>
   );
 }
-

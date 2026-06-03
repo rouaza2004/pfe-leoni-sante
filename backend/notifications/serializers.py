@@ -6,9 +6,21 @@ from .models import Notification, SMSNotification
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    type_display = serializers.CharField(source="get_type_display", read_only=True)
+    rendez_vous_id = serializers.IntegerField(source="rendez_vous.id", read_only=True)
+
     class Meta:
         model = Notification
-        fields = ["id", "title", "message", "is_read", "created_at"]
+        fields = [
+            "id",
+            "title",
+            "message",
+            "type",
+            "type_display",
+            "is_read",
+            "created_at",
+            "rendez_vous_id",
+        ]
 
 
 class SMSNotificationSerializer(serializers.ModelSerializer):

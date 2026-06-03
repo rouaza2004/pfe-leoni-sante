@@ -37,10 +37,22 @@ const medecinTypeLabel = {
   CONTROLEUR: "Médecin contrôleur",
 };
 
+const medicalDoctorRoles = [
+  "MEDECIN_TRAITANT",
+  "MEDECIN_TRAVAIL",
+  "MEDECIN_CONTROLEUR",
+];
+
+const doctorRoleToAppointmentType = {
+  MEDECIN_TRAITANT: "TRAITANT",
+  MEDECIN_TRAVAIL: "TRAVAIL",
+  MEDECIN_CONTROLEUR: "CONTROLEUR",
+};
+
 const emptyForm = {
   collaborateur: "",
   medecin: "",
-  type_medecin: "TRAITANT",
+  type_medecin: "",
   date: "",
   heure: "",
   type_visite: "VISITE_PERIODIQUE",
@@ -58,6 +70,15 @@ const getCollaborateurName = (item) =>
   [item.collaborateur_prenom, item.collaborateur_nom].filter(Boolean).join(" ").trim();
 
 const getMedecinName = (item) => item.medecin_nom || "-";
+
+const getAppointmentTypeFromDoctorRole = (role) =>
+  doctorRoleToAppointmentType[String(role || "").toUpperCase()] || "";
+
+const isMedicalDoctor = (item) =>
+  medicalDoctorRoles.includes(String(item?.role || "").toUpperCase());
+
+const getDoctorDisplayName = (item) =>
+  item.full_name || item.username || `Médecin ${item.id}`;
 
 const getVisitTypeLabel = (value) =>
   visitTypes.find((type) => type.value === value)?.label || value || "Visite périodique";
@@ -226,6 +247,18 @@ export default function RDVPage() {
     });
   }, [rdvs, filters]);
 
+  const medicalMedecins = useMemo(
+    () => medecins.filter((medecin) => isMedicalDoctor(medecin)),
+    [medecins]
+  );
+
+  const formMedecins = useMemo(() => {
+    if (!form.type_medecin) return medicalMedecins;
+    return medicalMedecins.filter(
+      (medecin) => getAppointmentTypeFromDoctorRole(medecin.role) === form.type_medecin
+    );
+  }, [medicalMedecins, form.type_medecin]);
+
   const groupedByDay = useMemo(() => {
     const map = new Map();
 
@@ -332,6 +365,37 @@ export default function RDVPage() {
 
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
+    if (name === "type_medecin") {
+      setForm((prev) => {
+        const selectedDoctor = medicalMedecins.find(
+          (medecin) => String(medecin.id) === String(prev.medecin)
+        );
+        const selectedDoctorType = getAppointmentTypeFromDoctorRole(selectedDoctor?.role);
+
+        return {
+          ...prev,
+          type_medecin: value,
+          medecin:
+            selectedDoctorType && selectedDoctorType !== value ? "" : prev.medecin,
+        };
+      });
+      return;
+    }
+
+    if (name === "medecin") {
+      const selectedDoctor = medicalMedecins.find(
+        (medecin) => String(medecin.id) === String(value)
+      );
+      const selectedDoctorType = getAppointmentTypeFromDoctorRole(selectedDoctor?.role);
+
+      setForm((prev) => ({
+        ...prev,
+        medecin: value,
+        type_medecin: selectedDoctorType || prev.type_medecin,
+      }));
+      return;
+    }
+
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
@@ -349,7 +413,7 @@ export default function RDVPage() {
     setForm({
       collaborateur: item.collaborateur ? String(item.collaborateur) : "",
       medecin: item.medecin ? String(item.medecin) : "",
-      type_medecin: item.type_medecin || "TRAITANT",
+      type_medecin: item.type_medecin || "",
       date: item.date || "",
       heure: (item.heure || "").slice(0, 5),
       type_visite: extractVisitType(item.motif),
@@ -524,6 +588,7 @@ export default function RDVPage() {
                 onChange={handleChange}
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
               >
+                <option value="">Tous les médecins</option>
                 <option value="TRAITANT">Médecin traitant</option>
                 <option value="TRAVAIL">Médecin du travail</option>
                 <option value="CONTROLEUR">Médecin contrôleur</option>
@@ -542,9 +607,9 @@ export default function RDVPage() {
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
               >
                 <option value="">Sélectionner un médecin</option>
-                {medecins.map((m) => (
+                {formMedecins.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.full_name || m.username || `Médecin ${m.id}`} ({m.role})
+                    {getDoctorDisplayName(m)} ({m.role})
                   </option>
                 ))}
               </select>
@@ -690,9 +755,9 @@ export default function RDVPage() {
             className="rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
           >
             <option value="">Tous les médecins</option>
-            {medecins.map((m) => (
+            {medicalMedecins.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.full_name || m.username || `Médecin ${m.id}`}
+                {getDoctorDisplayName(m)}
               </option>
             ))}
           </select>
