@@ -3,6 +3,7 @@ import { ArrowLeft, Download, FileText } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { getUsername } from "@/auth/auth";
+import { saveControleMedicalHistory } from "@/services/medecinControleurHistoryService";
 import { downloadControleMedicalPdf } from "@/utils/generateControleMedicalPdf";
 
 function Field({ label, children, hint }) {
@@ -62,13 +63,27 @@ export default function ControleMedicalPdfPage() {
     try {
       setIsSaving(true);
 
-      downloadControleMedicalPdf({
+      const pdfData = {
         ...form,
         medecinControleur: doctorIdentifier,
+      };
+      const pdfFilename = downloadControleMedicalPdf(pdfData);
+
+      await saveControleMedicalHistory({
+        date: pdfData.date,
+        matricule: pdfData.matricule,
+        segment: pdfData.segment,
+        nom: pdfData.nom,
+        prenom: pdfData.prenom,
+        repos_prescrit: pdfData.reposPrescrit,
+        avis_medecin_controleur: pdfData.avisMedecinControleur,
+        medecin_identifiant: pdfData.medecinControleur,
+        pdf_filename: pdfFilename,
+        statut: "VALIDE",
       });
     } catch (error) {
       console.error("Erreur generation controle medical PDF", error);
-      window.alert("Impossible de generer le PDF du controle medical.");
+      window.alert("Impossible de generer le PDF du controle medical ou d'enregistrer l'historique.");
     } finally {
       setIsSaving(false);
     }

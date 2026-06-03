@@ -11,8 +11,8 @@ import {
 } from "lucide-react";
 
 import { api } from "@/api/api";
-import leoniLogo from "../../assets/leoni-logo.png";
 import { getUsername } from "@/auth/auth";
+import { saveDemandeExpertiseHistory } from "@/services/medecinControleurHistoryService";
 import { downloadDemandeExpertisePdf } from "@/utils/generateDemandeExpertisePdf";
 
 const SOCIETE_PAR_DEFAUT = "SOCIETE LEONI WIRING SYSTEMS TUNISIA SARL";
@@ -71,21 +71,6 @@ function normalizeDocumentValue(value = "", fallback = "") {
   return normalized || fallback;
 }
 
-function buildMissionItems(missionText = "") {
-  const baseItems = missionText
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => item.replace(/[;.:]+$/g, "").trim());
-
-  return baseItems.length
-    ? baseItems
-    : [
-        "Examiner l'intéressé(e)",
-        "Préciser si le repos prescrit par son médecin traitant est justifié par son état de santé actuel et la date éventuelle de la reprise du travail",
-      ];
-}
-
 function buildDocumentHtml(payload) {
   const attachmentLines = payload.attachments?.trim()
     ? payload.attachments
@@ -93,38 +78,20 @@ function buildDocumentHtml(payload) {
         .map((item) => item.trim())
         .filter(Boolean)
     : [];
-  const filledAttachmentLines = [...attachmentLines];
-
-  while (filledAttachmentLines.length < 1) {
-    filledAttachmentLines.push("");
-  }
-
-  const missionItems = buildMissionItems(payload.mission);
-  const destinationLine = payload.destination?.trim()
-    ? `<div class="line-row destination-line">
-          <span class="line-label">A :</span>
-          <span class="line-value">${escapeHtml(payload.destination)}</span>
-        </div>`
-    : "";
+  const firstAttachmentLine = attachmentLines[0] || "";
+  const secondAttachmentLine = attachmentLines.slice(1).join(", ");
   const posteLine = normalizeDocumentValue(payload.poste);
-  const autresMissionsLine = normalizeDocumentValue(
-    payload.autresMissions,
-    ""
-  );
-  const missionMarkup = missionItems
-    .slice(0, 2)
-    .map((item) => `<li>${escapeHtml(item)} ;</li>`)
-    .join("");
+  const autresMissionsLine = normalizeDocumentValue(payload.autresMissions);
 
   return `<!DOCTYPE html>
   <html lang="fr">
     <head>
       <meta charset="utf-8" />
-      <title>Demande d'Expertise Médicale</title>
+      <title>Demande d'expertise médicale</title>
       <style>
         @page {
           size: A4 portrait;
-          margin: 12mm 13mm;
+          margin: 0;
         }
 
         * {
@@ -134,18 +101,18 @@ function buildDocumentHtml(payload) {
         html,
         body {
           margin: 0;
-          font-family: "Times New Roman", Times, serif;
+          font-family: Arial, Helvetica, sans-serif;
           color: #000;
           background: #fff;
-          font-size: 12px;
-          line-height: 1.25;
+          font-size: 11.2pt;
+          line-height: 1.24;
         }
 
         .page {
           width: 210mm;
           height: 297mm;
           overflow: hidden;
-          padding-top: 1mm;
+          padding: 17mm 20mm 10mm;
           display: flex;
           flex-direction: column;
         }
@@ -157,154 +124,159 @@ function buildDocumentHtml(payload) {
 
         .header {
           text-align: center;
-          margin-bottom: 7mm;
-        }
-
-        .logo {
-          display: block;
-          width: 42mm;
-          height: auto;
-          margin: 0 auto 2mm;
+          margin-bottom: 9mm;
         }
 
         .company {
           font-weight: 700;
-          font-size: 10px;
-          line-height: 1.2;
+          font-size: 11.5pt;
           text-transform: uppercase;
         }
 
         .date-line {
-          text-align: right;
+          display: flex;
+          justify-content: flex-end;
+          align-items: flex-end;
+          gap: 2mm;
+          margin-top: 9mm;
           white-space: nowrap;
-          margin-top: 6mm;
+        }
+
+        .date-prefix {
+          width: 19mm;
+          border-bottom: 1px dotted #000;
+        }
+
+        .date-value {
+          width: 34mm;
+          min-height: 5mm;
+          padding: 0 1mm 0.5mm;
+          border-bottom: 1px dotted #000;
+          text-align: left;
         }
 
         .title {
           text-align: center;
-          font-size: 15px;
+          font-size: 13.5pt;
           font-weight: 700;
-          text-decoration: underline;
-          margin: 7mm 0 10mm;
+          margin: 0 0 13mm;
         }
 
-        .label,
-        .line-label {
-          font-weight: 700;
+        .doctor-section {
+          width: 74mm;
+          margin: 0 0 10mm auto;
         }
 
         .line-row {
           display: flex;
           align-items: flex-end;
-          gap: 2mm;
           width: 100%;
-          margin: 0 0 4mm;
+          margin-bottom: 4.5mm;
         }
 
         .line-label {
           flex: 0 0 auto;
+          margin-right: 3mm;
           white-space: nowrap;
         }
 
-        .line-value {
+        .dotted-line {
           flex: 1 1 auto;
-          min-height: 5mm;
-          padding: 0 1mm 1px;
-          border-bottom: 1px solid #444;
+          min-height: 5.2mm;
+          padding: 0 1mm 0.7mm;
+          border-bottom: 1px dotted #000;
         }
 
-        .doctor-line {
-          margin-bottom: 8mm;
+        .content p {
+          margin: 0 0 5.5mm;
         }
 
-        .doctor-line .line-value {
-          min-width: 0;
+        .person-fields {
+          margin: 8mm 0 9mm;
+          width: 136mm;
         }
 
-        .destination-line {
-          margin-bottom: 6mm;
-        }
-
-        .salutation {
-          margin: 0 0 8mm;
-        }
-
-        .intro {
-          margin: 0 0 7mm;
-        }
-
-        .details {
-          margin: 0 0 8mm;
+        .person-fields .line-label {
+          width: 35mm;
         }
 
         .section-heading {
-          margin: 0 0 4mm;
+          display: inline-block;
+          margin: 0 0 6mm;
           font-weight: 700;
           text-decoration: underline;
         }
 
-        .attachments-area,
+        .full-line {
+          min-height: 6.5mm;
+          padding: 0 1mm 0.7mm;
+          margin-bottom: 2.5mm;
+          border-bottom: 1px dotted #000;
+        }
+
+        .attachments-area {
+          margin-bottom: 9mm;
+        }
+
         .mission-block {
           margin-bottom: 8mm;
         }
 
-        .writing-line {
-          min-height: 7.4mm;
-          width: 100%;
-          padding: 0.9mm 1mm 1.1mm 0;
-          border-bottom: 1px solid #444;
-        }
-
-        .writing-line + .writing-line {
-          margin-top: 2.3mm;
-        }
-
-        .writing-line span {
-          display: inline-block;
-          padding-left: 1mm;
-        }
-
         .mission-list {
+          list-style: none;
           margin: 0;
-          padding-left: 6.5mm;
+          padding: 0 0 0 1mm;
         }
 
         .mission-list li {
+          display: flex;
+          gap: 3mm;
           margin: 0 0 3.5mm;
-          padding-left: 0.8mm;
         }
 
-        .mission-inline-line {
-          display: inline-block;
-          min-width: 54mm;
-          margin-left: 1.5mm;
-          padding: 0 1mm 1px;
-          border-bottom: 1px solid #444;
+        .bullet {
+          flex: 0 0 auto;
+          font-size: 9pt;
+          line-height: 1.35;
         }
 
-        .mission-full-line {
+        .bullet-text {
+          flex: 1 1 auto;
+        }
+
+        .inline-line {
           display: inline-block;
-          min-width: 80mm;
-          margin-left: 1.5mm;
-          padding: 0 1mm 1px;
-          border-bottom: 1px solid #444;
+          min-width: 46mm;
+          padding: 0 1mm 0.7mm;
+          border-bottom: 1px dotted #000;
           vertical-align: baseline;
         }
 
-        .footer {
+        .wide-line {
+          min-width: 83mm;
+        }
+
+        .honoraires {
+          margin: 0;
+          font-size: 10.8pt;
+        }
+
+        .closing-block {
           margin-top: auto;
-          padding-top: 2mm;
+          text-align: center;
         }
 
-        .closing {
-          margin: 0 0 2mm;
-          text-align: right;
-        }
-
-        .signature-block {
+        .closing-block p {
           margin: 0 0 4mm;
-          text-align: right;
-          font-weight: 700;
+        }
+
+        .footer-note {
+          margin-top: 11mm;
+          font-size: 9pt;
+        }
+
+        .empty-line {
+          color: transparent;
         }
 
         @media print {
@@ -323,66 +295,59 @@ function buildDocumentHtml(payload) {
     <body>
       <div class="page">
         <div class="header">
-          <img class="logo" src="${escapeHtml(leoniLogo)}" alt="LEONI" />
           <div class="company">${escapeHtml(payload.societe)}</div>
-          <div class="date-line">Le : ${escapeHtml(
-            payload.dateDisplay
-          )}</div>
+          <div class="date-line">
+            <span class="date-prefix"></span>
+            <span>Le :</span>
+            <span class="date-value">${escapeHtml(payload.dateDisplay || "")}</span>
+          </div>
         </div>
 
-        <div class="title">DEMANDE D'EXPERTISE MÉDICALE</div>
+        <div class="title">DEMANDE D'EXPERTISE MEDICALE</div>
 
-        <div class="line-row doctor-line">
-          <span class="line-label">DR :</span>
-          <span class="line-value">${escapeHtml(payload.medecin || "")}</span>
+        <div class="doctor-section">
+          <div class="line-row">
+            <span class="line-label">DR :</span>
+            <span class="dotted-line">${escapeHtml(payload.medecin || "")}</span>
+          </div>
+          <div class="line-row">
+            <span class="dotted-line">${escapeHtml(payload.destination || "")}</span>
+          </div>
         </div>
-        ${destinationLine}
-        <p class="salutation">Cher Confrère</p>
-        <p class="intro">J'ai l'honneur de vous adresser pour expertise médicale :</p>
 
-        <div class="details">
+        <div class="content">
+          <p>Cher Confrère</p>
+          <p>J'ai l'honneur de vous adresser pour expertise médicale :</p>
+        </div>
+
+        <div class="person-fields">
           <div class="line-row">
             <span class="line-label">Nom :</span>
-            <span class="line-value">${escapeHtml(
-            normalizeDocumentValue(payload.nom)
-          )}</span>
+            <span class="dotted-line">${escapeHtml(normalizeDocumentValue(payload.nom))}</span>
           </div>
           <div class="line-row">
             <span class="line-label">Prénom :</span>
-            <span class="line-value">${escapeHtml(
-            normalizeDocumentValue(payload.prenom)
-          )}</span>
+            <span class="dotted-line">${escapeHtml(normalizeDocumentValue(payload.prenom))}</span>
           </div>
           <div class="line-row">
             <span class="line-label">Matricule Leoni :</span>
-            <span class="line-value">${escapeHtml(
-            normalizeDocumentValue(payload.matricule)
-          )}</span>
+            <span class="dotted-line">${escapeHtml(normalizeDocumentValue(payload.matricule))}</span>
           </div>
         </div>
 
         <div class="attachments-area">
-          <p class="section-heading">Pièces jointes :</p>
-          ${filledAttachmentLines
-            .map(
-              (line) => `
-          <div class="writing-line">
-            <span>${escapeHtml(line)}</span>
-          </div>`
-            )
-            .join("")}
+          <p class="section-heading">Pièce jointes :</p>
+          <div class="full-line">${escapeHtml(firstAttachmentLine)}</div>
+          <div class="full-line">${escapeHtml(secondAttachmentLine)}</div>
         </div>
 
         <div class="mission-block">
           <p class="section-heading">Mission objet de l'expertise :</p>
           <ul class="mission-list">
-            ${missionMarkup}
-            <li>Préciser son aptitude médicale actuelle au poste de<span class="mission-inline-line">${escapeHtml(
-              posteLine
-            )}</span></li>
-            <li>Autres missions :<span class="mission-full-line">${escapeHtml(
-              autresMissionsLine
-            )}</span></li>
+            <li><span class="bullet">▪</span><span class="bullet-text">Examiner L'intéressé (e) ;</span></li>
+            <li><span class="bullet">▪</span><span class="bullet-text">Préciser si le repos prescrit par son médecin traitant est justifié par son état de santé actuel et la date éventuelle de la reprise du travail.</span></li>
+            <li><span class="bullet">▪</span><span class="bullet-text">Préciser son aptitude médicale actuelle au poste de <span class="inline-line">${escapeHtml(posteLine)}</span></span></li>
+            <li><span class="bullet">▪</span><span class="bullet-text">Autres missions : <span class="inline-line wide-line">${escapeHtml(autresMissionsLine)}</span></span></li>
           </ul>
         </div>
 
@@ -390,9 +355,13 @@ function buildDocumentHtml(payload) {
           Afin de permettre le règlement de vos honoraires dans les meilleures conditions, nous vous prions de bien vouloir accompagner votre rapport par un mémoire de règlement d'honoraires établi en deux exemplaires selon le modèle ci-joint.
         </p>
 
-        <div class="footer">
-          <p class="closing">Bien confraternellement</p>
-          <div class="signature-block">Le médecin contrôleur de la société Leoni</div>
+        <div class="closing-block">
+          <p>Bien confraternellement</p>
+          <p>Le médecin contrôleur de la société Leoni</p>
+        </div>
+
+        <div class="footer-note">
+          NB : Prière de ne donner à la personne examinée aucune indication sur les chances de succès de sa demande.
         </div>
       </div>
     </body>
@@ -512,7 +481,7 @@ export default function DemandeExpertiseForm() {
 
     try {
       setErr("");
-      await downloadDemandeExpertisePdf({
+      const pdfData = {
         date: form.date_demande,
         societe: payload.societe,
         medecinControleur: payload.medecin,
@@ -524,10 +493,26 @@ export default function DemandeExpertiseForm() {
         mission: payload.mission,
         aptitudePoste: payload.poste,
         autresMissions: payload.autresMissions,
+      };
+      const pdfFilename = await downloadDemandeExpertisePdf(pdfData);
+
+      await saveDemandeExpertiseHistory({
+        date: pdfData.date,
+        destinataire: pdfData.destination,
+        nom: pdfData.nom,
+        prenom: pdfData.prenom,
+        matricule_leoni: pdfData.matriculeLeoni,
+        pieces_jointes: pdfData.piecesJointes,
+        attachment_names: files.map((file) => file.name),
+        aptitude_poste: pdfData.aptitudePoste,
+        autres_missions: pdfData.autresMissions,
+        medecin_identifiant: pdfData.medecinControleur,
+        pdf_filename: pdfFilename,
+        statut: "VALIDE",
       });
     } catch (error) {
       console.error("Erreur generation demande expertise PDF", error);
-      setErr("Impossible de générer le PDF de la demande d'expertise.");
+      setErr("Impossible de générer le PDF de la demande d'expertise ou d'enregistrer l'historique.");
     }
   };
 

@@ -14,13 +14,10 @@ import {
   Users,
 } from "lucide-react";
 
-<<<<<<< HEAD:frontend/src/pages/medecin-controleur/MedecinControleurDashboard.jsx
 import { api } from "@/api/api";
 import { fixFrenchTextDeep } from "@/utils/fixFrenchText";
-import { getUsername } from "../../auth/auth";
-=======
 import { getUsername } from "@/auth/auth";
->>>>>>> d04145d7f94a17b48901f3e9ce1e1fd12813b923:frontend/src/views/pages/medecin-controleur/MedecinControleurDashboard.jsx
+
 
 const appointmentTemplates = [
   {

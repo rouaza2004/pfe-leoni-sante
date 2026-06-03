@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -7,7 +8,8 @@ from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
-from django.db.models import Case, When, Value, IntegerField
+from django.db.models import Case, Count, IntegerField, Value, When
+from django.utils import timezone
 
 from .services.email_service import send_new_user_credentials_email
 from .models import Collaborateur, Site, User
@@ -34,6 +36,7 @@ from medical.models import (
     DemandeExamenLabo,
     ExamenComplementaire,
 )
+from appointments.models import Appointment
 
 from medical.serializers import (
     DossierMedicalSerializer,
@@ -217,6 +220,79 @@ class SiteListAPIView(generics.ListAPIView):
 class RHKpiView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @staticmethod
+    def _collaborateur_label(collaborateur):
+        if not collaborateur:
+            return "Collaborateur non renseigné"
+        return f"{collaborateur.prenom or ''} {collaborateur.nom or ''}".strip() or collaborateur.matricule
+
+    @classmethod
+    def _appointment_payload(cls, appointment):
+        collab = getattr(appointment, "collaborateur", None)
+        status_labels = {
+            "PREVU": "Planifié",
+            "REPORTE": "Reporté",
+            "TERMINE": "Réalisé",
+            "ANNULE": "Annulé",
+        }
+        return {
+            "id": appointment.id,
+            "collaborateur_nom": cls._collaborateur_label(collab),
+            "matricule": getattr(collab, "matricule", "") or "N/A",
+            "type_visite": appointment.motif or appointment.type_medecin or "Visite médicale",
+            "date": appointment.date,
+            "heure": appointment.heure,
+            "statut": appointment.statut or "PREVU",
+            "statut_label": status_labels.get(appointment.statut, appointment.statut or "Planifié"),
+        }
+
+    @classmethod
+    def _collaborator_payload(cls, collaborateur, status="pending", status_label="En attente"):
+        return {
+            "id": collaborateur.id,
+            "matricule": collaborateur.matricule or "N/A",
+            "collaborateur_nom": cls._collaborateur_label(collaborateur),
+            "departement": collaborateur.departement or "Non défini",
+            "poste": collaborateur.poste or "Non défini",
+            "site": getattr(getattr(collaborateur, "site", None), "nom", "") or "Non défini",
+            "date_import": collaborateur.created_at.date() if collaborateur.created_at else None,
+            "statut": status,
+            "statut_label": status_label,
+        }
+
+    @classmethod
+    def _sick_leave_payload(cls, cert, today):
+        start_date = cert.date_debut_repos
+        expected_end_date = cls._rest_end_date(cert)
+        status = "active" if start_date and expected_end_date and start_date <= today <= expected_end_date else "scheduled"
+        return {
+            "id": cert.id,
+            "collaborateur_nom": cls._collaborateur_label(cert.collaborateur),
+            "matricule": getattr(cert.collaborateur, "matricule", "") or "N/A",
+            "departement": getattr(cert.collaborateur, "departement", "") or "Non défini",
+            "date_debut": start_date,
+            "date_fin_prevue": expected_end_date,
+            "statut": status,
+            "statut_label": "En cours" if status == "active" else "Planifié",
+        }
+
+    @staticmethod
+    def _rest_end_date(cert):
+        if not cert.date_debut_repos or not cert.nb_jours_repos:
+            return None
+        return cert.date_debut_repos + timedelta(days=max(cert.nb_jours_repos - 1, 0))
+
+    @staticmethod
+    def _status_tone(status):
+        return {
+            "pending": "warning",
+            "sent_to_infirmary": "info",
+            "validated": "success",
+            "active": "warning",
+            "scheduled": "info",
+            "overdue": "danger",
+        }.get(status, "info")
+
     def get(self, request):
         u = request.user
         role = getattr(u, "role", "") or ""
@@ -224,11 +300,121 @@ class RHKpiView(APIView):
         if (role or "").upper() not in ["ADMIN", "RESPONSABLE_RH"]:
             return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
+        today = timezone.localdate()
+        month_start = today.replace(day=1)
+        week_end = today + timedelta(days=7)
+
+        collaborateurs = Collaborateur.objects.select_related("site").all()
+        active_collaborateurs = collaborateurs.filter(actif=True)
+        active_collaborator_count = active_collaborateurs.count()
+
+        new_operators_qs = active_collaborateurs.filter(created_at__date__gte=month_start, created_at__date__lte=today)
+
+        appointment_base = Appointment.objects.select_related("collaborateur").filter(collaborateur__actif=True)
+        upcoming_appointments = appointment_base.filter(
+            date__gte=today,
+            statut__in=["PREVU", "REPORTE"],
+        ).order_by("date", "heure", "id")
+        overdue_appointments = appointment_base.filter(
+            date__lt=today,
+            statut__in=["PREVU", "REPORTE"],
+        ).order_by("date", "heure", "id")
+
+        sick_leave_candidates = CertificatMedical.objects.select_related("collaborateur").filter(
+            collaborateur__actif=True,
+            nb_jours_repos__gt=0,
+            date_debut_repos__isnull=False,
+        ).order_by("date_debut_repos", "id")
+        active_sick_leaves = []
+        returns_this_week = []
+        for cert in sick_leave_candidates:
+            end_date = self._rest_end_date(cert)
+            if not end_date:
+                continue
+            if cert.date_debut_repos <= today <= end_date:
+                active_sick_leaves.append(cert)
+            if today <= end_date <= week_end:
+                returns_this_week.append(cert)
+
+        collaborator_ids_with_appointments = set(
+            Appointment.objects.filter(collaborateur__in=new_operators_qs).values_list("collaborateur_id", flat=True)
+        )
+        collaborator_ids_with_dossiers = set(
+            DossierMedical.objects.filter(collaborateur__in=new_operators_qs).values_list("collaborateur_id", flat=True)
+        )
+
+        new_operator_rows = []
+        for collaborateur in new_operators_qs.order_by("-created_at", "nom", "prenom"):
+            if collaborateur.id in collaborator_ids_with_dossiers:
+                status_key = "validated"
+                status_label = "Validé"
+            elif collaborateur.id in collaborator_ids_with_appointments:
+                status_key = "sent_to_infirmary"
+                status_label = "Envoyé à l'infirmerie"
+            else:
+                status_key = "pending"
+                status_label = "En attente"
+            row = self._collaborator_payload(collaborateur, status_key, status_label)
+            row["tone"] = self._status_tone(status_key)
+            new_operator_rows.append(row)
+
+        collaborators_by_site = (
+            active_collaborateurs.values("site__nom")
+            .annotate(
+                total=Count("id"),
+            )
+            .order_by("-total", "site__nom")
+        )
+        collaborators_by_department = (
+            active_collaborateurs.values("departement")
+            .annotate(
+                total=Count("id"),
+            )
+            .order_by("-total", "departement")
+        )
+
+        absences_by_department = {}
+        for cert in active_sick_leaves:
+            department = getattr(cert.collaborateur, "departement", "") or "Non défini"
+            absences_by_department.setdefault(department, {"department": department, "absences": 0, "retards": 0, "retours": 0})
+            absences_by_department[department]["absences"] += 1
+        for cert in returns_this_week:
+            department = getattr(cert.collaborateur, "departement", "") or "Non défini"
+            absences_by_department.setdefault(department, {"department": department, "absences": 0, "retards": 0, "retours": 0})
+            absences_by_department[department]["retours"] += 1
+
         data = {
-            "total_collaborateurs": 0,
-            "visites_ce_mois": 0,
-            "analyses_en_retard": 0,
-            "aptitudes": {"apte": 0, "inapte": 0},
+            "kpis": {
+                "total_active_collaborators": active_collaborator_count,
+                "new_operators_this_month": len(new_operator_rows),
+                "upcoming_medical_visits": upcoming_appointments.count(),
+                "overdue_medical_visits": overdue_appointments.count(),
+                "active_sick_leaves": len(active_sick_leaves),
+                "returns_expected_this_week": len(returns_this_week),
+            },
+            "upcoming_visits": [self._appointment_payload(item) for item in upcoming_appointments],
+            "overdue_visits": [self._appointment_payload(item) for item in overdue_appointments],
+            "new_operators": new_operator_rows,
+            "active_sick_leaves": [self._sick_leave_payload(item, today) for item in active_sick_leaves],
+            "returns_this_week": [self._sick_leave_payload(item, today) for item in returns_this_week],
+            "collaborateurs_par_site": [
+                {
+                    "site": row["site__nom"] or "Non défini",
+                    "total": row["total"] or 0,
+                }
+                for row in collaborators_by_site
+            ],
+            "collaborateurs_par_departement": [
+                {
+                    "departement": row["departement"] or "Non défini",
+                    "total": row["total"] or 0,
+                }
+                for row in collaborators_by_department
+            ],
+            "absences_retards_par_departement": sorted(
+                absences_by_department.values(),
+                key=lambda item: (-item["absences"], item["department"]),
+            ),
         }
         return Response(data)
 

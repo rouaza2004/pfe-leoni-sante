@@ -1,15 +1,13 @@
 ﻿import { Fragment, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ClipboardList, FileText, Search } from "lucide-react";
 
-import { api } from "@/api/api";
+import { getMedecinControleurHistory } from "@/services/medecinControleurHistoryService";
 
 const filters = [
   { id: "all", label: "Tous" },
   { id: "controle", label: "Contrôle médical" },
   { id: "expertise", label: "Demande d'expertise" },
 ];
-
-const HISTORY_ENDPOINT = "/statistiques/";
 
 function firstArray(...values) {
   return values.find((value) => Array.isArray(value)) || [];
@@ -87,11 +85,11 @@ export default function HistoriquePage() {
         setIsLoading(true);
         setErrorMessage("");
 
-        const historyResponse = await api.get(HISTORY_ENDPOINT);
+        const history = await getMedecinControleurHistory();
 
         if (cancelled) return;
 
-        const controles = extractHistoryRecords(historyResponse.data, "controle").map(
+        const controles = extractHistoryRecords(history, "controle").map(
           (item) => ({
             ...item,
             id: `controle-${item.id}`,
@@ -103,7 +101,7 @@ export default function HistoriquePage() {
           })
         );
 
-        const expertises = extractHistoryRecords(historyResponse.data, "expertise").map(
+        const expertises = extractHistoryRecords(history, "expertise").map(
           (item) => ({
             ...item,
             id: `expertise-${item.id}`,
@@ -124,7 +122,7 @@ export default function HistoriquePage() {
         setRecords(combined);
       } catch (error) {
         console.error("Erreur chargement historique médecin contrôleur", {
-          historyEndpoint: "/api/statistiques/",
+          historyEndpoint: "/api/medical/medecin-controleur/*",
           message: error?.message,
           status: error?.response?.status,
           data: error?.response?.data,

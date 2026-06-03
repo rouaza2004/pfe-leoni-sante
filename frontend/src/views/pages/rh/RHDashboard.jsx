@@ -1,183 +1,22 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  AlarmClock,
   Bell,
   CalendarDays,
   ChevronRight,
   Clock3,
-  FileBadge2,
-  FileText,
   FolderClock,
-  ShieldAlert,
+  RotateCcw,
   Stethoscope,
   Upload,
+  UserCheck,
   UserRound,
+  Users,
 } from "lucide-react";
 
 import { api } from "@/api/api";
 import { getUsername } from "@/auth/auth";
-
-const fallbackAppointments = [
-  {
-    id: "rh-rdv-1",
-    collaborateur: "Nour Ben Salah",
-    matricule: "RH-2048",
-    typeVisite: "Visite de reprise",
-    date: "2026-04-05",
-    heure: "09:00",
-    statut: "Confirmé",
-    statutTone: "info",
-    focus: "Retour après arrêt de 14 jours",
-  },
-  {
-    id: "rh-rdv-2",
-    collaborateur: "Karim Jaziri",
-    matricule: "RH-1934",
-    typeVisite: "Visite périodique",
-    date: "2026-04-05",
-    heure: "11:15",
-    statut: "En attente",
-    statutTone: "warning",
-    focus: "Convocation non confirmée",
-  },
-  {
-    id: "rh-rdv-3",
-    collaborateur: "Meriem Gharbi",
-    matricule: "RH-2210",
-    typeVisite: "Aptitude sous condition",
-    date: "2026-04-06",
-    heure: "14:00",
-    statut: "À suivre",
-    statutTone: "secondary",
-    focus: "Aménagement temporaire du poste",
-  },
-  {
-    id: "rh-rdv-4",
-    collaborateur: "Yassine Trabelsi",
-    matricule: "RH-1755",
-    typeVisite: "Contrôle médical",
-    date: "2026-04-07",
-    heure: "08:45",
-    statut: "Planifié",
-    statutTone: "success",
-    focus: "Arrêt maladie prolongé",
-  },
-];
-
-const fallbackFollowUps = [
-  {
-    id: "rh-follow-1",
-    collaborateur: "Amel Kooli",
-    matricule: "RH-1880",
-    motif: "Visite en retard",
-    detail: "La visite périodique dépasse la date cible de 12 jours.",
-    tone: "danger",
-  },
-  {
-    id: "rh-follow-2",
-    collaborateur: "Hichem Saidi",
-    matricule: "RH-1764",
-    motif: "Reprise à suivre",
-    detail: "Reprise prévue le 08/04 avec certificat de reprise attendu.",
-    tone: "warning",
-  },
-  {
-    id: "rh-follow-3",
-    collaborateur: "Sarra Ben Amor",
-    matricule: "RH-2241",
-    motif: "Aptitude sous condition",
-    detail: "Restriction de manutention à confirmer avec le manager.",
-    tone: "secondary",
-  },
-  {
-    id: "rh-follow-4",
-    collaborateur: "Walid Gharbi",
-    matricule: "RH-1672",
-    motif: "Document manquant",
-    detail: "Fiche d'aptitude non versée au dossier RH.",
-    tone: "info",
-  },
-];
-
-const fallbackDocuments = [
-  {
-    id: "rh-doc-1",
-    titre: "Fiche d'aptitude",
-    collaborateur: "Meriem Gharbi",
-    matricule: "RH-2210",
-    date: "2026-04-04",
-    tone: "success",
-  },
-  {
-    id: "rh-doc-2",
-    titre: "Certificat médical",
-    collaborateur: "Yassine Trabelsi",
-    matricule: "RH-1755",
-    date: "2026-04-03",
-    tone: "info",
-  },
-  {
-    id: "rh-doc-3",
-    titre: "Demande d'expertise",
-    collaborateur: "Amel Kooli",
-    matricule: "RH-1880",
-    date: "2026-04-02",
-    tone: "warning",
-  },
-  {
-    id: "rh-doc-4",
-    titre: "Contrôle médical",
-    collaborateur: "Hichem Saidi",
-    matricule: "RH-1764",
-    date: "2026-04-01",
-    tone: "secondary",
-  },
-];
-
-const summaryCards = [
-  {
-    title: "Rendez-vous à venir",
-    value: "04",
-    detail: "Convocations RH sur les 72 prochaines heures",
-    icon: <CalendarDays size={16} />,
-    tone: "info",
-  },
-  {
-    title: "Visites en retard",
-    value: "03",
-    detail: "Dossiers dépassant la date de visite prévue",
-    icon: <ShieldAlert size={16} />,
-    tone: "danger",
-  },
-  {
-    title: "Aptes avec condition",
-    value: "05",
-    detail: "Aménagements et restrictions à confirmer",
-    icon: <FileBadge2 size={16} />,
-    tone: "secondary",
-  },
-  {
-    title: "Arrêts / repos en cours",
-    value: "06",
-    detail: "Suivi des absences avec reprise attendue",
-    icon: <Stethoscope size={16} />,
-    tone: "warning",
-  },
-  {
-    title: "Documents générés",
-    value: "11",
-    detail: "Pièces médicales récentes disponibles",
-    icon: <FileText size={16} />,
-    tone: "success",
-  },
-  {
-    title: "Dossiers en attente",
-    value: "07",
-    detail: "Éléments RH à valider ou compléter",
-    icon: <FolderClock size={16} />,
-    tone: "info",
-  },
-];
 
 const statusClasses = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -193,30 +32,35 @@ const accentClasses = {
     value: "text-sky-700",
     pill: "bg-sky-50 text-sky-700 ring-sky-200",
     soft: "border-sky-100 bg-sky-50/50",
+    bar: "bg-sky-500",
   },
   success: {
     icon: "border-emerald-200 bg-emerald-50 text-emerald-700",
     value: "text-emerald-700",
     pill: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     soft: "border-emerald-100 bg-emerald-50/50",
+    bar: "bg-emerald-500",
   },
   warning: {
     icon: "border-amber-200 bg-amber-50 text-amber-700",
     value: "text-amber-700",
     pill: "bg-amber-50 text-amber-700 ring-amber-200",
     soft: "border-amber-100 bg-amber-50/50",
+    bar: "bg-amber-400",
   },
   danger: {
     icon: "border-rose-200 bg-rose-50 text-rose-700",
     value: "text-rose-700",
     pill: "bg-rose-50 text-rose-700 ring-rose-200",
     soft: "border-rose-100 bg-rose-50/50",
+    bar: "bg-rose-400",
   },
   secondary: {
     icon: "border-violet-200 bg-violet-50 text-violet-700",
     value: "text-violet-700",
     pill: "bg-violet-50 text-violet-700 ring-violet-200",
     soft: "border-violet-100 bg-violet-50/50",
+    bar: "bg-violet-500",
   },
 };
 
@@ -224,7 +68,7 @@ function formatDateLabel(dateValue) {
   if (!dateValue) return "--";
 
   const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return dateValue;
+  if (Number.isNaN(date.getTime())) return String(dateValue);
 
   return new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
@@ -233,42 +77,33 @@ function formatDateLabel(dateValue) {
   }).format(date);
 }
 
-function normalizeApiAppointment(item) {
-  const firstName = item?.collaborateur_prenom || "";
-  const lastName = item?.collaborateur_nom || "";
-  const collaborateur = `${firstName} ${lastName}`.trim() || "Collaborateur non renseigné";
-  const matricule = item?.matricule || item?.collaborateur_matricule || "N/A";
-  const motif = item?.motif || "Visite médicale";
-  const statut = item?.statut || "";
-  const upperStatus = statut.toUpperCase();
+function formatTimeLabel(timeValue) {
+  if (!timeValue) return "--:--";
+  return String(timeValue).slice(0, 5);
+}
 
-  let mappedStatus = "Confirmé";
-  let statutTone = "info";
+function toArray(value) {
+  return Array.isArray(value) ? value : [];
+}
 
-  if (upperStatus === "TERMINE") {
-    mappedStatus = "Réalisé";
-    statutTone = "success";
-  } else if (upperStatus === "ANNULE") {
-    mappedStatus = "Annulé";
-    statutTone = "danger";
-  } else if (upperStatus === "REPORTE") {
-    mappedStatus = "En attente";
-    statutTone = "warning";
-  }
+function toNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
 
-  return {
-    id: item?.id || `${matricule}-${item?.date}-${item?.heure}`,
-    collaborateur,
-    matricule,
-    typeVisite: motif,
-    date: item?.date || "",
-    heure: (item?.heure || "").slice(0, 5),
-    statut: mappedStatus,
-    statutTone,
-    focus: item?.type_medecin
-      ? `Médecin ${String(item.type_medecin).toLowerCase()}`
-      : "Suivi RH du rendez-vous",
-  };
+function getDateTime(value) {
+  if (!value) return 0;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function getStatusTone(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (["validated", "termine", "réalisé", "realise", "active", "success"].includes(normalized)) return "success";
+  if (["pending", "prevu", "prévu", "reporte", "reporté", "warning"].includes(normalized)) return "warning";
+  if (["overdue", "danger", "annule", "annulé"].includes(normalized)) return "danger";
+  if (["sent_to_infirmary", "scheduled", "info"].includes(normalized)) return "info";
+  return "secondary";
 }
 
 function SummaryCard({ title, value, detail, icon, tone = "info" }) {
@@ -279,16 +114,12 @@ function SummaryCard({ title, value, detail, icon, tone = "info" }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs text-slate-500">{title}</p>
-          <p
-            className={`mt-1 text-[22px] font-bold leading-none ${toneClass.value}`}
-          >
+          <p className={`mt-1 text-[22px] font-bold leading-none ${toneClass.value}`}>
             {value}
           </p>
           <p className="mt-1 text-[10px] text-slate-400">{detail}</p>
         </div>
-        <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${toneClass.icon}`}
-        >
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${toneClass.icon}`}>
           {icon}
         </div>
       </div>
@@ -303,7 +134,7 @@ function StatusBadge({ label, tone = "info" }) {
         statusClasses[tone] || statusClasses.info
       }`}
     >
-      {label}
+      {label || "--"}
     </span>
   );
 }
@@ -335,12 +166,113 @@ function PanelCard({ id, title, subtitle, action, onAction, children }) {
   );
 }
 
+function EmptyState({ text }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-4 text-xs text-slate-600">
+      {text}
+    </div>
+  );
+}
+
+function CompactBarChart({ rows, labelKey, valueKey, emptyText, tone = "info" }) {
+  const data = toArray(rows);
+  const maxValue = Math.max(...data.map((item) => toNumber(item?.[valueKey])), 0);
+  const toneClass = accentClasses[tone] || accentClasses.info;
+
+  if (data.length === 0 || maxValue === 0) {
+    return <EmptyState text={emptyText} />;
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {data.slice(0, 8).map((item) => {
+        const label = item?.[labelKey] || "Non défini";
+        const value = toNumber(item?.[valueKey]);
+        const width = `${Math.max((value / maxValue) * 100, 6)}%`;
+
+        return (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-2">
+            <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+              <span className="truncate font-medium text-slate-700">{label}</span>
+              <span className="font-semibold text-slate-900">{value}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
+              <div className={`h-full rounded-full ${toneClass.bar}`} style={{ width }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AbsenceDelayChart({ rows }) {
+  const data = toArray(rows);
+  const maxValue = Math.max(
+    ...data.flatMap((item) => [toNumber(item?.absences), toNumber(item?.retards), toNumber(item?.retours)]),
+    0
+  );
+
+  if (data.length === 0 || maxValue === 0) {
+    return <EmptyState text="Aucune absence ou retour attendu à afficher." />;
+  }
+
+  const series = [
+    { key: "absences", label: "Absences", color: "bg-rose-400" },
+    { key: "retards", label: "Retards", color: "bg-sky-500" },
+    { key: "retours", label: "Retours", color: "bg-emerald-500" },
+  ];
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 text-[10px]">
+        {series.map((item) => (
+          <span
+            key={item.key}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600"
+          >
+            <span className={`h-2 w-2 rounded-full ${item.color}`} />
+            {item.label}
+          </span>
+        ))}
+      </div>
+
+      <div className="grid gap-1.5">
+        {data.slice(0, 6).map((department) => (
+          <div key={department.department || "Non défini"} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-2">
+            <p className="mb-1 text-[11px] font-medium text-slate-700">
+              {department.department || "Non défini"}
+            </p>
+            <div className="grid gap-1">
+              {series.map((serie) => {
+                const value = toNumber(department?.[serie.key]);
+                const width = `${Math.max((value / maxValue) * 100, value ? 6 : 0)}%`;
+                return (
+                  <div key={serie.key} className="grid grid-cols-[64px_minmax(0,1fr)_28px] items-center gap-2 text-[10px] text-slate-500">
+                    <span>{serie.label}</span>
+                    <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
+                      <div className={`h-full rounded-full ${serie.color}`} style={{ width }} />
+                    </div>
+                    <span className="text-right font-semibold text-slate-700">{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function RHDashboard() {
   const navigate = useNavigate();
   const username = getUsername();
   const sessionIdentifier = username || "responsable-rh";
-  const unreadNotificationsCount = 3;
-  const [appointments, setAppointments] = useState(fallbackAppointments);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [currentHour, setCurrentHour] = useState(() => new Date().getHours());
 
   useEffect(() => {
@@ -354,42 +286,118 @@ export default function RHDashboard() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadAppointments = async () => {
+    const loadDashboard = async () => {
       try {
-        const response = await api.get("/appointments/rdv/");
+        setLoading(true);
+        setError("");
+        const response = await api.get("/rh/kpi/");
+        if (!cancelled) {
+          setDashboardData(response?.data || {});
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError("Impossible de charger les indicateurs RH.");
+          setDashboardData(null);
+        }
+        console.error("Erreur chargement dashboard RH", {
+          endpoint: "/api/rh/kpi/",
+          message: err?.message,
+          status: err?.response?.status,
+        });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const loadNotifications = async () => {
+      try {
+        const response = await api.get("/notifications/");
         if (cancelled) return;
 
         const payload = Array.isArray(response?.data) ? response.data : [];
-        if (payload.length > 0) {
-          setAppointments(payload.map(normalizeApiAppointment).slice(0, 6));
-        }
-      } catch (error) {
-        console.error("Erreur chargement dashboard RH", {
-          endpoint: "/api/appointments/rdv/",
-          message: error?.message,
-          status: error?.response?.status,
+        setUnreadNotificationsCount(payload.filter((item) => !item?.is_read).length);
+      } catch (err) {
+        console.error("Erreur chargement notifications RH", {
+          endpoint: "/api/notifications/",
+          message: err?.message,
+          status: err?.response?.status,
         });
       }
     };
 
-    loadAppointments();
+    loadDashboard();
+    loadNotifications();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const filteredAppointments = useMemo(() => {
-    return appointments;
-  }, [appointments]);
+  const kpis = dashboardData?.kpis || {};
+  const upcomingVisits = toArray(dashboardData?.upcoming_visits);
+  const overdueVisits = toArray(dashboardData?.overdue_visits);
+  const newOperators = toArray(dashboardData?.new_operators);
+  const activeSickLeaves = toArray(dashboardData?.active_sick_leaves);
+  const returnsThisWeek = toArray(dashboardData?.returns_this_week);
+  const recentNewOperators = useMemo(
+    () =>
+      [...newOperators]
+        .sort((a, b) => {
+          const importDateDiff = getDateTime(b?.date_import) - getDateTime(a?.date_import);
+          if (importDateDiff !== 0) return importDateDiff;
+          return getDateTime(b?.created_at) - getDateTime(a?.created_at);
+        })
+        .slice(0, 10),
+    [newOperators]
+  );
 
-  const filteredFollowUps = useMemo(() => {
-    return fallbackFollowUps;
-  }, []);
-
-  const filteredDocuments = useMemo(() => {
-    return fallbackDocuments;
-  }, []);
+  const summaryCards = useMemo(
+    () => [
+      {
+        title: "Collaborateurs actifs",
+        value: toNumber(kpis.total_active_collaborators),
+        detail: "Collaborateurs actifs dans la base RH",
+        icon: <Users size={16} />,
+        tone: "info",
+      },
+      {
+        title: "Nouveaux opérateurs",
+        value: toNumber(kpis.new_operators_this_month),
+        detail: "Importés ou intégrés ce mois-ci",
+        icon: <Upload size={16} />,
+        tone: "success",
+      },
+      {
+        title: "Visites à venir",
+        value: upcomingVisits.length,
+        detail: "Rendez-vous planifiés à partir d'aujourd'hui",
+        icon: <CalendarDays size={16} />,
+        tone: "info",
+      },
+      {
+        title: "Visites en retard",
+        value: overdueVisits.length,
+        detail: "Planifiées avant aujourd'hui et non réalisées",
+        icon: <AlarmClock size={16} />,
+        tone: "danger",
+      },
+      {
+        title: "Repos actifs",
+        value: activeSickLeaves.length,
+        detail: "Arrêts ou repos médicaux en cours",
+        icon: <Stethoscope size={16} />,
+        tone: "warning",
+      },
+      {
+        title: "Retours cette semaine",
+        value: returnsThisWeek.length,
+        detail: "Repos se terminant dans les 7 prochains jours",
+        icon: <RotateCcw size={16} />,
+        tone: "success",
+      },
+    ],
+    [activeSickLeaves.length, kpis.new_operators_this_month, kpis.total_active_collaborators, overdueVisits.length, returnsThisWeek.length, upcomingVisits.length]
+  );
 
   const currentDate = useMemo(
     () =>
@@ -403,60 +411,10 @@ export default function RHDashboard() {
   );
 
   const greeting = useMemo(() => {
-    if (currentHour < 12) {
-      return "Bonjour";
-    }
-
-    if (currentHour < 18) {
-      return "Bon après-midi";
-    }
-
+    if (currentHour < 12) return "Bonjour";
+    if (currentHour < 18) return "Bon après-midi";
     return "Bonsoir";
   }, [currentHour]);
-
-  const quickActions = [
-    {
-      title: "Vue d'ensemble",
-      description: "Accès au dossier RH via matricule ou fiche collaborateur.",
-      icon: <CalendarDays size={16} />,
-      onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
-      tone: "info",
-    },
-    {
-      title: "Rendez-vous",
-      description: "Afficher les convocations et visites à venir.",
-      icon: <CalendarDays size={16} />,
-      onClick: () => {
-        document.getElementById("rh-rendez-vous")?.scrollIntoView({ behavior: "smooth" });
-      },
-      tone: "success",
-    },
-    {
-      title: "Historique",
-      description: "Retrouver le suivi médical utile au périmètre RH.",
-      icon: <Clock3 size={16} />,
-      onClick: () => {
-        document.getElementById("rh-follow-up")?.scrollIntoView({ behavior: "smooth" });
-      },
-      tone: "warning",
-    },
-    {
-      title: "Documents",
-      description: "Consulter les fiches, certificats et contrôles récents.",
-      icon: <FileText size={16} />,
-      onClick: () => {
-        document.getElementById("rh-documents")?.scrollIntoView({ behavior: "smooth" });
-      },
-      tone: "secondary",
-    },
-    {
-      title: "Import nouveaux opérateurs",
-      description: "Préparer le suivi médical des nouveaux entrants.",
-      icon: <Upload size={16} />,
-      onClick: () => navigate("/rh/nouveaux-operateurs"),
-      tone: "info",
-    },
-  ];
 
   const rhModules = [
     {
@@ -489,15 +447,13 @@ export default function RHDashboard() {
     {
       id: "rapports-rh",
       title: "Rapports RH",
-      description: "Accéder aux rapports RH liés au suivi médical des collaborateurs.",
-      icon: <FileText size={16} />,
+      description: "Accéder aux rapports RH liés au suivi des collaborateurs.",
+      icon: <UserCheck size={16} />,
       route: "/rh/rapports",
       cta: "Voir les rapports",
       tone: "secondary",
     },
   ];
-
-  const featureCards = rhModules;
 
   return (
     <div className="space-y-1.5">
@@ -517,7 +473,7 @@ export default function RHDashboard() {
                 {`${greeting}, ${sessionIdentifier}`}
               </h1>
               <p className="mt-0.5 max-w-2xl text-xs text-slate-500">
-                Pilotage RH des rendez-vous, absences médicales et documents de suivi.
+                Pilotage RH des collaborateurs, visites à planifier, repos médicaux et retours au travail.
               </p>
             </div>
           </div>
@@ -534,6 +490,12 @@ export default function RHDashboard() {
             </span>
           </button>
         </div>
+
+        {error ? (
+          <div className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+            {error}
+          </div>
+        ) : null}
 
         <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
           {summaryCards.map((card) => (
@@ -557,9 +519,7 @@ export default function RHDashboard() {
                 onClick={() => navigate(module.route)}
                 className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
               >
-                <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg border ${toneClass.icon}`}
-                >
+                <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${toneClass.icon}`}>
                   {module.icon}
                 </div>
                 <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{module.title}</p>
@@ -574,15 +534,50 @@ export default function RHDashboard() {
         </div>
       </PanelCard>
 
+      <div className="grid gap-1.5 xl:grid-cols-3">
+        <PanelCard
+          title="Collaborateurs par département"
+          subtitle="Répartition des collaborateurs actifs"
+        >
+          <CompactBarChart
+            rows={dashboardData?.collaborateurs_par_departement}
+            labelKey="departement"
+            valueKey="total"
+            emptyText={loading ? "Chargement des départements..." : "Aucun collaborateur actif à afficher."}
+            tone="info"
+          />
+        </PanelCard>
+
+        <PanelCard
+          title="Collaborateurs par site"
+          subtitle="Répartition des collaborateurs actifs"
+        >
+          <CompactBarChart
+            rows={dashboardData?.collaborateurs_par_site}
+            labelKey="site"
+            valueKey="total"
+            emptyText={loading ? "Chargement des sites..." : "Aucun site à afficher."}
+            tone="success"
+          />
+        </PanelCard>
+
+        <PanelCard
+          title="Absences et retours"
+          subtitle="Repos médicaux et retours attendus par département"
+        >
+          <AbsenceDelayChart rows={dashboardData?.absences_retards_par_departement} />
+        </PanelCard>
+      </div>
+
       <section
         id="rh-rendez-vous"
         className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-200"
       >
         <div className="mb-2 flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">Prochains rendez-vous</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Visites et rendez-vous</h2>
             <p className="mt-0.5 text-[10px] text-slate-500">
-              Convocations médicales à venir et points de suivi pour le service RH.
+              Visites à venir et visites planifiées en retard pour les collaborateurs actifs.
             </p>
           </div>
 
@@ -596,136 +591,119 @@ export default function RHDashboard() {
           </button>
         </div>
 
-        <div className="space-y-1.5">
-          {filteredAppointments.map((appointment) => (
-            <article
-              key={appointment.id}
-              className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-2 transition hover:border-slate-300 lg:grid-cols-[76px_minmax(0,1fr)_auto]"
-            >
-              <div className="rounded-xl bg-white px-2 py-2 text-center shadow-sm ring-1 ring-slate-100">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Horaire
-                </p>
-                <p className="mt-0.5 text-[16px] font-semibold tracking-tight text-slate-900">
-                  {appointment.heure || "--:--"}
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-500">
-                  {formatDateLabel(appointment.date)}
-                </p>
-              </div>
-
-              <div className="min-w-0">
+        <div className="grid gap-1.5 xl:grid-cols-2">
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold text-slate-700">À venir</p>
+            {upcomingVisits.map((visit) => (
+              <article key={visit.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-2">
                 <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
                   <div>
                     <p className="text-[13px] font-medium text-slate-900">
-                      {appointment.collaborateur}
+                      {visit.collaborateur_nom || "Collaborateur non renseigné"}
                     </p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
-                      {appointment.matricule} ”¢ {appointment.typeVisite}
+                      {visit.matricule || "N/A"} - {visit.type_visite || "Visite médicale"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-600">
+                      {formatDateLabel(visit.date)} - {formatTimeLabel(visit.heure)}
                     </p>
                   </div>
-                  <StatusBadge label={appointment.statut} tone={appointment.statutTone} />
+                  <StatusBadge label={visit.statut_label} tone={getStatusTone(visit.statut)} />
                 </div>
-                <p className="mt-1 text-[11px] leading-4 text-slate-600">{appointment.focus}</p>
-              </div>
+              </article>
+            ))}
+            {upcomingVisits.length === 0 ? <EmptyState text={loading ? "Chargement des visites..." : "Aucune visite à venir."} /> : null}
+          </div>
 
-              <div className="flex flex-col justify-between gap-1.5 sm:flex-row lg:flex-col lg:items-end">
-                <span className="text-[10px] text-slate-500">Suivi RH</span>
-                <button
-                  type="button"
-                  onClick={() => navigate("/rh")}
-                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Retour RH
-                  <ChevronRight size={12} />
-                </button>
-              </div>
-            </article>
-          ))}
-
-          {filteredAppointments.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-4 text-xs text-slate-600">
-              Aucun rendez-vous ne correspond à la recherche en cours.
-            </div>
-          ) : null}
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold text-slate-700">En retard</p>
+            {overdueVisits.map((visit) => (
+              <article key={visit.id} className="rounded-2xl border border-rose-100 bg-rose-50/45 p-2">
+                <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-[13px] font-medium text-slate-900">
+                      {visit.collaborateur_nom || "Collaborateur non renseigné"}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {visit.matricule || "N/A"} - {visit.type_visite || "Visite médicale"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-600">
+                      {formatDateLabel(visit.date)} - {formatTimeLabel(visit.heure)}
+                    </p>
+                  </div>
+                  <StatusBadge label="En retard" tone="danger" />
+                </div>
+              </article>
+            ))}
+            {overdueVisits.length === 0 ? <EmptyState text={loading ? "Chargement des visites..." : "Aucune visite en retard."} /> : null}
+          </div>
         </div>
       </section>
 
-      <div className="grid gap-1.5 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-1.5 xl:grid-cols-[1.05fr_0.95fr]">
         <PanelCard
-          id="rh-follow-up"
-          title="Collaborateurs à suivre"
-          subtitle="Visites en retard, reprises, aptitudes sous condition et documents manquants"
+          id="rh-new-operators"
+          title="Nouveaux opérateurs à suivre"
+          subtitle="Collaborateurs actifs créés ou importés pendant le mois courant"
+          action="Ouvrir"
+          onAction={() => navigate("/rh/nouveaux-operateurs")}
         >
           <div className="space-y-1">
-            {filteredFollowUps.map((item) => (
-              <div
-                key={item.id}
-                className={`rounded-2xl border p-2 ${(
-                  accentClasses[item.tone] || accentClasses.info
-                ).soft}`}
-              >
+            {recentNewOperators.map((item) => (
+              <div key={item.id} className={`rounded-2xl border p-2 ${(accentClasses[item.tone] || accentClasses.info).soft}`}>
                 <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <p className="text-[13px] font-medium text-slate-900">{item.collaborateur}</p>
+                    <p className="text-[13px] font-medium text-slate-900">{item.collaborateur_nom || "--"}</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
-                      {item.matricule} ”¢ {item.motif}
+                      {item.matricule || "N/A"} - {item.departement || "Non défini"}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-4 text-slate-600">
+                      {item.poste || "Non défini"} - Import: {formatDateLabel(item.date_import)}
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${
-                      (accentClasses[item.tone] || accentClasses.info).pill
-                    }`}
-                  >
-                    Action RH
-                  </span>
+                  <StatusBadge label={item.statut_label} tone={item.tone || getStatusTone(item.statut)} />
                 </div>
-                <p className="mt-1 text-[11px] leading-4 text-slate-600">{item.detail}</p>
               </div>
             ))}
-
-            {filteredFollowUps.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-4 text-xs text-slate-600">
-                Aucun collaborateur à suivre pour ce filtre.
+            {recentNewOperators.length === 0 ? <EmptyState text={loading ? "Chargement des opérateurs..." : "Aucun nouvel opérateur ce mois-ci."} /> : null}
+            {newOperators.length > 0 ? (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => navigate("/rh/nouveaux-operateurs")}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 transition hover:text-slate-900"
+                >
+                  Voir tout
+                  <ChevronRight size={12} />
+                </button>
               </div>
             ) : null}
           </div>
         </PanelCard>
 
         <PanelCard
-          id="rh-documents"
-          title="Documents récents"
-          subtitle="Fiches d'aptitude, certificats et pièces médicales accessibles au suivi RH"
+          id="rh-sick-leaves"
+          title="Arrêts et repos actifs"
+          subtitle="Repos médicaux en cours et retours attendus cette semaine"
+          action="Absences"
+          onAction={() => navigate("/rh/absences-ponctualite")}
         >
           <div className="space-y-1">
-            {filteredDocuments.map((doc) => (
-              <div
-                key={doc.id}
-                className="rounded-2xl border border-slate-200 bg-slate-50/80 p-2"
-              >
-                <div className="flex items-start justify-between gap-3">
+            {activeSickLeaves.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-amber-100 bg-amber-50/45 p-2">
+                <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <p className="text-[13px] font-medium text-slate-900">{doc.titre}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {doc.collaborateur} ”¢ {doc.matricule}
+                    <p className="text-[13px] font-medium text-slate-900">{item.collaborateur_nom || "--"}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">{item.matricule || "N/A"}</p>
+                    <p className="mt-1 text-[11px] leading-4 text-slate-600">
+                      {formatDateLabel(item.date_debut)} - {formatDateLabel(item.date_fin_prevue)}
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${
-                      (accentClasses[doc.tone] || accentClasses.info).pill
-                    }`}
-                  >
-                    {formatDateLabel(doc.date)}
-                  </span>
+                  <StatusBadge label={item.statut_label || "En cours"} tone="warning" />
                 </div>
               </div>
             ))}
-
-            {filteredDocuments.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-4 text-xs text-slate-600">
-                Aucun document récent ne correspond à la recherche.
-              </div>
-            ) : null}
+            {activeSickLeaves.length === 0 ? <EmptyState text={loading ? "Chargement des repos..." : "Aucun arrêt ou repos actif."} /> : null}
           </div>
         </PanelCard>
       </div>
@@ -735,18 +713,14 @@ export default function RHDashboard() {
         subtitle="Accès direct aux fonctionnalités RH déjà disponibles dans l'application"
       >
         <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-3">
-          {featureCards.map((card) => (
+          {rhModules.map((card) => (
             <button
               key={card.title}
               type="button"
               onClick={() => navigate(card.route)}
               className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
             >
-              <div
-                className={`flex h-7 w-7 items-center justify-center rounded-lg border ${
-                  (accentClasses[card.tone] || accentClasses.info).icon
-                }`}
-              >
+              <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${(accentClasses[card.tone] || accentClasses.info).icon}`}>
                 {card.icon}
               </div>
               <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{card.title}</p>
@@ -756,34 +730,6 @@ export default function RHDashboard() {
         </div>
       </PanelCard>
 
-      <PanelCard
-        title="Accès rapide"
-        subtitle="Entrées principales du workflow RH pour la recherche, le suivi et les documents"
-      >
-        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
-          {quickActions.map((action) => (
-            <button
-              key={action.title}
-              type="button"
-              onClick={action.onClick}
-              className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              <div
-                className={`flex h-7 w-7 items-center justify-center rounded-lg border ${
-                  (accentClasses[action.tone] || accentClasses.info).icon
-                }`}
-              >
-                {action.icon}
-              </div>
-              <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{action.title}</p>
-              <p className="mt-0.5 text-[10px] leading-4 text-slate-500">{action.description}</p>
-            </button>
-          ))}
-        </div>
-      </PanelCard>
     </div>
   );
 }
-
-
-
