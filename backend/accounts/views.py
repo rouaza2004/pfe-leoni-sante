@@ -172,7 +172,7 @@ class UserPasswordChangeAPIView(APIView):
         return Response({"detail": "Mot de passe mis a jour avec succes."})
 
 
-class CollaborateurListAPIView(generics.ListAPIView):
+class CollaborateurListAPIView(generics.ListCreateAPIView):
     queryset = Collaborateur.objects.select_related("site").all().order_by("nom", "prenom")
     serializer_class = CollaborateurSerializer
     permission_classes = [IsAuthenticated, CanViewCollaborateurList]
@@ -301,7 +301,13 @@ class RHKpiView(APIView):
 
         today = timezone.localdate()
         month_start = today.replace(day=1)
-        active_collaborateurs = Collaborateur.objects.select_related("site").filter(actif=True)
+
+        week_end = today + timedelta(days=7)
+
+        collaborateurs = Collaborateur.objects.select_related("site").all()
+        active_collaborateurs = collaborateurs.filter(actif=True)
+        rh_collaborator_count = collaborateurs.count()
+
 
         new_operators_qs = active_collaborateurs.filter(created_at__date__gte=month_start, created_at__date__lte=today)
 
@@ -333,9 +339,21 @@ class RHKpiView(APIView):
             row["tone"] = self._status_tone(status_key)
             new_operator_rows.append(row)
 
-        aptitude_forms = FicheAptitude.objects.select_related("collaborateur", "created_by").all()
-        work_doctor_certificates = CertificatMedical.objects.select_related("collaborateur", "created_by").filter(
-            created_by__role="MEDECIN_TRAVAIL"
+
+        collaborators_by_site = (
+            collaborateurs.values("site__nom")
+            .annotate(
+                total=Count("id"),
+            )
+            .order_by("-total", "site__nom")
+        )
+        collaborators_by_department = (
+            collaborateurs.values("departement")
+            .annotate(
+                total=Count("id"),
+            )
+            .order_by("-total", "departement")
+
         )
         controller_certificates = ControleMedicalRecord.objects.all()
 
@@ -359,14 +377,13 @@ class RHKpiView(APIView):
 
         data = {
             "kpis": {
-                "new_operators_this_month": new_operators_qs.count(),
-                "aptitude_forms": aptitude_forms.count(),
-                "work_doctor_certificates": work_doctor_certificates.count(),
-                "controller_certificates": controller_certificates.count(),
-                "upcoming_controller_appointments": upcoming_controller_appointments.count(),
-                "hiring_visits_to_schedule": len(
-                    [row for row in new_operator_rows if row["statut"] == "pending"]
-                ),
+
+                "total_active_collaborators": rh_collaborator_count,
+                "new_operators_this_month": len(new_operator_rows),
+                "upcoming_medical_visits": upcoming_appointments.count(),
+                "overdue_medical_visits": overdue_appointments.count(),
+                "active_sick_leaves": len(active_sick_leaves),
+                "returns_expected_this_week": len(returns_this_week),
             },
             "upcoming_controller_appointments": displayed_controller_appointments,
             "rh_available_documents": latest_documents,

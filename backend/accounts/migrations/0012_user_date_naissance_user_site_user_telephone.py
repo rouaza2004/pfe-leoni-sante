@@ -4,6 +4,43 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def add_user_fields_if_missing(apps, schema_editor):
+    User = apps.get_model("accounts", "User")
+    Site = apps.get_model("accounts", "Site")
+    table_name = User._meta.db_table
+
+    with schema_editor.connection.cursor() as cursor:
+        existing_columns = {
+            column.name
+            for column in schema_editor.connection.introspection.get_table_description(
+                cursor,
+                table_name,
+            )
+        }
+
+    fields = [
+        ("date_naissance", "date_naissance", models.DateField(blank=True, null=True)),
+        (
+            "site_id",
+            "site",
+            models.ForeignKey(
+                Site,
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="users",
+            ),
+        ),
+        ("telephone", "telephone", models.CharField(blank=True, max_length=30, null=True)),
+    ]
+
+    for column_name, field_name, field in fields:
+        if column_name in existing_columns:
+            continue
+        field.contribute_to_class(User, field_name)
+        schema_editor.add_field(User, field)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,19 +48,29 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='user',
-            name='date_naissance',
-            field=models.DateField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='site',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='users', to='accounts.site'),
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='telephone',
-            field=models.CharField(blank=True, max_length=30, null=True),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(
+                    add_user_fields_if_missing,
+                    reverse_code=migrations.RunPython.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='user',
+                    name='date_naissance',
+                    field=models.DateField(blank=True, null=True),
+                ),
+                migrations.AddField(
+                    model_name='user',
+                    name='site',
+                    field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='users', to='accounts.site'),
+                ),
+                migrations.AddField(
+                    model_name='user',
+                    name='telephone',
+                    field=models.CharField(blank=True, max_length=30, null=True),
+                ),
+            ],
         ),
     ]

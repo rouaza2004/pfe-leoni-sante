@@ -208,22 +208,60 @@ const resolveApiErrorMessage = (error, fallbackMessage) => {
   return fallbackMessage;
 };
 
+const resolveApiValidationMessage = (error, fallbackMessage) => {
+  const data = error?.response?.data;
+
+  if (data?.detail) {
+    return data.detail;
+  }
+
+  if (data && typeof data === "object") {
+    const [field, value] = Object.entries(data)[0] || [];
+    const message = Array.isArray(value) ? value.join(" ") : value;
+    if (field && message) {
+      return `${field}: ${message}`;
+    }
+  }
+
+  return resolveApiErrorMessage(error, fallbackMessage);
+};
+
+const emptyCollaborateurForm = () => ({
+  matricule: "",
+  nom: "",
+  prenom: "",
+  email: "",
+  cin: "",
+  date_naissance: "",
+  telephone: "",
+  adresse: "",
+  poste: "",
+  departement: "",
+  site_id: "",
+});
+
 export default function CollaborateursMedTravail({
   forcedTarget = null,
   pageTitle = "Accueil Collaborateur",
   pageDescription = "Sélectionnez un collaborateur pour afficher ses détails.",
 }) {
   const [collaborateurs, setCollaborateurs] = useState([]);
+  const [sites, setSites] = useState([]);
   const [search, setSearch] = useState("");
   const [siteFilter, setSiteFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [actionErrorMsg, setActionErrorMsg] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCollaborateurModal, setShowCollaborateurModal] = useState(false);
   const [createTab, setCreateTab] = useState("tab1");
   const [saving, setSaving] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [formErrorMsg, setFormErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [collaborateurForm, setCollaborateurForm] = useState(emptyCollaborateurForm);
+  const [collaborateurErrors, setCollaborateurErrors] = useState({});
+  const [collaborateurErrorMsg, setCollaborateurErrorMsg] = useState("");
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -378,15 +416,17 @@ export default function CollaborateursMedTravail({
       setLoading(true);
       setErr("");
 
-      const [collaborateursResponse, dossiersResponse] = await Promise.all([
+      const [collaborateursResponse, dossiersResponse, sitesResponse] = await Promise.all([
         api.get("/collaborateurs/"),
         api.get("/medical/dossiers/"),
+        api.get("/sites/"),
       ]);
 
       const collabs = Array.isArray(collaborateursResponse.data)
         ? collaborateursResponse.data
         : [];
       const dossiers = Array.isArray(dossiersResponse.data) ? dossiersResponse.data : [];
+      const sitesData = Array.isArray(sitesResponse.data) ? sitesResponse.data : [];
       const dossierByCollaborateurId = new Map(
         dossiers
           .filter((dossierItem) => Number.isFinite(Number(dossierItem?.collaborateur)))
@@ -403,6 +443,7 @@ export default function CollaborateursMedTravail({
         };
       });
 
+      setSites(sitesData);
       setCollaborateurs(enriched);
     } catch (error) {
       if (error?.response?.status === 401 && !redirectedRef.current) {
@@ -413,6 +454,7 @@ export default function CollaborateursMedTravail({
       }
       console.error(error);
       setErr(resolveApiErrorMessage(error, "Impossible de charger les dossiers médicaux."));
+      setSites([]);
       setCollaborateurs([]);
     } finally {
       setLoading(false);
@@ -442,7 +484,12 @@ export default function CollaborateursMedTravail({
   }, [activeTarget, forcedTarget, navigate, rawTarget, selectedCollaborateurId]);
 
   useEffect(() => {
-    if (!isWorkspaceMode || selectedCollaborateurId || collaborateurs.length === 0) {
+    if (
+      !isWorkspaceMode ||
+      activeTarget === "dossier-medical" ||
+      selectedCollaborateurId ||
+      collaborateurs.length === 0
+    ) {
       return;
     }
 
@@ -491,10 +538,6 @@ export default function CollaborateursMedTravail({
 
     return { total, complets, enCours, incomplets };
   }, [collaborateurs, siteFilter]);
-
-  const newCandidates = useMemo(() => {
-    return collaborateurs.filter((c) => !c.dossier_medical_data);
-  }, [collaborateurs]);
 
   const isDirty = useMemo(() => {
     if (!formInitialRef.current) return false;
@@ -571,6 +614,7 @@ export default function CollaborateursMedTravail({
     setFormErrors({});
     setFormErrorMsg("");
     setSuccessMsg("");
+    setActionErrorMsg("");
     setShowCreateModal(true);
   };
 
@@ -595,52 +639,119 @@ export default function CollaborateursMedTravail({
     return () => window.removeEventListener("keydown", handleKey);
   }, [showCreateModal, handleCloseModal]);
 
-  const handleSelectCollaborateur = (collabId) => {
-    const collab = collaborateurs.find((c) => String(c.id) === String(collabId));
-    if (!collab) {
+  const applyCollaborateurToDossierForm = useCallback((collab, dossier = null, fiche = null) => {
+    const fullName = `${collab?.prenom || ""} ${collab?.nom || ""}`.trim();
+
+    setForm((prev) => ({
+      ...prev,
+      collaborateurId: collab?.id ? String(collab.id) : "",
+      matricule: collab?.matricule || prev.matricule,
+      nomComplet: fullName,
+      departement: collab?.departement || "",
+      entreprise: dossier?.entreprise || collab?.site?.nom || prev.entreprise,
+      localite: dossier?.localite || collab?.site?.localite || prev.localite,
+      dateNaissance: fiche?.date_naissance || collab?.date_naissance || "",
+      lieuNaissance: fiche?.lieu_naissance || prev.lieuNaissance || "",
+      adresse: fiche?.adresse || collab?.adresse || "",
+      niveauEtudes: dossier?.niveau_etudes_diplomes || prev.niveauEtudes,
+      profession: dossier?.profession || collab?.poste || prev.profession,
+      posteTravail: dossier?.poste_travail_actuel || collab?.poste || prev.posteTravail,
+      dateRecrutement: dossier?.date_recrutement || prev.dateRecrutement,
+      statut: dossier?.statut || prev.statut || "EN_COURS",
+    }));
+
+    setFormErrorMsg("");
+    setFormErrors((prev) => ({
+      ...prev,
+      collaborateurId: "",
+      matricule: dossier ? "Ce collaborateur possède déjà un dossier médical." : "",
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!showCreateModal) return undefined;
+
+    const matricule = form.matricule.trim();
+    if (!matricule) {
       setForm((prev) => ({
         ...prev,
-        collaborateurId: collabId,
-        matricule: "",
+        collaborateurId: "",
         nomComplet: "",
         departement: "",
         entreprise: "",
         localite: "",
         dateNaissance: "",
+        lieuNaissance: "",
         adresse: "",
       }));
-      return;
+      setFormErrors((prev) => ({ ...prev, matricule: "", collaborateurId: "" }));
+      return undefined;
     }
 
-    setForm((prev) => ({
-      ...prev,
-      collaborateurId: String(collab.id),
-      matricule: collab.matricule || "",
-      nomComplet: `${collab.prenom || ""} ${collab.nom || ""}`.trim(),
-      departement: collab.departement || "",
-      entreprise: collab.site?.nom || prev.entreprise,
-      localite: collab.site?.localite || prev.localite,
-      dateNaissance: collab.date_naissance || "",
-      adresse: collab.adresse || "",
-    }));
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await api.get(
+          `/collaborateurs/matricule/${encodeURIComponent(matricule)}/`
+        );
+        if (cancelled) return;
 
-    if (collab.dossier_medical_data) {
-      setFormErrors((prev) => ({
-        ...prev,
-        collaborateurId: "Ce collaborateur possède déjà un dossier médical.",
-      }));
-    } else {
-      setFormErrors((prev) => ({
-        ...prev,
-        collaborateurId: "",
-      }));
-    }
-  };
+        const collab = response.data?.collaborateur;
+        if (!collab) {
+          throw new Error("Collaborateur introuvable");
+        }
+
+        const dossier = response.data?.dossier_medical || null;
+        let fiche = null;
+        try {
+          const ficheResponse = await api.get(`/medical/fiche/${collab.id}/`);
+          if (!cancelled) {
+            fiche = ficheResponse.data || null;
+          }
+        } catch {
+          fiche = null;
+        }
+
+        if (!cancelled) {
+          applyCollaborateurToDossierForm(collab, dossier, fiche);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setForm((prev) => ({
+          ...prev,
+          collaborateurId: "",
+          nomComplet: "",
+          departement: "",
+          entreprise: "",
+          localite: "",
+          dateNaissance: "",
+          lieuNaissance: "",
+          adresse: "",
+        }));
+        setFormErrors((prev) => ({
+          ...prev,
+          collaborateurId: "",
+          matricule:
+            error?.response?.status === 404
+              ? "Aucun collaborateur trouvé pour ce matricule."
+              : resolveApiErrorMessage(error, "Impossible de rechercher ce matricule."),
+        }));
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [applyCollaborateurToDossierForm, form.matricule, showCreateModal]);
 
   const validateForm = () => {
     const errors = {};
+    if (!form.matricule.trim()) {
+      errors.matricule = "Le matricule est obligatoire.";
+    }
     if (!form.collaborateurId) {
-      errors.collaborateurId = "Le collaborateur est obligatoire.";
+      errors.matricule = errors.matricule || "Saisissez un matricule existant.";
     }
     if (!form.dateCreation) {
       errors.dateCreation = "La date de création est obligatoire.";
@@ -650,7 +761,7 @@ export default function CollaborateursMedTravail({
       (c) => String(c.id) === String(form.collaborateurId)
     );
     if (selectedCollab?.dossier_medical_data) {
-      errors.collaborateurId = "Ce collaborateur possède déjà un dossier médical.";
+      errors.matricule = "Ce collaborateur possède déjà un dossier médical.";
     }
 
     const hasExamenInitial = examenInitial.medecinNom || examenInitial.dateExamen;
@@ -724,6 +835,7 @@ export default function CollaborateursMedTravail({
     try {
       setSaving(true);
       setFormErrorMsg("");
+      setActionErrorMsg("");
 
       const payload = {
         collaborateur: Number(form.collaborateurId),
@@ -891,23 +1003,116 @@ export default function CollaborateursMedTravail({
 
       await Promise.allSettled(updates);
 
-      setCollaborateurs((prev) => {
-        const existing = prev.find((c) => String(c.id) === String(collabId));
-        if (!existing) return prev;
-        const updated = {
-          ...existing,
-          dossier_medical_data: dossier,
-          dossier_complet: getDossierStatus(existing, dossier),
-        };
-        const others = prev.filter((c) => c.id !== existing.id);
-        return [updated, ...others];
-      });
+      await fetchCollaborateurs();
 
       setSuccessMsg("Dossier médical créé avec succès");
       setShowCreateModal(false);
     } catch (error) {
-      const apiMsg = error?.response?.data?.detail;
-      setFormErrorMsg(apiMsg || "Échec de création du dossier médical.");
+      setFormErrorMsg(
+        resolveApiValidationMessage(error, "Échec de création du dossier médical.")
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openCollaborateurModal = () => {
+    setCollaborateurForm(emptyCollaborateurForm());
+    setCollaborateurErrors({});
+    setCollaborateurErrorMsg("");
+    setActionErrorMsg("");
+    setSuccessMsg("");
+    setShowCollaborateurModal(true);
+  };
+
+  const closeCollaborateurModal = () => {
+    if (!saving) {
+      setShowCollaborateurModal(false);
+    }
+  };
+
+  const updateCollaborateurForm = (field, value) => {
+    setCollaborateurForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const validateCollaborateurForm = () => {
+    const errors = {};
+    if (!collaborateurForm.matricule.trim()) {
+      errors.matricule = "Le matricule est obligatoire.";
+    }
+    if (!collaborateurForm.nom.trim()) {
+      errors.nom = "Le nom est obligatoire.";
+    }
+    if (!collaborateurForm.prenom.trim()) {
+      errors.prenom = "Le prénom est obligatoire.";
+    }
+    if (!collaborateurForm.site_id) {
+      errors.site_id = "Le site/localité est obligatoire.";
+    }
+    return errors;
+  };
+
+  const handleCreateCollaborateur = async (e) => {
+    e.preventDefault();
+    const errors = validateCollaborateurForm();
+    setCollaborateurErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setCollaborateurErrorMsg("Merci de corriger les erreurs du formulaire.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setCollaborateurErrorMsg("");
+      setActionErrorMsg("");
+
+      await api.post("/collaborateurs/", {
+        matricule: collaborateurForm.matricule.trim(),
+        nom: collaborateurForm.nom.trim(),
+        prenom: collaborateurForm.prenom.trim(),
+        email: collaborateurForm.email.trim() || null,
+        cin: collaborateurForm.cin.trim() || null,
+        date_naissance: collaborateurForm.date_naissance || null,
+        telephone: collaborateurForm.telephone.trim() || null,
+        adresse: collaborateurForm.adresse.trim() || null,
+        poste: collaborateurForm.poste.trim() || null,
+        departement: collaborateurForm.departement.trim() || null,
+        site_id: Number(collaborateurForm.site_id),
+        actif: true,
+      });
+
+      await fetchCollaborateurs();
+      setSuccessMsg("Collaborateur ajouté avec succès");
+      setShowCollaborateurModal(false);
+    } catch (error) {
+      setCollaborateurErrorMsg(
+        resolveApiValidationMessage(error, "Échec de création du collaborateur.")
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteDossier = async (collab) => {
+    const dossierId = collab?.dossier_medical_data?.id;
+    if (!dossierId) return;
+
+    const fullName = `${collab.prenom || ""} ${collab.nom || ""}`.trim() || collab.matricule;
+    const confirmed = window.confirm(
+      `Supprimer le dossier médical de ${fullName} ? Cette action supprimera le dossier et ses données liées.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setSaving(true);
+      setActionErrorMsg("");
+      await api.delete(`/medical/dossiers/${dossierId}/`);
+      await fetchCollaborateurs();
+      setSuccessMsg("Dossier médical supprimé avec succès");
+    } catch (error) {
+      setActionErrorMsg(
+        resolveApiValidationMessage(error, "Échec de suppression du dossier médical.")
+      );
     } finally {
       setSaving(false);
     }
@@ -927,7 +1132,7 @@ export default function CollaborateursMedTravail({
     );
   }
 
-  if (isWorkspaceMode) {
+  if (isWorkspaceMode && activeTarget !== "dossier-medical") {
     return (
       <div className="space-y-6 p-6">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -1214,19 +1419,35 @@ export default function CollaborateursMedTravail({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-md transition hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" />
-          Nouveau dossier
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={openCollaborateurModal}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Nouveau collaborateur
+          </button>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-md transition hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            Nouveau dossier
+          </button>
+        </div>
       </div>
 
       {successMsg && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {successMsg}
+        </div>
+      )}
+
+      {actionErrorMsg && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {actionErrorMsg}
         </div>
       )}
 
@@ -1309,7 +1530,7 @@ export default function CollaborateursMedTravail({
               <col className="w-[13%]" />
               <col className="w-[18%]" />
               <col className="w-[11%]" />
-              <col className="w-[12rem]" />
+              <col className="w-[16rem]" />
             </colgroup>
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
               <tr>
@@ -1384,7 +1605,7 @@ export default function CollaborateursMedTravail({
                         <button
                           type="button"
                           onClick={() =>
-                            navigate(resolveTargetRoute(c.id, "dossier-medical"))
+                            navigate(`/medecin-travail/collaborateurs/${c.id}/dossier`)
                           }
                           className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-medium leading-tight text-slate-700 transition hover:scale-[1.02] hover:border-slate-400 hover:bg-slate-50 sm:justify-start sm:text-left"
                         >
@@ -1393,10 +1614,18 @@ export default function CollaborateursMedTravail({
                         </button>
                         <button
                           type="button"
+                          onClick={() => handleDeleteDossier(c)}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-center text-xs font-medium leading-tight text-rose-700 transition hover:scale-[1.02] hover:bg-rose-100 sm:justify-start sm:text-left"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Supprimer
+                        </button>
+                        <button
+                          type="button"
                           onClick={() =>
                             navigate(resolveTargetRoute(c.id, "examen-complementaire"))
                           }
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-center text-xs font-medium leading-tight text-sky-700 transition hover:scale-[1.02] hover:bg-sky-100 sm:col-span-2 sm:justify-start sm:text-left"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-center text-xs font-medium leading-tight text-sky-700 transition hover:scale-[1.02] hover:bg-sky-100 sm:justify-start sm:text-left"
                         >
                           <FilePlus2 className="h-4 w-4" />
                           Examens complementaires
@@ -1425,6 +1654,224 @@ export default function CollaborateursMedTravail({
       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
         Astuce : utilisez la recherche pour filtrer par nom, prénom ou matricule.
       </div>
+
+      {showCollaborateurModal && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 p-4"
+          onClick={closeCollaborateurModal}
+        >
+          <div
+            className="mx-auto w-full max-w-4xl rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">
+                  Ajouter un collaborateur
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Le site choisi sera enregistré et utilisé dans les dossiers médicaux.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCollaborateurModal}
+                className="self-start rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                title="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCollaborateur} className="px-6 py-6">
+              {collaborateurErrorMsg && (
+                <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {collaborateurErrorMsg}
+                </div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Matricule
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.matricule}
+                    onChange={(e) => updateCollaborateurForm("matricule", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                  {collaborateurErrors.matricule && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {collaborateurErrors.matricule}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Site / localité
+                  </label>
+                  <select
+                    value={collaborateurForm.site_id}
+                    onChange={(e) => updateCollaborateurForm("site_id", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  >
+                    <option value="">Sélectionner un site</option>
+                    {sites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {site.nom}
+                        {site.localite ? ` - ${site.localite}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {collaborateurErrors.site_id && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {collaborateurErrors.site_id}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Nom
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.nom}
+                    onChange={(e) => updateCollaborateurForm("nom", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                  {collaborateurErrors.nom && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {collaborateurErrors.nom}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Prénom
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.prenom}
+                    onChange={(e) => updateCollaborateurForm("prenom", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                  {collaborateurErrors.prenom && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {collaborateurErrors.prenom}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={collaborateurForm.email}
+                    onChange={(e) => updateCollaborateurForm("email", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    CIN
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.cin}
+                    onChange={(e) => updateCollaborateurForm("cin", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Date de naissance
+                  </label>
+                  <input
+                    type="date"
+                    value={collaborateurForm.date_naissance}
+                    onChange={(e) => updateCollaborateurForm("date_naissance", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Téléphone
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.telephone}
+                    onChange={(e) => updateCollaborateurForm("telephone", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Poste
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.poste}
+                    onChange={(e) => updateCollaborateurForm("poste", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Département
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.departement}
+                    onChange={(e) => updateCollaborateurForm("departement", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Adresse
+                  </label>
+                  <input
+                    type="text"
+                    value={collaborateurForm.adresse}
+                    onChange={(e) => updateCollaborateurForm("adresse", e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeCollaborateurModal}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  {saving ? "Enregistrement..." : "Créer le collaborateur"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showCreateModal && (
         <div
@@ -1484,38 +1931,31 @@ export default function CollaborateursMedTravail({
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Collaborateur
-                        </label>
-                        <select
-                          ref={firstFieldRef}
-                          value={form.collaborateurId}
-                          onChange={(e) => handleSelectCollaborateur(e.target.value)}
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                        >
-                          <option value="">Sélectionner un collaborateur</option>
-                          {newCandidates.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {`${c.prenom || ""} ${c.nom || ""}`.trim()} ({c.matricule})
-                            </option>
-                          ))}
-                        </select>
-                        {formErrors.collaborateurId && (
-                          <p className="mt-1 text-xs text-rose-600">
-                            {formErrors.collaborateurId}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                           Matricule
                         </label>
                         <input
+                          ref={firstFieldRef}
                           type="text"
                           value={form.matricule}
-                          readOnly
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600"
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              matricule: e.target.value,
+                              collaborateurId: "",
+                            }))
+                          }
+                          placeholder="Saisir le matricule"
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                         />
+                        {formErrors.matricule ? (
+                          <p className="mt-1 text-xs text-rose-600">
+                            {formErrors.matricule}
+                          </p>
+                        ) : form.collaborateurId ? (
+                          <p className="mt-1 text-xs text-emerald-600">
+                            Collaborateur trouvé.
+                          </p>
+                        ) : null}
                       </div>
 
                       <div>

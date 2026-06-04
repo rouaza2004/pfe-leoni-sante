@@ -577,6 +577,54 @@ class PlanActionHSEE(models.Model):
         return f"{self.zone} - {self.risque}"
 
 
+class HSEEEnqueteHistory(models.Model):
+    accident = models.ForeignKey(
+        AccidentTravail,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hsee_history_records",
+    )
+    enquete_initiale = models.ForeignKey(
+        EnqueteInitialeAccident,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hsee_history_records",
+    )
+    dossier = models.ForeignKey(
+        DossierMedical,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hsee_history_records",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hsee_enquete_history_created",
+    )
+    date = models.DateField(db_index=True)
+    victime = models.CharField(max_length=255)
+    matricule = models.CharField(max_length=50, db_index=True)
+    departement = models.CharField(max_length=150, blank=True, default="")
+    nature = models.CharField(max_length=255, blank=True, default="")
+    siege = models.CharField(max_length=255, blank=True, default="")
+    actions = models.JSONField(default=list, blank=True)
+    detail = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hitory_enquete"
+        ordering = ["-date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.date} - {self.matricule}"
+
+
 class HSEEGeneratedReport(models.Model):
     STATUS_CHOICES = [
         ("GENERATED", "Genere"),
