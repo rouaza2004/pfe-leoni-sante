@@ -168,12 +168,6 @@ export const getSidebarSections = (role) => {
               end: true,
             },
             {
-              to: "/admin/services",
-              label: "Services",
-              icon: <BriefcaseMedical size={18} />,
-              end: true,
-            },
-            {
               to: "/admin/sites",
               label: "Sites",
               icon: <Building2 size={18} />,
@@ -391,19 +385,24 @@ export const getSidebarSections = (role) => {
             dashboardItem,
             assistantItem,
             {
-              to: "/rh/absences-ponctualite",
-              label: "Absences & ponctualité",
-              icon: <BarChart3 size={18} />,
-            },
-            {
               to: "/rh/nouveaux-operateurs",
               label: "Nouveaux opérateurs",
               icon: <Users size={18} />,
             },
             {
-              to: "/rh/pointage-medecins",
-              label: "Pointage médecins",
-              icon: <Clock size={18} />,
+              to: "/rh/documents-medecine-travail",
+              label: "Documents Médecine du Travail",
+              icon: <FileText size={18} />,
+            },
+            {
+              to: "/rh/rdv-medecin-controleur",
+              label: "Rendez-vous Médecin Contrôleur",
+              icon: <Calendar size={18} />,
+            },
+            {
+              to: "/rh/certificats-medecin-controleur",
+              label: "Certificats Médecin Contrôleur",
+              icon: <ShieldCheck size={18} />,
             },
             {
               to: "/rh/rapports",

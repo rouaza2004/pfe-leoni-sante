@@ -64,9 +64,12 @@ import SuiviTransfertsPage from "@/views/pages/infirmier/SuiviTransfertsPage";
 
 import RHDashboard from "@/views/pages/rh/RHDashboard";
 import AbsencesPonctualiteRH from "@/views/pages/rh/AbsencesPonctualiteRH";
+import CertificatsMedecinControleurRH from "@/views/pages/rh/CertificatsMedecinControleurRH";
+import DocumentsMedecineTravailRH from "@/views/pages/rh/DocumentsMedecineTravailRH";
 import NouveauxOperateursRH from "@/views/pages/rh/NouveauxOperateursRH";
 import PointageMedecinsPage from "@/views/pages/rh/PointageMedecinsPage";
 import RapportsRH from "@/views/pages/rh/RapportsRH";
+import RendezVousMedecinControleurRH from "@/views/pages/rh/RendezVousMedecinControleurRH";
 
 import HSEEDashboard from "@/views/pages/hsee/HSEEDashboard";
 import HSEEStatsPage from "@/views/pages/hsee/HSEEStatsPage";
@@ -703,6 +706,33 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["RESPONSABLE_RH", "ADMIN"]}>
               <NouveauxOperateursRH />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rh/documents-medecine-travail"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "ADMIN"]}>
+              <DocumentsMedecineTravailRH />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rh/rdv-medecin-controleur"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "ADMIN"]}>
+              <RendezVousMedecinControleurRH />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rh/certificats-medecin-controleur"
+          element={
+            <RoleRoute allowedRoles={["RESPONSABLE_RH", "ADMIN"]}>
+              <CertificatsMedecinControleurRH />
             </RoleRoute>
           }
         />

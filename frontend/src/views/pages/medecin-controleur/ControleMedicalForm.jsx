@@ -3,19 +3,32 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save } from "lucide-react";
 import { api } from "@/api/api";
 
-const Input = ({ label, ...props }) => (
+function hasValue(value) {
+  return String(value ?? "").trim().length > 0;
+}
+
+function fieldClass(error) {
+  return `w-full rounded-xl border px-4 py-3 outline-none transition focus:ring-2 ${
+    error
+      ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
+      : "border-slate-200 focus:border-sky-400 focus:ring-sky-100"
+  }`;
+}
+
+const Input = ({ label, error, ...props }) => (
   <div>
     <label className="block text-sm font-medium text-slate-700 mb-2">
       {label}
     </label>
     <input
       {...props}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+      className={fieldClass(error)}
     />
+    {error ? <p className="mt-2 text-xs font-medium text-rose-600">{error}</p> : null}
   </div>
 );
 
-const TextArea = ({ label, ...props }) => (
+const TextArea = ({ label, error, ...props }) => (
   <div>
     <label className="block text-sm font-medium text-slate-700 mb-2">
       {label}
@@ -23,8 +36,9 @@ const TextArea = ({ label, ...props }) => (
     <textarea
       {...props}
       rows={4}
-      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+      className={fieldClass(error)}
     />
+    {error ? <p className="mt-2 text-xs font-medium text-rose-600">{error}</p> : null}
   </div>
 );
 
@@ -68,6 +82,7 @@ function buildPdfPrefill(collaborateur, form) {
 
   return {
     date: form.date_controle,
+    ville: form.adresse_visite,
     matricule: collaborateur?.matricule || "",
     segment: getSegmentLabel(collaborateur),
     nom: collaborateur?.nom || "",
@@ -80,10 +95,10 @@ function buildPdfPrefill(collaborateur, form) {
 export default function ControleMedicalForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [collaborateur, setCollaborateur] = useState(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [validationErrors, setValidationErrors] = useState({});
 
   const [form, setForm] = useState({
     date_controle: "",
@@ -108,14 +123,41 @@ export default function ControleMedicalForm() {
   }, [id]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
+    if (hasValue(value)) {
+      setValidationErrors((prev) => {
+        if (!prev[name]) return prev;
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+  };
+
+  const validateBeforeNavigate = () => {
+    const nextErrors = {};
+
+    if (!hasValue(collaborateur?.nom)) nextErrors.nom = "Veuillez renseigner le nom.";
+    if (!hasValue(collaborateur?.prenom)) nextErrors.prenom = "Veuillez renseigner le prénom.";
+    if (!hasValue(collaborateur?.matricule)) {
+      nextErrors.matricule = "Veuillez renseigner le matricule LEONI.";
+    }
+
+    setValidationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validateBeforeNavigate()) {
+      setErr("Veuillez compléter les champs obligatoires avant de générer le PDF.");
+      return;
+    }
 
     try {
       setSaving(true);
@@ -151,6 +193,13 @@ export default function ControleMedicalForm() {
             {collaborateur.nom} {collaborateur.prenom} - {collaborateur.matricule}
           </p>
         )}
+        {validationErrors.nom || validationErrors.prenom || validationErrors.matricule ? (
+          <div className="mt-3 space-y-1 text-sm text-rose-600">
+            {validationErrors.nom ? <p>{validationErrors.nom}</p> : null}
+            {validationErrors.prenom ? <p>{validationErrors.prenom}</p> : null}
+            {validationErrors.matricule ? <p>{validationErrors.matricule}</p> : null}
+          </div>
+        ) : null}
       </div>
 
       <form

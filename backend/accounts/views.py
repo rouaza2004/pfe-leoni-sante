@@ -1,6 +1,4 @@
 import logging
-from datetime import timedelta
-
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,7 +6,8 @@ from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
-from django.db.models import Case, Count, IntegerField, Value, When
+from django.db.models import Case, IntegerField, Value, When
+from django.http import HttpResponse
 from django.utils import timezone
 
 from .services.email_service import send_new_user_credentials_email
@@ -35,8 +34,10 @@ from medical.models import (
     FicheAptitude,
     DemandeExamenLabo,
     ExamenComplementaire,
+    ControleMedicalRecord,
 )
 from appointments.models import Appointment
+from medical.services.pdf_services import generate_contre_visite_pdf
 
 from medical.serializers import (
     DossierMedicalSerializer,
@@ -256,31 +257,10 @@ class RHKpiView(APIView):
             "poste": collaborateur.poste or "Non défini",
             "site": getattr(getattr(collaborateur, "site", None), "nom", "") or "Non défini",
             "date_import": collaborateur.created_at.date() if collaborateur.created_at else None,
+            "created_at": collaborateur.created_at,
             "statut": status,
             "statut_label": status_label,
         }
-
-    @classmethod
-    def _sick_leave_payload(cls, cert, today):
-        start_date = cert.date_debut_repos
-        expected_end_date = cls._rest_end_date(cert)
-        status = "active" if start_date and expected_end_date and start_date <= today <= expected_end_date else "scheduled"
-        return {
-            "id": cert.id,
-            "collaborateur_nom": cls._collaborateur_label(cert.collaborateur),
-            "matricule": getattr(cert.collaborateur, "matricule", "") or "N/A",
-            "departement": getattr(cert.collaborateur, "departement", "") or "Non défini",
-            "date_debut": start_date,
-            "date_fin_prevue": expected_end_date,
-            "statut": status,
-            "statut_label": "En cours" if status == "active" else "Planifié",
-        }
-
-    @staticmethod
-    def _rest_end_date(cert):
-        if not cert.date_debut_repos or not cert.nb_jours_repos:
-            return None
-        return cert.date_debut_repos + timedelta(days=max(cert.nb_jours_repos - 1, 0))
 
     @staticmethod
     def _status_tone(status):
@@ -293,6 +273,25 @@ class RHKpiView(APIView):
             "overdue": "danger",
         }.get(status, "info")
 
+    @classmethod
+    def _document_payload(cls, doc, document_type, source):
+        collaborateur = getattr(doc, "collaborateur", None)
+        if collaborateur:
+            collaborateur_nom = cls._collaborateur_label(collaborateur)
+            matricule = getattr(collaborateur, "matricule", "") or "N/A"
+        else:
+            collaborateur_nom = f"{getattr(doc, 'prenom', '') or ''} {getattr(doc, 'nom', '') or ''}".strip() or "Collaborateur non renseigné"
+            matricule = getattr(doc, "matricule", "") or "N/A"
+
+        return {
+            "id": f"{doc.__class__.__name__}-{doc.pk}",
+            "collaborateur_nom": collaborateur_nom,
+            "matricule": matricule,
+            "type_document": document_type,
+            "date_creation": getattr(doc, "created_at", None) or getattr(doc, "date", None),
+            "source": source,
+        }
+
     def get(self, request):
         u = request.user
         role = getattr(u, "role", "") or ""
@@ -302,39 +301,15 @@ class RHKpiView(APIView):
 
         today = timezone.localdate()
         month_start = today.replace(day=1)
-        week_end = today + timedelta(days=7)
-
-        collaborateurs = Collaborateur.objects.select_related("site").all()
-        active_collaborateurs = collaborateurs.filter(actif=True)
-        active_collaborator_count = active_collaborateurs.count()
+        active_collaborateurs = Collaborateur.objects.select_related("site").filter(actif=True)
 
         new_operators_qs = active_collaborateurs.filter(created_at__date__gte=month_start, created_at__date__lte=today)
 
         appointment_base = Appointment.objects.select_related("collaborateur").filter(collaborateur__actif=True)
-        upcoming_appointments = appointment_base.filter(
+        upcoming_controller_appointments = appointment_base.filter(
+            type_medecin="CONTROLEUR",
             date__gte=today,
-            statut__in=["PREVU", "REPORTE"],
-        ).order_by("date", "heure", "id")
-        overdue_appointments = appointment_base.filter(
-            date__lt=today,
-            statut__in=["PREVU", "REPORTE"],
-        ).order_by("date", "heure", "id")
-
-        sick_leave_candidates = CertificatMedical.objects.select_related("collaborateur").filter(
-            collaborateur__actif=True,
-            nb_jours_repos__gt=0,
-            date_debut_repos__isnull=False,
-        ).order_by("date_debut_repos", "id")
-        active_sick_leaves = []
-        returns_this_week = []
-        for cert in sick_leave_candidates:
-            end_date = self._rest_end_date(cert)
-            if not end_date:
-                continue
-            if cert.date_debut_repos <= today <= end_date:
-                active_sick_leaves.append(cert)
-            if today <= end_date <= week_end:
-                returns_this_week.append(cert)
+        ).exclude(statut__in=["ANNULE", "TERMINE"]).order_by("date", "heure", "id")
 
         collaborator_ids_with_appointments = set(
             Appointment.objects.filter(collaborateur__in=new_operators_qs).values_list("collaborateur_id", flat=True)
@@ -358,65 +333,153 @@ class RHKpiView(APIView):
             row["tone"] = self._status_tone(status_key)
             new_operator_rows.append(row)
 
-        collaborators_by_site = (
-            active_collaborateurs.values("site__nom")
-            .annotate(
-                total=Count("id"),
-            )
-            .order_by("-total", "site__nom")
+        aptitude_forms = FicheAptitude.objects.select_related("collaborateur", "created_by").all()
+        work_doctor_certificates = CertificatMedical.objects.select_related("collaborateur", "created_by").filter(
+            created_by__role="MEDECIN_TRAVAIL"
         )
-        collaborators_by_department = (
-            active_collaborateurs.values("departement")
-            .annotate(
-                total=Count("id"),
-            )
-            .order_by("-total", "departement")
-        )
+        controller_certificates = ControleMedicalRecord.objects.all()
 
-        absences_by_department = {}
-        for cert in active_sick_leaves:
-            department = getattr(cert.collaborateur, "departement", "") or "Non défini"
-            absences_by_department.setdefault(department, {"department": department, "absences": 0, "retards": 0, "retours": 0})
-            absences_by_department[department]["absences"] += 1
-        for cert in returns_this_week:
-            department = getattr(cert.collaborateur, "departement", "") or "Non défini"
-            absences_by_department.setdefault(department, {"department": department, "absences": 0, "retards": 0, "retours": 0})
-            absences_by_department[department]["retours"] += 1
+        documents = []
+        for fiche in aptitude_forms.order_by("-created_at", "-date", "-id")[:5]:
+            documents.append(self._document_payload(fiche, "Fiche d'aptitude", "Médecin du travail"))
+        for certificat in work_doctor_certificates.order_by("-created_at", "-date", "-id")[:5]:
+            documents.append(self._document_payload(certificat, "Certificat médecin du travail", "Médecin du travail"))
+        for controle in controller_certificates.order_by("-created_at", "-date", "-id")[:5]:
+            documents.append(self._document_payload(controle, "Certificat médecin contrôleur", "Médecin contrôleur"))
+
+        latest_documents = sorted(
+            documents,
+            key=lambda item: str(item["date_creation"] or today),
+            reverse=True,
+        )[:5]
+        recent_new_operator_rows = new_operator_rows[:10]
+        displayed_controller_appointments = [
+            self._appointment_payload(item) for item in upcoming_controller_appointments[:5]
+        ]
 
         data = {
             "kpis": {
-                "total_active_collaborators": active_collaborator_count,
-                "new_operators_this_month": len(new_operator_rows),
-                "upcoming_medical_visits": upcoming_appointments.count(),
-                "overdue_medical_visits": overdue_appointments.count(),
-                "active_sick_leaves": len(active_sick_leaves),
-                "returns_expected_this_week": len(returns_this_week),
+                "new_operators_this_month": new_operators_qs.count(),
+                "aptitude_forms": aptitude_forms.count(),
+                "work_doctor_certificates": work_doctor_certificates.count(),
+                "controller_certificates": controller_certificates.count(),
+                "upcoming_controller_appointments": upcoming_controller_appointments.count(),
+                "hiring_visits_to_schedule": len(
+                    [row for row in new_operator_rows if row["statut"] == "pending"]
+                ),
             },
-            "upcoming_visits": [self._appointment_payload(item) for item in upcoming_appointments],
-            "overdue_visits": [self._appointment_payload(item) for item in overdue_appointments],
-            "new_operators": new_operator_rows,
-            "active_sick_leaves": [self._sick_leave_payload(item, today) for item in active_sick_leaves],
-            "returns_this_week": [self._sick_leave_payload(item, today) for item in returns_this_week],
-            "collaborateurs_par_site": [
-                {
-                    "site": row["site__nom"] or "Non défini",
-                    "total": row["total"] or 0,
-                }
-                for row in collaborators_by_site
-            ],
-            "collaborateurs_par_departement": [
-                {
-                    "departement": row["departement"] or "Non défini",
-                    "total": row["total"] or 0,
-                }
-                for row in collaborators_by_department
-            ],
-            "absences_retards_par_departement": sorted(
-                absences_by_department.values(),
-                key=lambda item: (-item["absences"], item["department"]),
-            ),
+            "upcoming_controller_appointments": displayed_controller_appointments,
+            "rh_available_documents": latest_documents,
+            "new_operators": recent_new_operator_rows,
         }
         return Response(data)
+
+
+class RHDocumentBaseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _has_rh_access(user):
+        return (getattr(user, "role", "") or "").upper() in ["ADMIN", "RESPONSABLE_RH"]
+
+    @staticmethod
+    def _user_label(user):
+        if not user:
+            return "Non renseigne"
+        return user.get_full_name() or user.username or "Non renseigne"
+
+    @staticmethod
+    def _collaborateur_label(collaborateur):
+        if not collaborateur:
+            return "Collaborateur non renseigne"
+        return f"{collaborateur.prenom or ''} {collaborateur.nom or ''}".strip() or collaborateur.matricule or "Collaborateur non renseigne"
+
+    @staticmethod
+    def _date_value(obj):
+        return getattr(obj, "created_at", None) or getattr(obj, "date", None)
+
+
+class RHMedecineTravailDocumentsView(RHDocumentBaseView):
+    def _fiche_payload(self, fiche):
+        collaborateur = getattr(fiche, "collaborateur", None)
+        return {
+            "id": f"fiche-aptitude-{fiche.pk}",
+            "record_id": fiche.pk,
+            "kind": "fiche_aptitude",
+            "collaborateur_nom": self._collaborateur_label(collaborateur),
+            "matricule": getattr(collaborateur, "matricule", "") or "N/A",
+            "type_document": "Fiche d'aptitude",
+            "date_generation": self._date_value(fiche),
+            "medecin": getattr(fiche, "medecin_travail", None) or self._user_label(getattr(fiche, "created_by", None)),
+            "source": "Medecin du travail",
+            "download_url": f"/medical/fiche-aptitude/{fiche.pk}/pdf/",
+        }
+
+    def _certificat_payload(self, certificat):
+        collaborateur = getattr(certificat, "collaborateur", None)
+        return {
+            "id": f"certificat-travail-{certificat.pk}",
+            "record_id": certificat.pk,
+            "kind": "certificat_medical_travail",
+            "collaborateur_nom": self._collaborateur_label(collaborateur),
+            "matricule": getattr(collaborateur, "matricule", "") or "N/A",
+            "type_document": "Certificat medical",
+            "date_generation": self._date_value(certificat),
+            "medecin": self._user_label(getattr(certificat, "created_by", None)),
+            "source": "Medecin du travail",
+            "download_url": f"/medical/certificats/{certificat.pk}/pdf/",
+        }
+
+    def get(self, request):
+        if not self._has_rh_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        fiches = FicheAptitude.objects.select_related("collaborateur", "created_by").all()
+        certificats = CertificatMedical.objects.select_related("collaborateur", "created_by").filter(
+            created_by__role="MEDECIN_TRAVAIL"
+        )
+        rows = [self._fiche_payload(item) for item in fiches]
+        rows.extend(self._certificat_payload(item) for item in certificats)
+        rows.sort(key=lambda item: str(item["date_generation"] or ""), reverse=True)
+        return Response({"results": rows, "count": len(rows)})
+
+
+class RHControleurCertificatesView(RHDocumentBaseView):
+    def _payload(self, record):
+        return {
+            "id": f"certificat-controleur-{record.pk}",
+            "record_id": record.pk,
+            "kind": "certificat_medecin_controleur",
+            "collaborateur_nom": f"{record.prenom or ''} {record.nom or ''}".strip() or "Collaborateur non renseigne",
+            "matricule": record.matricule or "N/A",
+            "type_certificat": "Certificat medecin controleur",
+            "type_document": "Certificat medecin controleur",
+            "date_generation": self._date_value(record),
+            "medecin_controleur": record.medecin_identifiant or self._user_label(getattr(record, "created_by", None)),
+            "source": "Medecin controleur",
+            "download_url": f"/rh/certificats-controleur/{record.pk}/pdf/",
+        }
+
+    def get(self, request):
+        if not self._has_rh_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        rows = [
+            self._payload(record)
+            for record in ControleMedicalRecord.objects.select_related("created_by").all().order_by("-created_at", "-date", "-id")
+        ]
+        return Response({"results": rows, "count": len(rows)})
+
+
+class RHControleurCertificatePdfView(RHDocumentBaseView):
+    def get(self, request, pk):
+        if not self._has_rh_access(request.user):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        record = get_object_or_404(ControleMedicalRecord, pk=pk)
+        response = HttpResponse(generate_contre_visite_pdf(record), content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="controle_medical_{record.pk}.pdf"'
+        return response
 
 
 class MedecinListAPIView(generics.ListAPIView):

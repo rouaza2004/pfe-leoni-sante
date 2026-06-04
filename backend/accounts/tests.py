@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from appointments.models import Appointment
-from medical.models import CertificatMedical, DemandeExamenLabo, DossierMedical, FicheAptitude
+from medical.models import CertificatMedical, ControleMedicalRecord, DemandeExamenLabo, DossierMedical, FicheAptitude
 
 from .models import Collaborateur, Site, User
 
@@ -97,12 +97,27 @@ class RHKpiViewTests(TestCase):
             motif="Visite passée",
             statut="TERMINE",
         )
+        Appointment.objects.create(
+            collaborateur=self.current,
+            type_medecin="CONTROLEUR",
+            date=self.today + timedelta(days=2),
+            heure=time(11, 0),
+            motif="Contrôle médical",
+            statut="PREVU",
+        )
         CertificatMedical.objects.create(
             collaborateur=self.current,
             nb_jours_repos=3,
             date_debut_repos=self.today,
         )
         DemandeExamenLabo.objects.create(collaborateur=self.current)
+        ControleMedicalRecord.objects.create(
+            date=self.today,
+            matricule=self.current.matricule,
+            nom=self.current.nom,
+            prenom=self.current.prenom,
+            repos_prescrit="3 jours",
+        )
 
     def test_rh_kpis_are_computed_from_database_records(self):
         response = self.client.get("/api/rh/kpi/")
@@ -111,31 +126,32 @@ class RHKpiViewTests(TestCase):
         payload = response.json()
         kpis = payload["kpis"]
 
-        self.assertEqual(kpis["total_active_collaborators"], 3)
         self.assertEqual(kpis["new_operators_this_month"], 3)
-        self.assertEqual(kpis["upcoming_medical_visits"], 1)
-        self.assertEqual(kpis["overdue_medical_visits"], 0)
-        self.assertEqual(kpis["active_sick_leaves"], 1)
-        self.assertEqual(kpis["returns_expected_this_week"], 1)
+        self.assertEqual(kpis["aptitude_forms"], 3)
+        self.assertEqual(kpis["work_doctor_certificates"], 0)
+        self.assertEqual(kpis["controller_certificates"], 1)
+        self.assertEqual(kpis["upcoming_controller_appointments"], 1)
+        self.assertEqual(kpis["hiring_visits_to_schedule"], 1)
 
         self.assertEqual(len(payload["new_operators"]), kpis["new_operators_this_month"])
-        self.assertEqual(len(payload["upcoming_visits"]), kpis["upcoming_medical_visits"])
-        self.assertEqual(len(payload["overdue_visits"]), kpis["overdue_medical_visits"])
-        self.assertEqual(len(payload["active_sick_leaves"]), kpis["active_sick_leaves"])
-        self.assertEqual(len(payload["returns_this_week"]), kpis["returns_expected_this_week"])
-
-        by_site = {row["site"]: row for row in payload["collaborateurs_par_site"]}
-        self.assertEqual(by_site["Menzel Hayet"]["total"], 2)
-        self.assertEqual(by_site["Mateur 1"]["total"], 1)
-
-        by_department = {row["departement"]: row for row in payload["collaborateurs_par_departement"]}
-        self.assertEqual(by_department["Production"]["total"], 2)
-        self.assertEqual(by_department["Qualite"]["total"], 1)
+        self.assertEqual(len(payload["upcoming_controller_appointments"]), kpis["upcoming_controller_appointments"])
+        self.assertEqual(len(payload["rh_available_documents"]), 4)
 
         operator_statuses = {row["matricule"]: row["statut"] for row in payload["new_operators"]}
         self.assertEqual(operator_statuses["C001"], "validated")
         self.assertEqual(operator_statuses["C002"], "sent_to_infirmary")
         self.assertEqual(operator_statuses["C003"], "pending")
+
+        self.assertNotIn("upcoming_visits", payload)
+        self.assertNotIn("overdue_visits", payload)
+        self.assertNotIn("active_sick_leaves", payload)
+        self.assertNotIn("collaborateurs_par_site", payload)
+
+        by_site = {row["site"]: row for row in payload["collaborateurs_actifs_par_site"]}
+        self.assertEqual(by_site["Menzel Hayet"]["total"], 2)
+        self.assertEqual(len(by_site["Menzel Hayet"]["collaborateurs"]), by_site["Menzel Hayet"]["total"])
+        self.assertEqual(by_site["Mateur 1"]["total"], 1)
+        self.assertNotIn("C004", {row["matricule"] for row in by_site["Mateur 1"]["collaborateurs"]})
 
     def test_non_rh_user_cannot_access_kpis(self):
         infirmier = User.objects.create_user(

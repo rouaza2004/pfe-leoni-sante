@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useRef } from "react";
 import {
   ArrowLeft,
   Eye,
@@ -23,12 +24,13 @@ const MISSION_PAR_DEFAUT = [
   "Préciser son aptitude médicale actuelle au poste de [poste].",
 ].join("\n");
 
-function Field({ label, children, hint }) {
+function Field({ label, children, hint, error }) {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-slate-700">{label}</label>
       {children}
       {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
+      {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
     </div>
   );
 }
@@ -69,6 +71,37 @@ function formatDisplayDate(value) {
 function normalizeDocumentValue(value = "", fallback = "") {
   const normalized = String(value ?? "").trim();
   return normalized || fallback;
+}
+
+function hasValue(value) {
+  return String(value ?? "").trim().length > 0;
+}
+
+function fieldClass(error) {
+  return `w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2 ${
+    error
+      ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
+      : "border-slate-200 focus:border-sky-400 focus:ring-sky-100"
+  }`;
+}
+
+function extractCollaborateurRows(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
+function collaboratorMatchesQuery(collaborateur, query) {
+  const search = String(query || "").trim().toLowerCase();
+  if (!search) return false;
+  const values = [
+    collaborateur?.nom,
+    collaborateur?.prenom,
+    collaborateur?.matricule,
+  ].map((value) => String(value || "").trim().toLowerCase());
+
+  return values.some((value) => value.startsWith(search) || value.includes(search));
 }
 
 function buildDocumentHtml(payload) {
@@ -372,13 +405,21 @@ export default function DemandeExpertiseForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const username = getUsername();
+  const autocompleteRef = useRef(null);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const [collaborateur, setCollaborateur] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [validationErrors, setValidationErrors] = useState({});
   const [files, setFiles] = useState([]);
+  const [allCollaborateurs, setAllCollaborateurs] = useState([]);
+  const [collaborateurResults, setCollaborateurResults] = useState([]);
+  const [collaborateurSearchLoading, setCollaborateurSearchLoading] = useState(false);
+  const [showCollaborateurDropdown, setShowCollaborateurDropdown] = useState(false);
+  const [selectedCollaborateurId, setSelectedCollaborateurId] = useState("");
+  const [collaborateurSearchText, setCollaborateurSearchText] = useState("");
 
   const [form, setForm] = useState({
     date_demande: today,
@@ -408,6 +449,14 @@ export default function DemandeExpertiseForm() {
         const res = await api.get(`/collaborateurs/${id}/`);
         const data = res.data || null;
         setCollaborateur(data);
+        setSelectedCollaborateurId(String(data?.id || ""));
+        setCollaborateurSearchText(data?.nom || "");
+        setValidationErrors((prev) => {
+          if (!prev.collaborateur) return prev;
+          const next = { ...prev };
+          delete next.collaborateur;
+          return next;
+        });
         setForm((prev) => ({
           ...prev,
           nom: data?.nom || prev.nom,
@@ -433,12 +482,150 @@ export default function DemandeExpertiseForm() {
     }));
   }, [username]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCollaborateurs = async () => {
+      try {
+        const response = await api.get("/collaborateurs/");
+        if (!cancelled) setAllCollaborateurs(extractCollaborateurRows(response.data));
+      } catch (error) {
+        console.error("Erreur chargement collaborateurs demande expertise", error);
+        if (!cancelled) setAllCollaborateurs([]);
+      }
+    };
+
+    loadCollaborateurs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!autocompleteRef.current?.contains(event.target)) {
+        setShowCollaborateurDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    const query = collaborateurSearchText.trim();
+    if (query.length < 1 || selectedCollaborateurId) {
+      setCollaborateurResults([]);
+      setCollaborateurSearchLoading(false);
+      setShowCollaborateurDropdown(false);
+      return;
+    }
+
+    const localResults = allCollaborateurs
+      .filter((item) => collaboratorMatchesQuery(item, query))
+      .slice(0, 8);
+
+    setCollaborateurResults(localResults);
+    setCollaborateurSearchLoading(true);
+    setShowCollaborateurDropdown(true);
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await api.get("/collaborateurs/", {
+          params: { search: query },
+        });
+        if (cancelled) return;
+        const remoteRows = extractCollaborateurRows(response.data).filter((item) =>
+          collaboratorMatchesQuery(item, query)
+        );
+        const rowsByKey = new Map();
+        [...localResults, ...remoteRows].forEach((item) => {
+          const key = item.id || item.matricule || `${item.nom}-${item.prenom}`;
+          if (key) rowsByKey.set(String(key), item);
+        });
+        const rows = Array.from(rowsByKey.values()).slice(0, 8);
+        setCollaborateurResults(rows);
+        setShowCollaborateurDropdown(true);
+      } catch (error) {
+        console.error("Erreur recherche collaborateurs demande expertise", error);
+        if (!cancelled) setCollaborateurResults(localResults);
+      } finally {
+        if (!cancelled) setCollaborateurSearchLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [allCollaborateurs, collaborateurSearchText, selectedCollaborateurId]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
       [name]: value,
     }));
+    if (name === "nom") {
+      setCollaborateur(null);
+      setSelectedCollaborateurId("");
+      setCollaborateurSearchText(value);
+      setShowCollaborateurDropdown(hasValue(value));
+    }
+    if (hasValue(value)) {
+      setValidationErrors((prev) => {
+        if (!prev[name]) return prev;
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+  };
+
+  const handleSelectCollaborateur = (item) => {
+    setCollaborateur(item);
+    setSelectedCollaborateurId(String(item.id || ""));
+    setCollaborateurSearchText(item.nom || "");
+    setShowCollaborateurDropdown(false);
+    setCollaborateurResults([]);
+    setForm((prev) => ({
+      ...prev,
+      nom: item.nom || "",
+      prenom: item.prenom || "",
+      matricule_leoni: item.matricule || "",
+      poste: item.poste || prev.poste,
+    }));
+    setValidationErrors((prev) => {
+      const next = { ...prev };
+      delete next.collaborateur;
+      delete next.nom;
+      delete next.prenom;
+      delete next.matricule_leoni;
+      if (item.poste) delete next.poste;
+      return next;
+    });
+  };
+
+  const validateBeforePdf = () => {
+    const nextErrors = {};
+
+    if (!hasValue(form.date_demande)) nextErrors.date_demande = "Veuillez renseigner la date.";
+    if (!hasValue(form.medecin_controleur)) {
+      nextErrors.medecin_controleur = "Veuillez renseigner le médecin contrôleur.";
+    }
+    if (!hasValue(form.societe)) nextErrors.societe = "Veuillez renseigner la société.";
+    if (!hasValue(form.nom)) nextErrors.nom = "Veuillez renseigner le nom.";
+    if (!hasValue(form.prenom)) nextErrors.prenom = "Veuillez renseigner le prénom.";
+    if (!hasValue(form.matricule_leoni)) nextErrors.matricule_leoni = "Veuillez renseigner le matricule.";
+    if (!hasValue(form.destination_expertise)) {
+      nextErrors.destination_expertise = "Veuillez renseigner le médecin ou destinataire de l'expertise.";
+    }
+    if (!hasValue(form.mission_objet)) nextErrors.mission_objet = "Veuillez renseigner le motif.";
+    if (!hasValue(form.poste)) nextErrors.poste = "Veuillez renseigner le poste.";
+
+    setValidationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const buildPayload = () => {
@@ -460,6 +647,11 @@ export default function DemandeExpertiseForm() {
   };
 
   const openDocumentWindow = () => {
+    if (!validateBeforePdf()) {
+      setErr("Veuillez compléter les champs obligatoires avant de générer le PDF.");
+      return;
+    }
+
     const payload = buildPayload();
     const popup = window.open("", "_blank", "width=900,height=1200");
 
@@ -477,6 +669,11 @@ export default function DemandeExpertiseForm() {
   };
 
   const handleGeneratePdf = async () => {
+    if (!validateBeforePdf()) {
+      setErr("Veuillez compléter les champs obligatoires avant de générer le PDF.");
+      return;
+    }
+
     const payload = buildPayload();
 
     try {
@@ -550,38 +747,39 @@ export default function DemandeExpertiseForm() {
             icon={<FileText size={18} />}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Date">
+              <Field label="Date" error={validationErrors.date_demande}>
                 <input
                   type="date"
                   name="date_demande"
                   value={form.date_demande}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.date_demande)}
                 />
               </Field>
 
               <Field
                 label="Médecin contrôleur"
                 hint="Prérempli depuis l’identifiant actuellement connecté."
+                error={validationErrors.medecin_controleur}
               >
                 <input
                   type="text"
                   name="medecin_controleur"
                   value={form.medecin_controleur}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.medecin_controleur)}
                 />
               </Field>
             </div>
 
             <div className="mt-4">
-              <Field label="Société">
+              <Field label="Société" error={validationErrors.societe}>
                 <input
                   type="text"
                   name="societe"
                   value={form.societe}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.societe)}
                 />
               </Field>
             </div>
@@ -592,45 +790,89 @@ export default function DemandeExpertiseForm() {
             subtitle="Informations imprimées dans la lettre d’expertise"
             icon={<UserRound size={18} />}
           >
+            {validationErrors.collaborateur ? (
+              <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {validationErrors.collaborateur}
+              </div>
+            ) : null}
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Nom">
-                <input
-                  type="text"
-                  name="nom"
-                  value={form.nom}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                />
+              <Field label="Nom" error={validationErrors.nom}>
+                <div ref={autocompleteRef} className="relative z-[100]">
+                  <input
+                    type="text"
+                    name="nom"
+                    value={form.nom}
+                    onChange={handleChange}
+                    onFocus={() => {
+                      if (hasValue(form.nom) && !selectedCollaborateurId) {
+                        setCollaborateurSearchText(form.nom);
+                        setShowCollaborateurDropdown(true);
+                      }
+                    }}
+                    autoComplete="off"
+                    className={fieldClass(validationErrors.nom)}
+                  />
+                  {showCollaborateurDropdown && hasValue(form.nom) && !selectedCollaborateurId ? (
+                    <div className="absolute left-0 right-0 z-[99999] mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-200/70">
+                      {collaborateurResults.length > 0 ? (
+                        collaborateurResults.map((item) => (
+                          <button
+                            key={item.id || item.matricule || `${item.nom}-${item.prenom}`}
+                            type="button"
+                            onClick={() => handleSelectCollaborateur(item)}
+                            className="w-full rounded-xl px-3 py-2 text-left text-sm transition hover:bg-sky-50"
+                          >
+                            <span className="block font-medium text-slate-900">
+                              {item.nom || "--"} {item.prenom || "--"}
+                            </span>
+                            <span className="block text-xs text-slate-500">
+                              Matricule LEONI: {item.matricule || "N/A"}
+                            </span>
+                          </button>
+                        ))
+                      ) : collaborateurSearchLoading ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">Recherche en cours...</div>
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-slate-500">Aucun collaborateur trouvé</div>
+                      )}
+                      {collaborateurSearchLoading && collaborateurResults.length > 0 ? (
+                        <div className="border-t border-slate-100 px-3 py-2 text-xs text-slate-400">
+                          Recherche en cours...
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </Field>
 
-              <Field label="Prénom">
+              <Field label="Prénom" error={validationErrors.prenom}>
                 <input
                   type="text"
                   name="prenom"
                   value={form.prenom}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.prenom)}
                 />
               </Field>
 
-              <Field label="Matricule Leoni">
+              <Field label="Matricule Leoni" error={validationErrors.matricule_leoni}>
                 <input
                   type="text"
                   name="matricule_leoni"
                   value={form.matricule_leoni}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.matricule_leoni)}
                 />
               </Field>
 
-              <Field label="Destination expertise">
+              <Field label="Destination expertise" error={validationErrors.destination_expertise}>
                 <input
                   type="text"
                   name="destination_expertise"
                   value={form.destination_expertise}
                   onChange={handleChange}
                   placeholder="Clinique / Médecin expert / Centre..."
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.destination_expertise)}
                 />
               </Field>
             </div>
@@ -676,23 +918,23 @@ export default function DemandeExpertiseForm() {
             icon={<ShieldCheck size={18} />}
           >
             <div className="space-y-4">
-              <Field label="Mission objet de l’expertise">
+              <Field label="Mission objet de l’expertise" error={validationErrors.mission_objet}>
                 <textarea
                   name="mission_objet"
                   rows={7}
                   value={form.mission_objet}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.mission_objet)}
                 />
               </Field>
 
-              <Field label="Aptitude médicale actuelle au poste de">
+              <Field label="Aptitude médicale actuelle au poste de" error={validationErrors.poste}>
                 <input
                   type="text"
                   name="poste"
                   value={form.poste}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.poste)}
                 />
               </Field>
             </div>

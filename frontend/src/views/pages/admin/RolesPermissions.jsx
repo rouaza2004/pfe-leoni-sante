@@ -11,7 +11,7 @@ const roleCards = [
   {
     key: "admin",
     name: "Admin",
-    description: "Accès complet à la plateforme",
+    description: "Acces complet a la plateforme",
     icon: ShieldCheck,
     iconStyle: "bg-sky-100 text-sky-700",
   },
@@ -25,7 +25,7 @@ const roleCards = [
   {
     key: "doctor",
     name: "Doctor",
-    description: "Consultations et dossiers médicaux",
+    description: "Consultations et dossiers medicaux",
     icon: Stethoscope,
     iconStyle: "bg-amber-100 text-amber-700",
   },
@@ -36,28 +36,53 @@ const roleCards = [
     icon: HeartPulse,
     iconStyle: "bg-blue-100 text-blue-700",
   },
+  {
+    key: "hsee",
+    name: "HSEE",
+    description: "Supervision HSEE et acces global a la plateforme",
+    icon: Shield,
+    iconStyle: "bg-violet-100 text-violet-700",
+  },
 ];
 
 const modules = [
-  { key: "dashboard", label: "Tableau de bord" },
+  { key: "dashboard", label: "Dashboard" },
   { key: "users", label: "Gestion Utilisateurs" },
   { key: "personnel", label: "Gestion Personnel" },
   { key: "appointments", label: "Rendez-vous" },
-  { key: "medical", label: "Services Médicaux" },
-  { key: "roles", label: "Rôles & Permissions" },
-  { key: "settings", label: "Configuration Système" },
+  { key: "medical", label: "Services Medicaux" },
+  { key: "roles", label: "Roles & Permissions" },
+  { key: "settings", label: "Configuration Systeme" },
   { key: "audit", label: "Journaux d'Audit" },
+  { key: "collaborators", label: "Collaborateurs" },
+  { key: "medicalRecords", label: "Dossiers medicaux" },
+  { key: "workAccidents", label: "Accidents de travail" },
+  { key: "incidents", label: "Incidents" },
+  { key: "occupationalDiseases", label: "Maladies professionnelles" },
+  { key: "pharmacyStock", label: "Stock pharmacie" },
+  { key: "reports", label: "Rapports" },
+  { key: "dashboards", label: "Tableaux de bord" },
+  { key: "notifications", label: "Notifications" },
 ];
 
 const initialPermissions = {
-  dashboard: { admin: true, rh: true, doctor: true, nurse: true },
-  users: { admin: true, rh: true, doctor: false, nurse: false },
-  personnel: { admin: true, rh: true, doctor: false, nurse: false },
-  appointments: { admin: true, rh: true, doctor: true, nurse: true },
-  medical: { admin: true, rh: false, doctor: true, nurse: false },
-  roles: { admin: true, rh: false, doctor: false, nurse: false },
-  settings: { admin: true, rh: false, doctor: false, nurse: false },
-  audit: { admin: true, rh: false, doctor: false, nurse: false },
+  dashboard: { admin: true, rh: true, doctor: true, nurse: true, hsee: true },
+  users: { admin: true, rh: true, doctor: false, nurse: false, hsee: true },
+  personnel: { admin: true, rh: true, doctor: false, nurse: false, hsee: true },
+  appointments: { admin: true, rh: true, doctor: true, nurse: true, hsee: true },
+  medical: { admin: true, rh: false, doctor: true, nurse: false, hsee: true },
+  roles: { admin: true, rh: false, doctor: false, nurse: false, hsee: true },
+  settings: { admin: true, rh: false, doctor: false, nurse: false, hsee: true },
+  audit: { admin: true, rh: false, doctor: false, nurse: false, hsee: true },
+  collaborators: { admin: true, rh: true, doctor: false, nurse: false, hsee: true },
+  medicalRecords: { admin: true, rh: false, doctor: true, nurse: false, hsee: true },
+  workAccidents: { admin: true, rh: false, doctor: true, nurse: true, hsee: true },
+  incidents: { admin: true, rh: false, doctor: true, nurse: true, hsee: true },
+  occupationalDiseases: { admin: true, rh: false, doctor: true, nurse: true, hsee: true },
+  pharmacyStock: { admin: true, rh: false, doctor: false, nurse: true, hsee: true },
+  reports: { admin: true, rh: true, doctor: true, nurse: false, hsee: true },
+  dashboards: { admin: true, rh: true, doctor: true, nurse: true, hsee: true },
+  notifications: { admin: true, rh: true, doctor: true, nurse: true, hsee: true },
 };
 
 const badgeStyles = {
@@ -65,6 +90,7 @@ const badgeStyles = {
   rh: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   doctor: "bg-amber-50 text-amber-700 ring-amber-200",
   nurse: "bg-blue-50 text-blue-700 ring-blue-200",
+  hsee: "bg-violet-50 text-violet-700 ring-violet-200",
 };
 
 function RoleCard({ name, description, icon: Icon, iconStyle }) {
@@ -131,15 +157,15 @@ export default function RolesPermissions() {
         </div>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[30px]">
-            Rôles & Permissions
+            Roles & Permissions
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Gérez les droits d&apos;accès de chaque rôle sur la plateforme
+            Gerez les droits d&apos;acces de chaque role sur la plateforme
           </p>
         </div>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {roleCards.map((role) => (
           <RoleCard key={role.key} {...role} />
         ))}
@@ -151,8 +177,8 @@ export default function RolesPermissions() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[760px]">
-            <div className="grid grid-cols-[1.7fr_repeat(4,minmax(110px,1fr))] items-center gap-4 rounded-[22px] bg-slate-50/90 px-5 py-4">
+          <div className="min-w-[880px]">
+            <div className="grid grid-cols-[1.7fr_repeat(5,minmax(110px,1fr))] items-center gap-4 rounded-[22px] bg-slate-50/90 px-5 py-4">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Module
               </div>
@@ -178,7 +204,7 @@ export default function RolesPermissions() {
               {modules.map((module) => (
                 <div
                   key={module.key}
-                  className="grid grid-cols-[1.7fr_repeat(4,minmax(110px,1fr))] items-center gap-4 bg-white px-5 py-4 transition hover:bg-slate-50/60"
+                  className="grid grid-cols-[1.7fr_repeat(5,minmax(110px,1fr))] items-center gap-4 bg-white px-5 py-4 transition hover:bg-slate-50/60"
                 >
                   <div className="text-sm font-medium text-slate-700">{module.label}</div>
 
@@ -199,4 +225,3 @@ export default function RolesPermissions() {
     </div>
   );
 }
-

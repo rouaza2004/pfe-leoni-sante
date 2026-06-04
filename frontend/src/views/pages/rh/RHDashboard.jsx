@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  AlarmClock,
   Bell,
   CalendarDays,
   ChevronRight,
-  Clock3,
-  FolderClock,
-  RotateCcw,
-  Stethoscope,
+  FileText,
+  ShieldCheck,
   Upload,
-  UserCheck,
-  UserRound,
-  Users,
+  UserPlus,
 } from "lucide-react";
 
 import { api } from "@/api/api";
@@ -30,37 +25,27 @@ const accentClasses = {
   info: {
     icon: "border-sky-200 bg-sky-50 text-sky-700",
     value: "text-sky-700",
-    pill: "bg-sky-50 text-sky-700 ring-sky-200",
     soft: "border-sky-100 bg-sky-50/50",
-    bar: "bg-sky-500",
   },
   success: {
     icon: "border-emerald-200 bg-emerald-50 text-emerald-700",
     value: "text-emerald-700",
-    pill: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     soft: "border-emerald-100 bg-emerald-50/50",
-    bar: "bg-emerald-500",
   },
   warning: {
     icon: "border-amber-200 bg-amber-50 text-amber-700",
     value: "text-amber-700",
-    pill: "bg-amber-50 text-amber-700 ring-amber-200",
     soft: "border-amber-100 bg-amber-50/50",
-    bar: "bg-amber-400",
   },
   danger: {
     icon: "border-rose-200 bg-rose-50 text-rose-700",
     value: "text-rose-700",
-    pill: "bg-rose-50 text-rose-700 ring-rose-200",
     soft: "border-rose-100 bg-rose-50/50",
-    bar: "bg-rose-400",
   },
   secondary: {
     icon: "border-violet-200 bg-violet-50 text-violet-700",
     value: "text-violet-700",
-    pill: "bg-violet-50 text-violet-700 ring-violet-200",
     soft: "border-violet-100 bg-violet-50/50",
-    bar: "bg-violet-500",
   },
 };
 
@@ -99,18 +84,36 @@ function getDateTime(value) {
 
 function getStatusTone(status) {
   const normalized = String(status || "").toLowerCase();
-  if (["validated", "termine", "réalisé", "realise", "active", "success"].includes(normalized)) return "success";
+  if (["validated", "termine", "réalisé", "realise", "success"].includes(normalized)) return "success";
   if (["pending", "prevu", "prévu", "reporte", "reporté", "warning"].includes(normalized)) return "warning";
-  if (["overdue", "danger", "annule", "annulé"].includes(normalized)) return "danger";
-  if (["sent_to_infirmary", "scheduled", "info"].includes(normalized)) return "info";
+  if (["danger", "annule", "annulé"].includes(normalized)) return "danger";
+  if (["sent_to_infirmary", "info"].includes(normalized)) return "info";
   return "secondary";
 }
 
-function SummaryCard({ title, value, detail, icon, tone = "info" }) {
+function SummaryCard({ title, value, detail, icon, tone = "info", onClick }) {
   const toneClass = accentClasses[tone] || accentClasses.info;
+  const interactiveProps = onClick
+    ? {
+        role: "button",
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onClick();
+          }
+        },
+      }
+    : {};
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm transition hover:shadow-md">
+    <article
+      className={`rounded-2xl border border-slate-200 bg-white p-2 shadow-sm transition hover:shadow-md ${
+        onClick ? "cursor-pointer" : ""
+      }`}
+      {...interactiveProps}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs text-slate-500">{title}</p>
@@ -174,97 +177,6 @@ function EmptyState({ text }) {
   );
 }
 
-function CompactBarChart({ rows, labelKey, valueKey, emptyText, tone = "info" }) {
-  const data = toArray(rows);
-  const maxValue = Math.max(...data.map((item) => toNumber(item?.[valueKey])), 0);
-  const toneClass = accentClasses[tone] || accentClasses.info;
-
-  if (data.length === 0 || maxValue === 0) {
-    return <EmptyState text={emptyText} />;
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {data.slice(0, 8).map((item) => {
-        const label = item?.[labelKey] || "Non défini";
-        const value = toNumber(item?.[valueKey]);
-        const width = `${Math.max((value / maxValue) * 100, 6)}%`;
-
-        return (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-2">
-            <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
-              <span className="truncate font-medium text-slate-700">{label}</span>
-              <span className="font-semibold text-slate-900">{value}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
-              <div className={`h-full rounded-full ${toneClass.bar}`} style={{ width }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AbsenceDelayChart({ rows }) {
-  const data = toArray(rows);
-  const maxValue = Math.max(
-    ...data.flatMap((item) => [toNumber(item?.absences), toNumber(item?.retards), toNumber(item?.retours)]),
-    0
-  );
-
-  if (data.length === 0 || maxValue === 0) {
-    return <EmptyState text="Aucune absence ou retour attendu à afficher." />;
-  }
-
-  const series = [
-    { key: "absences", label: "Absences", color: "bg-rose-400" },
-    { key: "retards", label: "Retards", color: "bg-sky-500" },
-    { key: "retours", label: "Retours", color: "bg-emerald-500" },
-  ];
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 text-[10px]">
-        {series.map((item) => (
-          <span
-            key={item.key}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600"
-          >
-            <span className={`h-2 w-2 rounded-full ${item.color}`} />
-            {item.label}
-          </span>
-        ))}
-      </div>
-
-      <div className="grid gap-1.5">
-        {data.slice(0, 6).map((department) => (
-          <div key={department.department || "Non défini"} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-2">
-            <p className="mb-1 text-[11px] font-medium text-slate-700">
-              {department.department || "Non défini"}
-            </p>
-            <div className="grid gap-1">
-              {series.map((serie) => {
-                const value = toNumber(department?.[serie.key]);
-                const width = `${Math.max((value / maxValue) * 100, value ? 6 : 0)}%`;
-                return (
-                  <div key={serie.key} className="grid grid-cols-[64px_minmax(0,1fr)_28px] items-center gap-2 text-[10px] text-slate-500">
-                    <span>{serie.label}</span>
-                    <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
-                      <div className={`h-full rounded-full ${serie.color}`} style={{ width }} />
-                    </div>
-                    <span className="text-right font-semibold text-slate-700">{value}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function RHDashboard() {
   const navigate = useNavigate();
   const username = getUsername();
@@ -291,9 +203,7 @@ export default function RHDashboard() {
         setLoading(true);
         setError("");
         const response = await api.get("/rh/kpi/");
-        if (!cancelled) {
-          setDashboardData(response?.data || {});
-        }
+        if (!cancelled) setDashboardData(response?.data || {});
       } catch (err) {
         if (!cancelled) {
           setError("Impossible de charger les indicateurs RH.");
@@ -334,11 +244,10 @@ export default function RHDashboard() {
   }, []);
 
   const kpis = dashboardData?.kpis || {};
-  const upcomingVisits = toArray(dashboardData?.upcoming_visits);
-  const overdueVisits = toArray(dashboardData?.overdue_visits);
   const newOperators = toArray(dashboardData?.new_operators);
-  const activeSickLeaves = toArray(dashboardData?.active_sick_leaves);
-  const returnsThisWeek = toArray(dashboardData?.returns_this_week);
+  const rhAvailableDocuments = toArray(dashboardData?.rh_available_documents);
+  const upcomingControllerAppointments = toArray(dashboardData?.upcoming_controller_appointments);
+
   const recentNewOperators = useMemo(
     () =>
       [...newOperators]
@@ -354,49 +263,63 @@ export default function RHDashboard() {
   const summaryCards = useMemo(
     () => [
       {
-        title: "Collaborateurs actifs",
-        value: toNumber(kpis.total_active_collaborators),
-        detail: "Collaborateurs actifs dans la base RH",
-        icon: <Users size={16} />,
-        tone: "info",
-      },
-      {
         title: "Nouveaux opérateurs",
         value: toNumber(kpis.new_operators_this_month),
-        detail: "Importés ou intégrés ce mois-ci",
+        detail: "Opérateurs importés ce mois-ci",
         icon: <Upload size={16} />,
         tone: "success",
+        onClick: () => navigate("/rh/nouveaux-operateurs"),
       },
       {
-        title: "Visites à venir",
-        value: upcomingVisits.length,
-        detail: "Rendez-vous planifiés à partir d'aujourd'hui",
-        icon: <CalendarDays size={16} />,
+        title: "Fiches d'aptitude",
+        value: toNumber(kpis.aptitude_forms),
+        detail: "Présentes dans les documents RH affichés",
+        icon: <ShieldCheck size={16} />,
+        tone: "secondary",
+        onClick: () => navigate("/rh/documents-medecine-travail?document_type=fiche_aptitude"),
+      },
+      {
+        title: "Certificats médecin du travail",
+        value: toNumber(kpis.work_doctor_certificates),
+        detail: "Présents dans les documents RH affichés",
+        icon: <FileText size={16} />,
         tone: "info",
+        onClick: () => navigate("/rh/documents-medecine-travail?document_type=certificat_medical"),
       },
       {
-        title: "Visites en retard",
-        value: overdueVisits.length,
-        detail: "Planifiées avant aujourd'hui et non réalisées",
-        icon: <AlarmClock size={16} />,
-        tone: "danger",
-      },
-      {
-        title: "Repos actifs",
-        value: activeSickLeaves.length,
-        detail: "Arrêts ou repos médicaux en cours",
-        icon: <Stethoscope size={16} />,
+        title: "RDV médecin contrôleur",
+        value: toNumber(kpis.upcoming_controller_appointments),
+        detail: "Rendez-vous contrôleur planifiés à venir",
+        icon: <CalendarDays size={16} />,
         tone: "warning",
+        onClick: () => navigate("/rh/rdv-medecin-controleur"),
       },
       {
-        title: "Retours cette semaine",
-        value: returnsThisWeek.length,
-        detail: "Repos se terminant dans les 7 prochains jours",
-        icon: <RotateCcw size={16} />,
-        tone: "success",
+        title: "Certificats médecin contrôleur",
+        value: toNumber(kpis.controller_certificates),
+        detail: "Présents dans les documents RH affichés",
+        icon: <FileText size={16} />,
+        tone: "info",
+        onClick: () => navigate("/rh/certificats-medecin-controleur"),
+      },
+      {
+        title: "Visites d'embauche à planifier",
+        value: toNumber(kpis.hiring_visits_to_schedule),
+        detail: "Nouveaux opérateurs sans rendez-vous",
+        icon: <UserPlus size={16} />,
+        tone: "danger",
+        onClick: () => navigate("/rh/nouveaux-operateurs?filter=to-plan"),
       },
     ],
-    [activeSickLeaves.length, kpis.new_operators_this_month, kpis.total_active_collaborators, overdueVisits.length, returnsThisWeek.length, upcomingVisits.length]
+    [
+      kpis.aptitude_forms,
+      kpis.controller_certificates,
+      kpis.hiring_visits_to_schedule,
+      kpis.work_doctor_certificates,
+      navigate,
+      kpis.new_operators_this_month,
+      kpis.upcoming_controller_appointments,
+    ]
   );
 
   const currentDate = useMemo(
@@ -416,45 +339,6 @@ export default function RHDashboard() {
     return "Bonsoir";
   }, [currentHour]);
 
-  const rhModules = [
-    {
-      id: "absences-ponctualite",
-      title: "Absences & ponctualité",
-      description: "Suivre les absences, congés maladie et indicateurs de ponctualité.",
-      icon: <FolderClock size={16} />,
-      route: "/rh/absences-ponctualite",
-      cta: "Ouvrir",
-      tone: "warning",
-    },
-    {
-      id: "nouveaux-operateurs",
-      title: "Nouveaux opérateurs",
-      description: "Importer les nouveaux entrants et préparer leur suivi médical.",
-      icon: <Upload size={16} />,
-      route: "/rh/nouveaux-operateurs",
-      cta: "Importer",
-      tone: "info",
-    },
-    {
-      id: "pointage-medecins",
-      title: "Pointage médecins",
-      description: "Consulter les présences, absences et pointages des médecins.",
-      icon: <Clock3 size={16} />,
-      route: "/rh/pointage-medecins",
-      cta: "Consulter",
-      tone: "success",
-    },
-    {
-      id: "rapports-rh",
-      title: "Rapports RH",
-      description: "Accéder aux rapports RH liés au suivi des collaborateurs.",
-      icon: <UserCheck size={16} />,
-      route: "/rh/rapports",
-      cta: "Voir les rapports",
-      tone: "secondary",
-    },
-  ];
-
   return (
     <div className="space-y-1.5">
       <section className="rounded-3xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
@@ -473,7 +357,7 @@ export default function RHDashboard() {
                 {`${greeting}, ${sessionIdentifier}`}
               </h1>
               <p className="mt-0.5 max-w-2xl text-xs text-slate-500">
-                Pilotage RH des collaborateurs, visites à planifier, repos médicaux et retours au travail.
+                Suivi RH des nouveaux opérateurs, fiches d'aptitude, certificats médicaux et rendez-vous contrôleur.
               </p>
             </div>
           </div>
@@ -504,148 +388,12 @@ export default function RHDashboard() {
         </div>
       </section>
 
-      <PanelCard
-        id="rh-modules"
-        title="Espaces RH"
-        subtitle="Accès direct aux fonctionnalités RH déjà disponibles dans l'application"
-      >
-        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-3">
-          {rhModules.map((module) => {
-            const toneClass = accentClasses[module.tone] || accentClasses.info;
-            return (
-              <button
-                key={module.id}
-                type="button"
-                onClick={() => navigate(module.route)}
-                className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
-              >
-                <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${toneClass.icon}`}>
-                  {module.icon}
-                </div>
-                <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{module.title}</p>
-                <p className="mt-0.5 text-[10px] leading-4 text-slate-500">{module.description}</p>
-                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-slate-700">
-                  {module.cta}
-                  <ChevronRight size={12} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </PanelCard>
-
-      <div className="grid gap-1.5 xl:grid-cols-3">
-        <PanelCard
-          title="Collaborateurs par département"
-          subtitle="Répartition des collaborateurs actifs"
-        >
-          <CompactBarChart
-            rows={dashboardData?.collaborateurs_par_departement}
-            labelKey="departement"
-            valueKey="total"
-            emptyText={loading ? "Chargement des départements..." : "Aucun collaborateur actif à afficher."}
-            tone="info"
-          />
-        </PanelCard>
-
-        <PanelCard
-          title="Collaborateurs par site"
-          subtitle="Répartition des collaborateurs actifs"
-        >
-          <CompactBarChart
-            rows={dashboardData?.collaborateurs_par_site}
-            labelKey="site"
-            valueKey="total"
-            emptyText={loading ? "Chargement des sites..." : "Aucun site à afficher."}
-            tone="success"
-          />
-        </PanelCard>
-
-        <PanelCard
-          title="Absences et retours"
-          subtitle="Repos médicaux et retours attendus par département"
-        >
-          <AbsenceDelayChart rows={dashboardData?.absences_retards_par_departement} />
-        </PanelCard>
-      </div>
-
-      <section
-        id="rh-rendez-vous"
-        className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-200"
-      >
-        <div className="mb-2 flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-900">Visites et rendez-vous</h2>
-            <p className="mt-0.5 text-[10px] text-slate-500">
-              Visites à venir et visites planifiées en retard pour les collaborateurs actifs.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate("/rh")}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            <UserRound size={13} />
-            Tableau de bord RH
-          </button>
-        </div>
-
-        <div className="grid gap-1.5 xl:grid-cols-2">
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold text-slate-700">À venir</p>
-            {upcomingVisits.map((visit) => (
-              <article key={visit.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-2">
-                <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-[13px] font-medium text-slate-900">
-                      {visit.collaborateur_nom || "Collaborateur non renseigné"}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {visit.matricule || "N/A"} - {visit.type_visite || "Visite médicale"}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-600">
-                      {formatDateLabel(visit.date)} - {formatTimeLabel(visit.heure)}
-                    </p>
-                  </div>
-                  <StatusBadge label={visit.statut_label} tone={getStatusTone(visit.statut)} />
-                </div>
-              </article>
-            ))}
-            {upcomingVisits.length === 0 ? <EmptyState text={loading ? "Chargement des visites..." : "Aucune visite à venir."} /> : null}
-          </div>
-
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold text-slate-700">En retard</p>
-            {overdueVisits.map((visit) => (
-              <article key={visit.id} className="rounded-2xl border border-rose-100 bg-rose-50/45 p-2">
-                <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-[13px] font-medium text-slate-900">
-                      {visit.collaborateur_nom || "Collaborateur non renseigné"}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {visit.matricule || "N/A"} - {visit.type_visite || "Visite médicale"}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-600">
-                      {formatDateLabel(visit.date)} - {formatTimeLabel(visit.heure)}
-                    </p>
-                  </div>
-                  <StatusBadge label="En retard" tone="danger" />
-                </div>
-              </article>
-            ))}
-            {overdueVisits.length === 0 ? <EmptyState text={loading ? "Chargement des visites..." : "Aucune visite en retard."} /> : null}
-          </div>
-        </div>
-      </section>
-
       <div className="grid gap-1.5 xl:grid-cols-[1.05fr_0.95fr]">
         <PanelCard
           id="rh-new-operators"
           title="Nouveaux opérateurs à suivre"
-          subtitle="Collaborateurs actifs créés ou importés pendant le mois courant"
-          action="Ouvrir"
+          subtitle="Les 10 derniers opérateurs devant effectuer la visite d'embauche"
+          action="Voir tout"
           onAction={() => navigate("/rh/nouveaux-operateurs")}
         >
           <div className="space-y-1">
@@ -665,71 +413,74 @@ export default function RHDashboard() {
                 </div>
               </div>
             ))}
-            {recentNewOperators.length === 0 ? <EmptyState text={loading ? "Chargement des opérateurs..." : "Aucun nouvel opérateur ce mois-ci."} /> : null}
-            {newOperators.length > 0 ? (
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => navigate("/rh/nouveaux-operateurs")}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 transition hover:text-slate-900"
-                >
-                  Voir tout
-                  <ChevronRight size={12} />
-                </button>
-              </div>
+            {recentNewOperators.length === 0 ? (
+              <EmptyState text={loading ? "Chargement des opérateurs..." : "Aucun nouvel opérateur à suivre."} />
             ) : null}
           </div>
         </PanelCard>
 
         <PanelCard
-          id="rh-sick-leaves"
-          title="Arrêts et repos actifs"
-          subtitle="Repos médicaux en cours et retours attendus cette semaine"
-          action="Absences"
-          onAction={() => navigate("/rh/absences-ponctualite")}
+          id="rh-controller-rdv"
+          title="Rendez-vous médecin contrôleur à venir"
+          subtitle="Les 5 prochains rendez-vous contrôleur planifiés"
+          action="Ouvrir"
+          onAction={() => navigate("/rh/rdv-medecin-controleur")}
         >
           <div className="space-y-1">
-            {activeSickLeaves.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-amber-100 bg-amber-50/45 p-2">
+            {upcomingControllerAppointments.slice(0, 5).map((appointment) => (
+              <div key={appointment.id} className="rounded-2xl border border-amber-100 bg-amber-50/45 p-2">
                 <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <p className="text-[13px] font-medium text-slate-900">{item.collaborateur_nom || "--"}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">{item.matricule || "N/A"}</p>
+                    <p className="text-[13px] font-medium text-slate-900">
+                      {appointment.collaborateur_nom || "Collaborateur non renseigné"}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">{appointment.matricule || "N/A"}</p>
                     <p className="mt-1 text-[11px] leading-4 text-slate-600">
-                      {formatDateLabel(item.date_debut)} - {formatDateLabel(item.date_fin_prevue)}
+                      {formatDateLabel(appointment.date)} - {formatTimeLabel(appointment.heure)}
                     </p>
                   </div>
-                  <StatusBadge label={item.statut_label || "En cours"} tone="warning" />
+                  <StatusBadge label={appointment.statut_label} tone={getStatusTone(appointment.statut)} />
                 </div>
               </div>
             ))}
-            {activeSickLeaves.length === 0 ? <EmptyState text={loading ? "Chargement des repos..." : "Aucun arrêt ou repos actif."} /> : null}
+            {upcomingControllerAppointments.length === 0 ? (
+              <EmptyState text={loading ? "Chargement des rendez-vous..." : "Aucun rendez-vous médecin contrôleur à venir."} />
+            ) : null}
           </div>
         </PanelCard>
       </div>
 
       <PanelCard
-        title="Modules RH"
-        subtitle="Accès direct aux fonctionnalités RH déjà disponibles dans l'application"
+        id="rh-documents"
+        title="Documents RH disponibles"
+        subtitle="Les 5 derniers documents requis par le périmètre RH"
+        action="Fiches"
+        onAction={() => navigate("/rh/documents-medecine-travail")}
       >
-        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-3">
-          {rhModules.map((card) => (
-            <button
-              key={card.title}
-              type="button"
-              onClick={() => navigate(card.route)}
-              className="rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-sm shadow-slate-200/30 transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${(accentClasses[card.tone] || accentClasses.info).icon}`}>
-                {card.icon}
+        <div className="space-y-1">
+          {rhAvailableDocuments.slice(0, 5).map((doc) => (
+            <div key={doc.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-2">
+              <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-[13px] font-medium text-slate-900">
+                    {doc.collaborateur_nom || "Collaborateur non renseigné"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    {doc.matricule || "N/A"} - {doc.type_document || "Document RH"}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-600">
+                    {formatDateLabel(doc.date_creation)} - {doc.source || "--"}
+                  </p>
+                </div>
+                <StatusBadge label={doc.source || "Document"} tone={doc.source?.includes("contrôleur") ? "info" : "secondary"} />
               </div>
-              <p className="mt-1.5 text-[12px] font-semibold text-slate-900">{card.title}</p>
-              <p className="mt-0.5 text-[10px] leading-4 text-slate-500">{card.description}</p>
-            </button>
+            </div>
           ))}
+          {rhAvailableDocuments.length === 0 ? (
+            <EmptyState text={loading ? "Chargement des documents..." : "Aucun document RH disponible."} />
+          ) : null}
         </div>
       </PanelCard>
-
     </div>
   );
 }

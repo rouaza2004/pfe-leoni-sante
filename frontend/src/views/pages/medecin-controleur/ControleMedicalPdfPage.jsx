@@ -6,12 +6,25 @@ import { getUsername } from "@/auth/auth";
 import { saveControleMedicalHistory } from "@/services/medecinControleurHistoryService";
 import { downloadControleMedicalPdf } from "@/utils/generateControleMedicalPdf";
 
-function Field({ label, children, hint }) {
+function hasValue(value) {
+  return String(value ?? "").trim().length > 0;
+}
+
+function fieldClass(error) {
+  return `w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2 ${
+    error
+      ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
+      : "border-slate-200 focus:border-sky-400 focus:ring-sky-100"
+  }`;
+}
+
+function Field({ label, children, hint, error }) {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-slate-700">{label}</label>
       {children}
       {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
+      {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
     </div>
   );
 }
@@ -42,6 +55,7 @@ export default function ControleMedicalPdfPage() {
 
   const [form, setForm] = useState({
     date: prefill.date || today,
+    ville: prefill.ville || prefill.lieu || "",
     matricule: prefill.matricule || "",
     segment: prefill.segment || "",
     nom: prefill.nom || "",
@@ -50,6 +64,7 @@ export default function ControleMedicalPdfPage() {
     avisMedecinControleur: prefill.avisMedecinControleur || "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -57,9 +72,32 @@ export default function ControleMedicalPdfPage() {
       ...prev,
       [name]: value,
     }));
+    if (hasValue(value)) {
+      setValidationErrors((prev) => {
+        if (!prev[name]) return prev;
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+  };
+
+  const validateBeforeGenerate = () => {
+    const nextErrors = {};
+
+    if (!hasValue(form.nom)) nextErrors.nom = "Veuillez renseigner le nom.";
+    if (!hasValue(form.prenom)) nextErrors.prenom = "Veuillez renseigner le prénom.";
+    if (!hasValue(form.matricule)) nextErrors.matricule = "Veuillez renseigner le matricule LEONI.";
+
+    setValidationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleGeneratePdf = async () => {
+    if (!validateBeforeGenerate()) {
+      return;
+    }
+
     try {
       setIsSaving(true);
 
@@ -127,13 +165,23 @@ export default function ControleMedicalPdfPage() {
                 />
               </Field>
 
-              <Field label="Matricule">
+              <Field label="Ville / Lieu">
+                <input
+                  type="text"
+                  name="ville"
+                  value={form.ville}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                />
+              </Field>
+
+              <Field label="Matricule" error={validationErrors.matricule}>
                 <input
                   type="text"
                   name="matricule"
                   value={form.matricule}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.matricule)}
                 />
               </Field>
 
@@ -159,23 +207,23 @@ export default function ControleMedicalPdfPage() {
                 />
               </Field>
 
-              <Field label="Nom">
+              <Field label="Nom" error={validationErrors.nom}>
                 <input
                   type="text"
                   name="nom"
                   value={form.nom}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.nom)}
                 />
               </Field>
 
-              <Field label="Prénom">
+              <Field label="Prénom" error={validationErrors.prenom}>
                 <input
                   type="text"
                   name="prenom"
                   value={form.prenom}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.prenom)}
                 />
               </Field>
 

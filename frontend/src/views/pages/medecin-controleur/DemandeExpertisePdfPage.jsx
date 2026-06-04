@@ -6,12 +6,13 @@ import { getUsername } from "@/auth/auth";
 import { saveDemandeExpertiseHistory } from "@/services/medecinControleurHistoryService";
 import { downloadDemandeExpertisePdf } from "@/utils/generateDemandeExpertisePdf";
 
-function Field({ label, children, hint }) {
+function Field({ label, children, hint, error }) {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-slate-700">{label}</label>
       {children}
       {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
+      {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
     </div>
   );
 }
@@ -33,6 +34,18 @@ function SectionCard({ title, subtitle, children, icon }) {
   );
 }
 
+function hasValue(value) {
+  return String(value ?? "").trim().length > 0;
+}
+
+function fieldClass(error) {
+  return `w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2 ${
+    error
+      ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
+      : "border-slate-200 focus:border-sky-400 focus:ring-sky-100"
+  }`;
+}
+
 export default function DemandeExpertisePdfPage() {
   const navigate = useNavigate();
   const sessionDoctorName = getUsername();
@@ -52,6 +65,7 @@ export default function DemandeExpertisePdfPage() {
     autresMissions: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
 
   const doctorDisplay = sessionDoctorName || fallbackDoctorName;
 
@@ -61,13 +75,42 @@ export default function DemandeExpertisePdfPage() {
       ...prev,
       [name]: value,
     }));
+    if (hasValue(value)) {
+      setValidationErrors((prev) => {
+        if (!prev[name]) return prev;
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   const handleFilesChange = (event) => {
     setSelectedFiles(Array.from(event.target.files || []));
   };
 
+  const validateBeforePdf = () => {
+    const nextErrors = {};
+
+    if (!hasValue(form.ville)) nextErrors.ville = "Veuillez renseigner la ville / le lieu.";
+    if (!hasValue(form.destinataire)) {
+      nextErrors.destinataire = "Veuillez renseigner le DR / destinataire.";
+    }
+    if (!hasValue(form.nom)) nextErrors.nom = "Veuillez renseigner le nom.";
+    if (!hasValue(form.prenom)) nextErrors.prenom = "Veuillez renseigner le prénom.";
+    if (!hasValue(form.matriculeLeoni)) {
+      nextErrors.matriculeLeoni = "Veuillez renseigner le matricule LEONI.";
+    }
+
+    setValidationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const handleGeneratePdf = async () => {
+    if (!validateBeforePdf()) {
+      return;
+    }
+
     try {
       setIsSaving(true);
 
@@ -131,13 +174,13 @@ export default function DemandeExpertisePdfPage() {
             icon={<FileText size={18} />}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Ville / Lieu">
+              <Field label="Ville / Lieu" error={validationErrors.ville}>
                 <input
                   type="text"
                   name="ville"
                   value={form.ville}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.ville)}
                 />
               </Field>
 
@@ -168,13 +211,14 @@ export default function DemandeExpertisePdfPage() {
               <Field
                 label="DR (Destinataire)"
                 hint="Saisissez une ou deux lignes selon le document de destination."
+                error={validationErrors.destinataire}
               >
                 <textarea
                   name="destinataire"
                   rows={2}
                   value={form.destinataire}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.destinataire)}
                 />
               </Field>
             </div>
@@ -186,33 +230,33 @@ export default function DemandeExpertisePdfPage() {
             icon={<FileText size={18} />}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Nom">
+              <Field label="Nom" error={validationErrors.nom}>
                 <input
                   type="text"
                   name="nom"
                   value={form.nom}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.nom)}
                 />
               </Field>
 
-              <Field label="Prénom">
+              <Field label="Prénom" error={validationErrors.prenom}>
                 <input
                   type="text"
                   name="prenom"
                   value={form.prenom}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.prenom)}
                 />
               </Field>
 
-              <Field label="Matricule Leoni">
+              <Field label="Matricule Leoni" error={validationErrors.matriculeLeoni}>
                 <input
                   type="text"
                   name="matriculeLeoni"
                   value={form.matriculeLeoni}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className={fieldClass(validationErrors.matriculeLeoni)}
                 />
               </Field>
             </div>
