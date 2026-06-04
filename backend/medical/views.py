@@ -71,6 +71,7 @@ from .models import (
     BonChauffeur,
     SuiviTransfertUrgence,
     PlanActionHSEE,
+    HSEEEnqueteHistory,
     TransmissionEnqueteHSEE,
     HSEEGeneratedReport,
     FicheAptitude,
@@ -148,6 +149,17 @@ HSEE_MONTH_LABELS = {
     11: "Nov",
     12: "Dec",
 }
+
+HSEE_CHART_COLORS = [
+    "#2563EB",
+    "#16A34A",
+    "#F59E0B",
+    "#DC2626",
+    "#7C3AED",
+    "#0891B2",
+    "#DB2777",
+    "#64748B",
+]
 
 LEGACY_SITE_MATRICULE_BASES = {
     "MH": 1683100000,
@@ -1996,71 +2008,104 @@ class HSEEPlanActionView(APIView):
         return Response(PlanActionHSEESerializer(queryset, many=True).data)
 
 
+def _hsee_json_value(value):
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def _build_hsee_history_detail(general, lesion, causes):
+    return {
+        "general": {
+            "victimeNom": general.get("victimeNom", ""),
+            "victimeMatricule": general.get("victimeMatricule", ""),
+            "departement": general.get("departement", ""),
+            "posteShift": general.get("posteShift", ""),
+            "dateIncident": _hsee_json_value(general.get("dateIncident")),
+            "heureIncident": _hsee_json_value(general.get("heureIncident")),
+            "lieuIncident": general.get("lieuIncident", ""),
+            "descriptionIncident": general.get("descriptionIncident", ""),
+        },
+        "lesion": {
+            "natureLesion": lesion.get("natureLesion", ""),
+            "agentMateriel": lesion.get("agentMateriel", ""),
+            "causeIdentifiee": lesion.get("causeIdentifiee", ""),
+            "presenceStandard": lesion.get("presenceStandard", ""),
+            "respectStandard": lesion.get("respectStandard", ""),
+            "actionImmediate": lesion.get("actionImmediate", ""),
+            "siegeLesion": lesion.get("siegeLesion", ""),
+        },
+        "causes": {
+            "why1": causes.get("why1", ""),
+            "why2": causes.get("why2", ""),
+            "why3": causes.get("why3", ""),
+            "why4": causes.get("why4", ""),
+            "why5": causes.get("why5", ""),
+            "methode": causes.get("methode", ""),
+            "mainDoeuvre": causes.get("mainDoeuvre", ""),
+            "materiel": causes.get("materiel", ""),
+            "milieu": causes.get("milieu", ""),
+            "matiere": causes.get("matiere", ""),
+        },
+    }
+
+
+def _serialize_hsee_history_record(record):
+    dossier = getattr(record, "dossier", None)
+    collab = getattr(dossier, "collaborateur", None)
+    detail = record.detail or {}
+    general = dict(detail.get("general") or {})
+    lesion = dict(detail.get("lesion") or {})
+    causes = dict(detail.get("causes") or {})
+
+    general["victimeNom"] = general.get("victimeNom") or record.victime
+    general["victimeMatricule"] = general.get("victimeMatricule") or record.matricule
+    general["departement"] = general.get("departement") or record.departement
+    general["dateIncident"] = general.get("dateIncident") or record.date
+    lesion["natureLesion"] = lesion.get("natureLesion") or record.nature
+    lesion["siegeLesion"] = lesion.get("siegeLesion") or record.siege
+
+    return {
+        "id": record.id,
+        "dossier": record.dossier_id,
+        "accident": record.accident_id,
+        "enquete_initiale": record.enquete_initiale_id,
+        "created_at": record.created_at,
+        "updated_at": record.updated_at,
+        "created_by_name": getattr(record.created_by, "username", "")
+        or getattr(record.created_by, "email", ""),
+        "collaborateur_nom": getattr(collab, "nom", ""),
+        "collaborateur_prenom": getattr(collab, "prenom", ""),
+        "matricule": record.matricule,
+        "general": general,
+        "lesion": lesion,
+        "causes": causes,
+        "actions": record.actions or [],
+    }
+
+
+def _serialize_hsee_enquete_record(record):
+    # backward-compatible wrapper for older references
+    return _serialize_hsee_history_record(record)
+
+
 class HSEEEnqueteListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         queryset = (
-            EnqueteInitialeAccident.objects.select_related(
+            HSEEEnqueteHistory.objects.select_related(
                 "accident",
+                "enquete_initiale",
                 "dossier__collaborateur",
                 "created_by",
-                "sent_to_hsee_by",
             )
-            .filter(sent_to_hsee=True)
-            .order_by("-date_accident", "-created_at")
+            .order_by("-date", "-created_at")
         )
 
-        records = []
-        for enquete in queryset:
-            collab = getattr(enquete.dossier, "collaborateur", None)
-            records.append(
-                {
-                    "id": enquete.id,
-                    "dossier": enquete.dossier_id,
-                    "created_at": enquete.created_at,
-                    "updated_at": enquete.updated_at,
-                    "created_by_name": getattr(enquete.created_by, "username", "")
-                    or getattr(enquete.created_by, "email", ""),
-                    "collaborateur_nom": getattr(collab, "nom", ""),
-                    "collaborateur_prenom": getattr(collab, "prenom", ""),
-                    "matricule": enquete.victime_matricule,
-                    "general": {
-                        "victimeNom": enquete.victime_nom_prenom,
-                        "victimeMatricule": enquete.victime_matricule,
-                        "departement": enquete.victime_appartenance or getattr(collab, "departement", ""),
-                        "posteShift": enquete.victime_horaire_travail or "",
-                        "dateIncident": enquete.date_accident,
-                        "heureIncident": enquete.heure_accident,
-                        "lieuIncident": enquete.lieu_accident,
-                        "descriptionIncident": enquete.circonstances_accident or "",
-                    },
-                    "lesion": {
-                        "natureLesion": getattr(enquete.accident, "nature_lesion", "") or "",
-                        "agentMateriel": getattr(enquete.accident, "agent_materiel", "") or "",
-                        "causeIdentifiee": getattr(enquete.accident, "cause", "") or "",
-                        "presenceStandard": getattr(enquete.accident, "presence_standard", "") or "",
-                        "respectStandard": getattr(enquete.accident, "respect_standard", "") or "",
-                        "actionImmediate": getattr(enquete.accident, "action_immediate", "") or "",
-                        "siegeLesion": enquete.siege_type_lesion or getattr(enquete.accident, "siege_lesion", "") or "",
-                    },
-                    "causes": {
-                        "why1": getattr(enquete.accident, "why1", "") or "",
-                        "why2": getattr(enquete.accident, "why2", "") or "",
-                        "why3": getattr(enquete.accident, "why3", "") or "",
-                        "why4": getattr(enquete.accident, "why4", "") or "",
-                        "why5": getattr(enquete.accident, "why5", "") or "",
-                        "methode": getattr(enquete.accident, "ishikawa_methode", "") or "",
-                        "mainDoeuvre": getattr(enquete.accident, "ishikawa_main_oeuvre", "") or "",
-                        "materiel": getattr(enquete.accident, "ishikawa_materiel", "") or "",
-                        "milieu": getattr(enquete.accident, "ishikawa_milieu", "") or "",
-                        "matiere": getattr(enquete.accident, "ishikawa_matiere", "") or "",
-                    },
-                    "actions": [],
-                }
-            )
-
-        return Response(records)
+        return Response([_serialize_hsee_history_record(record) for record in queryset])
 
     def post(self, request, *args, **kwargs):
         serializer = HSEEEnqueteSerializer(data=request.data)
@@ -2087,6 +2132,8 @@ class HSEEEnqueteListCreateView(APIView):
             "Cloture": "TERMINE",
             "Clôturé": "TERMINE",
         }
+
+        sent_at = timezone.now()
 
         with transaction.atomic():
             accident = AccidentTravail.objects.create(
@@ -2122,11 +2169,30 @@ class HSEEEnqueteListCreateView(APIView):
                 envoye_hsee=True,
                 statut_enquete="TERMINEE",
                 statut_declaration="DECLAREE",
-                generated_at=timezone.now(),
+                generated_at=sent_at,
+            )
+            enquete = EnqueteInitialeAccident.objects.create(
+                accident=accident,
+                dossier=dossier,
+                created_by=request.user,
+                sent_to_hsee_by=request.user,
+                victime_nom_prenom=victim_full_name,
+                victime_matricule=getattr(collaborateur, "matricule", matricule),
+                victime_appartenance=general.get("departement", ""),
+                victime_horaire_travail=general.get("posteShift", ""),
+                date_accident=general["dateIncident"],
+                heure_accident=general["heureIncident"],
+                lieu_accident=general.get("lieuIncident", ""),
+                circonstances_accident=general.get("descriptionIncident", ""),
+                siege_type_lesion=lesion.get("siegeLesion", ""),
+                statut="ENVOYE_HSEE",
+                sent_to_hsee=True,
+                sent_to_hsee_at=sent_at,
             )
 
+            history_actions = []
             for action in actions:
-                PlanActionHSEE.objects.create(
+                plan_action = PlanActionHSEE.objects.create(
                     accident=accident,
                     zone=general.get("lieuIncident", "")
                     or general.get("departement", "")
@@ -2139,75 +2205,41 @@ class HSEEEnqueteListCreateView(APIView):
                     delai=action.get("dateLimite"),
                     statut=statut_map.get(action.get("statut"), "PLANIFIE"),
                 )
-
-        created = (
-            AccidentTravail.objects.select_related("dossier__collaborateur", "created_by")
-            .prefetch_related("plans_action_hsee")
-            .get(pk=accident.pk)
-        )
-        collab = created.dossier.collaborateur
-
-        return Response(
-            {
-                "id": created.id,
-                "dossier": created.dossier_id,
-                "created_at": created.created_at,
-                "updated_at": created.updated_at,
-                "created_by_name": getattr(created.created_by, "username", "")
-                or getattr(created.created_by, "email", ""),
-                "collaborateur_nom": getattr(collab, "nom", "") or created.victime_nom or "",
-                "collaborateur_prenom": getattr(collab, "prenom", "")
-                or created.victime_prenom
-                or "",
-                "matricule": getattr(collab, "matricule", ""),
-                "general": {
-                    "victimeNom": " ".join(
-                        filter(None, [created.victime_prenom, created.victime_nom])
-                    ).strip(),
-                    "victimeMatricule": getattr(collab, "matricule", ""),
-                    "departement": created.activite_service or created.segment or "",
-                    "posteShift": created.victime_poste_accident or "",
-                    "dateIncident": created.date_accident,
-                    "heureIncident": created.heure_accident,
-                    "lieuIncident": created.lieu_accident,
-                    "descriptionIncident": created.description_circonstances
-                    or created.circonstances
-                    or "",
-                },
-                "lesion": {
-                    "natureLesion": created.nature_lesion,
-                    "agentMateriel": created.agent_materiel or "",
-                    "causeIdentifiee": created.cause,
-                    "presenceStandard": created.presence_standard or "",
-                    "respectStandard": created.respect_standard or "",
-                    "actionImmediate": created.action_immediate or "",
-                    "siegeLesion": created.siege_lesion,
-                },
-                "causes": {
-                    "why1": created.why1 or "",
-                    "why2": created.why2 or "",
-                    "why3": created.why3 or "",
-                    "why4": created.why4 or "",
-                    "why5": created.why5 or "",
-                    "methode": created.ishikawa_methode or "",
-                    "mainDoeuvre": created.ishikawa_main_oeuvre or "",
-                    "materiel": created.ishikawa_materiel or "",
-                    "milieu": created.ishikawa_milieu or "",
-                    "matiere": created.ishikawa_matiere or "",
-                },
-                "actions": [
+                history_actions.append(
                     {
-                        "id": action.id,
-                        "correctiveAction": action.action,
-                        "responsable": action.responsable or "",
-                        "dateLimite": action.delai,
-                        "statut": action.statut,
+                        "id": plan_action.id,
+                        "correctiveAction": plan_action.action,
+                        "responsable": plan_action.responsable or "",
+                        "dateLimite": _hsee_json_value(plan_action.delai),
+                        "statut": plan_action.statut,
                     }
-                    for action in created.plans_action_hsee.all().order_by("created_at")
-                ],
-            },
-            status=status.HTTP_201_CREATED,
+                )
+
+            history_record = HSEEEnqueteHistory.objects.create(
+                accident=accident,
+                enquete_initiale=enquete,
+                dossier=dossier,
+                created_by=request.user,
+                date=general["dateIncident"],
+                victime=victim_full_name,
+                matricule=getattr(collaborateur, "matricule", matricule),
+                departement=general.get("departement", ""),
+                nature=lesion.get("natureLesion", ""),
+                siege=lesion.get("siegeLesion", ""),
+                actions=history_actions,
+                detail=_build_hsee_history_detail(general, lesion, causes),
+            )
+
+        created_history = (
+            HSEEEnqueteHistory.objects.select_related(
+                "accident",
+                "enquete_initiale",
+                "dossier__collaborateur",
+                "created_by",
+            )
+            .get(pk=history_record.pk)
         )
+        return Response(_serialize_hsee_history_record(created_history), status=status.HTTP_201_CREATED)
 
 
 HSEE_REPORT_PERIOD_OPTIONS = [
@@ -2966,8 +2998,34 @@ class ExamenUlterieurDeleteView(NotImplementedAPIView):
     pass
 
 
-class FicheMedicaleByCollaborateurView(NotImplementedAPIView):
-    pass
+class FicheMedicaleByCollaborateurView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, collaborateur_id, create=False):
+        collaborateur = get_object_or_404(Collaborateur, pk=collaborateur_id)
+        if create:
+            fiche, _ = FicheMedicale.objects.get_or_create(collaborateur=collaborateur)
+            return fiche
+        fiche = FicheMedicale.objects.filter(collaborateur=collaborateur).first()
+        if not fiche:
+            return None
+        return fiche
+
+    def get(self, request, collaborateur_id, *args, **kwargs):
+        fiche = self.get_object(collaborateur_id)
+        if not fiche:
+            return Response({"detail": "Fiche médicale introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(FicheMedicaleSerializer(fiche).data)
+
+    def post(self, request, collaborateur_id, *args, **kwargs):
+        return self.patch(request, collaborateur_id, *args, **kwargs)
+
+    def patch(self, request, collaborateur_id, *args, **kwargs):
+        fiche = self.get_object(collaborateur_id, create=True)
+        serializer = FicheMedicaleSerializer(fiche, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class OrdonnanceListCreateByCollaborateurView(NotImplementedAPIView):
@@ -3391,7 +3449,9 @@ class ExamenComplementaireListCreateByCollaborateurView(APIView):
 
     def post(self, request, collaborateur_id):
         collab = get_object_or_404(Collaborateur, pk=collaborateur_id)
-        serializer = ExamenComplementaireSerializer(data=request.data)
+        data = request.data.copy()
+        data["collaborateur"] = collab.pk
+        serializer = ExamenComplementaireSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         serializer.save(created_by=request.user, collaborateur=collab)
         exam = serializer.instance
@@ -4241,7 +4301,6 @@ class ExamenComplementairePdfView(APIView):
 
 
 def _inline_pdf_response(pdf_bytes, filename):
-    response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 

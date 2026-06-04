@@ -111,7 +111,7 @@ class RHKpiViewTests(TestCase):
         payload = response.json()
         kpis = payload["kpis"]
 
-        self.assertEqual(kpis["total_active_collaborators"], 3)
+        self.assertEqual(kpis["total_active_collaborators"], 4)
         self.assertEqual(kpis["new_operators_this_month"], 3)
         self.assertEqual(kpis["upcoming_medical_visits"], 1)
         self.assertEqual(kpis["overdue_medical_visits"], 0)
@@ -126,11 +126,11 @@ class RHKpiViewTests(TestCase):
 
         by_site = {row["site"]: row for row in payload["collaborateurs_par_site"]}
         self.assertEqual(by_site["Menzel Hayet"]["total"], 2)
-        self.assertEqual(by_site["Mateur 1"]["total"], 1)
+        self.assertEqual(by_site["Mateur 1"]["total"], 2)
 
         by_department = {row["departement"]: row for row in payload["collaborateurs_par_departement"]}
         self.assertEqual(by_department["Production"]["total"], 2)
-        self.assertEqual(by_department["Qualite"]["total"], 1)
+        self.assertEqual(by_department["Qualite"]["total"], 2)
 
         operator_statuses = {row["matricule"]: row["statut"] for row in payload["new_operators"]}
         self.assertEqual(operator_statuses["C001"], "validated")

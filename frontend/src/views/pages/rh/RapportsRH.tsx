@@ -1,7 +1,28 @@
 import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { CheckCircle2, Download, FileSpreadsheet, Printer } from "lucide-react";
 
-const reports = [
+type Report = {
+  id: string;
+  title: string;
+  period: string;
+  generatedAt: string;
+};
+
+type FeedbackType = "success" | "info";
+
+type Feedback = {
+  type: FeedbackType;
+  message: string;
+};
+
+type ActionIconButtonProps = {
+  label: string;
+  icon: LucideIcon;
+  onClick: () => void;
+};
+
+const reports: Report[] = [
   {
     id: "report-1",
     title: "Rapport mensuel d'aptitude",
@@ -28,12 +49,12 @@ const reports = [
   },
 ];
 
-const feedbackStyles = {
+const feedbackStyles: Record<FeedbackType, string> = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-700",
   info: "border-sky-200 bg-sky-50 text-sky-700",
 };
 
-function ActionIconButton({ label, icon: Icon, onClick }) {
+function ActionIconButton({ label, icon: Icon, onClick }: ActionIconButtonProps) {
   return (
     <button
       type="button"
@@ -48,7 +69,7 @@ function ActionIconButton({ label, icon: Icon, onClick }) {
 }
 
 export default function RapportsRH() {
-  const [feedback, setFeedback] = useState(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   useEffect(() => {
     if (!feedback) return undefined;
@@ -67,7 +88,7 @@ export default function RapportsRH() {
     });
   }
 
-  function handleDownload(report) {
+  function handleDownload(report: Report) {
     console.info("Téléchargement du rapport", report);
     setFeedback({
       type: "success",
@@ -75,7 +96,7 @@ export default function RapportsRH() {
     });
   }
 
-  function handlePrint(report) {
+  function handlePrint(report: Report) {
     console.info("Impression du rapport", report);
     window.print();
   }

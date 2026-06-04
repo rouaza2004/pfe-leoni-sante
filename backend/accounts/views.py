@@ -171,7 +171,7 @@ class UserPasswordChangeAPIView(APIView):
         return Response({"detail": "Mot de passe mis a jour avec succes."})
 
 
-class CollaborateurListAPIView(generics.ListAPIView):
+class CollaborateurListAPIView(generics.ListCreateAPIView):
     queryset = Collaborateur.objects.select_related("site").all().order_by("nom", "prenom")
     serializer_class = CollaborateurSerializer
     permission_classes = [IsAuthenticated, CanViewCollaborateurList]
@@ -306,7 +306,7 @@ class RHKpiView(APIView):
 
         collaborateurs = Collaborateur.objects.select_related("site").all()
         active_collaborateurs = collaborateurs.filter(actif=True)
-        active_collaborator_count = active_collaborateurs.count()
+        rh_collaborator_count = collaborateurs.count()
 
         new_operators_qs = active_collaborateurs.filter(created_at__date__gte=month_start, created_at__date__lte=today)
 
@@ -359,14 +359,14 @@ class RHKpiView(APIView):
             new_operator_rows.append(row)
 
         collaborators_by_site = (
-            active_collaborateurs.values("site__nom")
+            collaborateurs.values("site__nom")
             .annotate(
                 total=Count("id"),
             )
             .order_by("-total", "site__nom")
         )
         collaborators_by_department = (
-            active_collaborateurs.values("departement")
+            collaborateurs.values("departement")
             .annotate(
                 total=Count("id"),
             )
@@ -385,7 +385,7 @@ class RHKpiView(APIView):
 
         data = {
             "kpis": {
-                "total_active_collaborators": active_collaborator_count,
+                "total_active_collaborators": rh_collaborator_count,
                 "new_operators_this_month": len(new_operator_rows),
                 "upcoming_medical_visits": upcoming_appointments.count(),
                 "overdue_medical_visits": overdue_appointments.count(),
